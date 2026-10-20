@@ -43,7 +43,10 @@ function Stand() {
   return <>
     <div className="mobile-switch">
       <button className={mobile === 'parent' ? 'on' : ''} onClick={() => setMobile('parent')}>Родитель</button>
-      <button className={mobile === 'child' ? 'on' : ''} onClick={() => setMobile('child')}>Ребёнок</button>
+      {kids.map((k, i) => (
+        <button key={k.userId} className={mobile === 'child' && current?.userId === k.userId ? 'on' : ''} title={k.name}
+          onClick={() => { setChildId(k.userId); setMobile('child'); }}>Ребёнок {i + 1}</button>
+      ))}
       <button className="reset-mini" onClick={() => { if (confirm('Сбросить демо-данные к исходным?')) reset(false); }} aria-label="Сбросить демо">↺</button>
     </div>
     <div className="stand" key={epoch}>
