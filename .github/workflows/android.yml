@@ -6,6 +6,11 @@ on:
   push:
     paths: ['module/**', 'android/**', '.github/workflows/android.yml']
   workflow_dispatch:
+    inputs:
+      commit_apk:
+        description: 'Положить APK в ветку файлом apk/MobyFamily.apk'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -62,3 +67,15 @@ jobs:
           body: |
             Ветка `${{ github.ref_name }}`, коммит ${{ github.sha }}.
             Установка: скачайте APK на телефон и откройте. Новая сборка ставится поверх старой, данные сохраняются.
+
+      # По запросу кладём APK прямо в ветку: его можно забрать обычным git pull
+      - name: APK в ветку
+        if: ${{ inputs.commit_apk }}
+        run: |
+          mkdir -p apk
+          cp MobyFamily-${{ github.run_number }}.apk apk/MobyFamily.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
+          git add apk/MobyFamily.apk
+          git commit -m "APK сборки ${{ github.run_number }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
