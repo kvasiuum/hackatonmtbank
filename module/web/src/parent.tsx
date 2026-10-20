@@ -5,6 +5,7 @@ import type { CardType, ChildDetail, ChildRequest, ChildSettings, ParentOverview
 import { Icon } from './icons';
 import { fmt, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
+  useDragScroll,
   Act, AmountField, BankCard, BankLocked, Bar, CardStatus, CardTypePicker, Chev, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
   PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
 } from './ui';
@@ -16,6 +17,7 @@ export function ParentHome() {
   const o = useOverview();
   const { push, sheet, toast } = useDevice();
   const [hide, setHide] = useState(false);
+  const carousel = useDragScroll<HTMLDivElement>(!!o);
   if (!o) return <div className="loading">Загрузка…</div>;
   const pending = o.requests.filter(r => r.status === 'pending');
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
@@ -37,11 +39,11 @@ export function ParentHome() {
     <div className="body">
       <div className="hist">
         <button className="hbtn" onClick={soon} aria-label="История операций"><Icon name="history" size={30} /></button>
-        <div className="hcar">
+        <div className="hcar" ref={carousel}>
           {o.parent.ops.map(op => (
             <div className="hop" key={op.id}>
               <div className="ic sq"><Icon name={op.amount > 0 ? 'topup' : 'upload'} size={24} /><span className="clock"><Icon name="clock" size={14} /></span></div>
-              <div className="tx"><b className="ellipsis">{op.title}</b><small className="ellipsis">ШОППЕР · {when(op.createdAt)}</small></div>
+              <div className="tx"><b className="ellipsis">{op.title}</b><small className="ellipsis">ШОППЕР</small></div>
               <span className={`amt ${op.amount > 0 ? 'plus' : ''}`}>{op.amount > 0 ? '+' : ''}{fmt(op.amount)}</span>
             </div>
           ))}

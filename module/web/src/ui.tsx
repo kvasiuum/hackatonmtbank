@@ -1,5 +1,5 @@
 // Базовые элементы интерфейса в стиле Moby.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CARD_COLORS, CARD_TYPES, CAT_KEYS, PERM_KEYS, SETTING_LABELS } from '../../server/src/content';
 import type { Card, CardType, ChildSettings, ChildSummary, SettingPath, Tx } from '../../server/src/types';
 import { Icon } from './icons';
@@ -152,4 +152,60 @@ export function InviteQr({ code }: { code: string }) {
     } else { seed = (seed * 1103515245 + 12345) & 0x7fffffff; cells.push(seed % 3 === 0); }
   }
   return <div className="qr" role="img" aria-label={`QR-код приглашения ${code}`}>{cells.map((on, i) => <i key={i} className={on ? '' : 'w'} />)}</div>;
+}
+
+/**
+ * Горизонтальная лента, которую можно тянуть мышью с инерцией (как пальцем на телефоне).
+ * На сенсорных экранах работает родная прокрутка браузера, её не трогаем.
+ */
+export function useDragScroll<T extends HTMLElement>(ready = true) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let down = false, moved = false, startX = 0, startLeft = 0, lastX = 0, lastT = 0, v = 0, raf = 0;
+    const glide = () => {
+      v *= 0.94; // трение
+      el.scrollLeft -= v * 16;
+      if (Math.abs(v) > 0.02) raf = requestAnimationFrame(glide);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      cancelAnimationFrame(raf);
+      down = true; moved = false; v = 0;
+      startX = lastX = e.clientX; startLeft = el.scrollLeft; lastT = performance.now();
+      el.classList.add('dragging');
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down) return;
+      const now = performance.now();
+      v = 0.8 * ((e.clientX - lastX) / Math.max(1, now - lastT)) + 0.2 * v;
+      lastX = e.clientX; lastT = now;
+      if (Math.abs(e.clientX - startX) > 4) moved = true;
+      el.scrollLeft = startLeft - (e.clientX - startX);
+    };
+    const onUp = () => {
+      if (!down) return;
+      down = false;
+      el.classList.remove('dragging');
+      if (performance.now() - lastT < 100) raf = requestAnimationFrame(glide);
+    };
+    // После перетаскивания клик по карточке не срабатывает
+    const onClick = (e: MouseEvent) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } };
+    const noDrag = (e: Event) => e.preventDefault();
+    el.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    el.addEventListener('click', onClick, true);
+    el.addEventListener('dragstart', noDrag);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      el.removeEventListener('click', onClick, true);
+      el.removeEventListener('dragstart', noDrag);
+    };
+  }, [ready]);
+  return ref;
 }

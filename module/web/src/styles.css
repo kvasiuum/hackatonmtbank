@@ -112,10 +112,12 @@ svg { display: block; flex: none; }
 /* лента последних операций на главной — листается вбок */
 .hist { display: flex; gap: 10px; align-items: stretch; }
 .hbtn { width: 64px; border-radius: var(--r-lg); background: #fff; color: var(--blue); display: grid; place-items: center; flex: none; }
-.hcar { flex: 1; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+/* Как в Moby: свободная прокрутка по инерции, без прилипания карточек */
+.hcar { flex: 1; display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-right: -16px; padding-right: 16px; cursor: grab; user-select: none; -webkit-user-select: none; }
+.hcar.dragging { cursor: grabbing; }
 .hcar::-webkit-scrollbar { display: none; }
-.hop { flex: 0 0 300px; scroll-snap-align: start; display: flex; align-items: center; gap: 12px; background: #fff; border-radius: var(--r-lg); padding: 12px 14px; min-width: 0; }
-.hop .amt { margin-left: 4px; font-size: 16px; }
+.hop { flex: 0 0 calc(100% + 12px); display: flex; align-items: center; gap: 12px; background: #fff; border-radius: var(--r-lg); padding: 12px 16px 12px 12px; min-width: 0; }
+.hop .amt { margin-left: auto; padding-left: 8px; font-size: 17px; font-weight: 500; }
 .hop .ic { position: relative; }
 .hop .ic .clock { position: absolute; right: -5px; bottom: -5px; background: #fff; border-radius: 50%; color: var(--muted); }
 
