@@ -64,13 +64,13 @@ function Stand() {
         <small>Смарт-код всех демо-пользователей: 1111. {LOCAL ? 'Данные хранятся на этом устройстве.' : 'Данные хранятся в SQLite на сервере.'}</small>
       </aside>
       <div className={`slot ${mobile === 'parent' ? '' : 'hidden'}`}>
-        <div className="slot-head"><span className="lbl">Телефон родителя</span>{parent && <span className="chipbtn on">{parent.name}</span>}</div>
+        <div className="slot-head">{parent && <span className="chipbtn on" title={parent.name}>Родитель</span>}</div>
         {parent && <Device key={parent.userId} info={parent} />}
       </div>
       <div className={`slot ${mobile === 'child' ? '' : 'hidden'}`}>
-        <div className="slot-head"><span className="lbl">Телефон ребёнка</span>
-          {kids.map(k => <button key={k.userId} className={`chipbtn ${current?.userId === k.userId ? 'on' : ''}`} onClick={() => setChildId(k.userId)}>
-            {k.name} <small>{k.group === 'kid' ? '7–13' : '14–17'}{k.joined ? '' : ' · новый'}</small></button>)}
+        <div className="slot-head">
+          {kids.map((k, i) => <button key={k.userId} className={`chipbtn ${current?.userId === k.userId ? 'on' : ''}`} title={k.name} onClick={() => setChildId(k.userId)}>
+            Ребёнок {i + 1}</button>)}
         </div>
         {current ? <Device key={current.userId + String(current.joined)} info={current} />
           : <div className="phone"><div className="screen"><div className="loading" style={{ padding: 30, textAlign: 'center' }}>Детей пока нет. Добавьте ребёнка в Moby родителя.</div></div></div>}
