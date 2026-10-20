@@ -6,7 +6,7 @@
 <title>Семья в Moby</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   /* Moby: один акцент — синий; оранжевый — только метка детского режима */
@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{background:#DCE2EB;font-family:Roboto,system-ui,sans-serif;color:var(--text);font-size:15px;line-height:1.4}
+body{background:#DCE2EB;font-family:Inter,system-ui,sans-serif;color:var(--text);font-size:15px;line-height:1.4}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input{font:inherit;color:inherit}
 svg{display:block;flex:none}
@@ -30,7 +30,7 @@ svg{display:block;flex:none}
 /* ---------- stage ---------- */
 .stage{min-height:100%;display:flex;gap:40px;align-items:center;justify-content:center;padding:24px}
 .side{width:320px;display:flex;flex-direction:column;gap:14px}
-.side h1{font-family:Montserrat;font-size:24px;line-height:1.15}
+.side h1{font-family:Inter;font-size:24px;line-height:1.15}
 .side .sub{color:#4F5A6E;font-size:14px;margin-top:6px}
 .modes{display:flex;flex-direction:column;gap:8px}
 .mode{display:flex;gap:12px;align-items:center;text-align:left;background:#fff;border-radius:var(--r-md);padding:12px 14px;border:2px solid transparent}
@@ -57,14 +57,14 @@ svg{display:block;flex:none}
 /* Градиент шапки — фирменный элемент Moby (как в приложении), одинаковый во всех режимах */
 .hero{background:linear-gradient(180deg,#1A52C9 0%,#3E7FE8 60%,#5C9BF3 100%);color:#fff;padding:56px 20px 24px;border-radius:0 0 36px 36px}
 .hero-top{display:flex;align-items:center;gap:14px}
-.ava{position:relative;width:52px;height:52px;border-radius:var(--r-md);background:rgba(255,255,255,.18);display:grid;place-items:center;font-family:Montserrat;font-weight:700;font-size:20px}
-.badge{position:absolute;top:-8px;right:-10px;min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:500 12px/22px Roboto;text-align:center;padding:0 6px}
-.hero-name{font-family:Montserrat;font-weight:700;font-size:22px}
+.ava{position:relative;width:52px;height:52px;border-radius:var(--r-md);background:rgba(255,255,255,.18);display:grid;place-items:center;font-family:Inter;font-weight:700;font-size:20px}
+.badge{position:absolute;top:-8px;right:-10px;min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:500 12px/22px Inter;text-align:center;padding:0 6px}
+.hero-name{font-family:Inter;font-weight:700;font-size:22px}
 .hero-sub{font-size:13px;opacity:.85}
 .chips{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 .chip{background:rgba(255,255,255,.18);border-radius:var(--r-sm);padding:6px 10px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
 .bal-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
-.bal{font-family:Montserrat;font-weight:700;font-size:32px;letter-spacing:-.5px}
+.bal{font-family:Inter;font-weight:700;font-size:32px;letter-spacing:-.5px}
 .eye{color:#fff;padding:6px;margin:-6px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
 .act{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-size:14px}
@@ -80,7 +80,7 @@ svg{display:block;flex:none}
 .topbar{display:flex;align-items:center;gap:14px;padding:52px 16px 12px;background:#fff;position:sticky;top:0;z-index:4}
 .topbar.plain{background:transparent;position:static}
 .topbar h1{font-size:21px;font-weight:500;flex:1}
-.topbar.plain h1{font-family:Montserrat;font-weight:700;font-size:24px}
+.topbar.plain h1{font-family:Inter;font-weight:700;font-size:24px}
 .topbar .back{color:var(--blue);padding:6px;margin:-6px}
 .page{padding:16px;display:flex;flex-direction:column;gap:12px}
 .page.tight{padding-top:0}
@@ -116,12 +116,12 @@ svg{display:block;flex:none}
 .tab.on{color:var(--blue);font-weight:500}
 .tab .badge{top:-6px;right:6px}
 
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--blue);color:#fff;border-radius:var(--r-md);padding:15px;font-weight:500;font-size:16px;min-height:50px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--blue);color:#fff;border-radius:999px;padding:15px;font-weight:500;font-size:16px;min-height:50px}
 .btn.ghost{background:var(--blue-bg);color:var(--blue)}
 .btn.white{background:#fff;color:var(--blue)}
 .btn.red{background:var(--red-bg);color:var(--red)}
 .btn.green{background:var(--green);color:#fff}
-.btn[disabled]{opacity:.4;pointer-events:none}
+.btn[disabled]{background:#E9ECF1;color:#A3ADBD;pointer-events:none}
 .btns{display:flex;gap:10px}
 .btns .btn{padding:12px}
 .sbtn{background:var(--blue-bg);color:var(--blue);border-radius:var(--r-sm);padding:9px 12px;font-weight:500;font-size:14px;white-space:nowrap;min-height:38px}
@@ -132,16 +132,38 @@ svg{display:block;flex:none}
 .banner b{display:block;font-weight:500}
 .banner small{color:var(--muted);font-size:13px}
 
+.chip.ghost{background:none;padding:0 4px}
+.hist{display:flex;gap:10px}
+.hbtn{width:64px;border-radius:var(--r-lg);background:#fff;color:var(--blue);display:grid;place-items:center;flex:none}
+.hlast{flex:1;display:flex;align-items:center;gap:12px;background:#fff;border-radius:var(--r-lg);padding:12px 14px;min-width:0}
+.hlast .tx{flex:1;min-width:0}
+.hlast b{font-weight:500;display:block}
+.hlast small{color:var(--muted);font-size:13px}
+.ic.sq{border-radius:12px}
+.mbanner{background:linear-gradient(90deg,#1F4FD0,#3B7BEA);color:#fff;border-radius:var(--r-lg);padding:16px 18px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.mbanner b{font-size:19px;font-weight:700;letter-spacing:.5px}
+.mbanner span{font-size:13px;opacity:.9;max-width:230px}
+.mbanner em{font-style:normal;align-self:flex-start;margin-top:8px;background:rgba(255,255,255,.18);border-radius:10px;padding:6px 12px;font-size:14px;display:flex;align-items:center;gap:4px}
+.addcard{display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 16px;cursor:pointer;color:var(--blue);font-size:19px;font-weight:500}
+.addcard .ic{width:56px;height:56px}
+.dots{display:flex;gap:5px;justify-content:center;margin:-2px 0 6px}
+.dots i{width:6px;height:6px;border-radius:3px;background:#D3DAE5}
+.dots i.on{width:18px;background:#1A1F2B}
+.fab{position:absolute;left:28px;right:28px;bottom:96px;z-index:5;background:#fff;border-radius:999px;padding:16px;display:flex;gap:12px;align-items:center;justify-content:center;font-size:20px;font-weight:600;box-shadow:0 2px 10px rgba(20,40,90,.12);color:var(--text)}
+.fab svg{color:var(--blue)}
+.avatar-xl{width:118px;height:118px;border-radius:40px;background:#1E78F5;color:#fff;display:grid;place-items:center;font-size:36px}
+.setlist{display:flex;flex-direction:column}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 2px;font-size:17px;cursor:pointer}
 .promo{background:var(--blue);color:#fff;border-radius:var(--r-lg);padding:20px;display:flex;gap:16px;align-items:center}
 .promo .tx{flex:1}
-.promo h2{font-family:Montserrat;font-size:20px;line-height:1.2}
+.promo h2{font-family:Inter;font-size:20px;line-height:1.2}
 .promo p{font-size:14px;opacity:.9;margin:6px 0 14px}
-.promo .mini{width:92px;height:58px;border-radius:9px;background:var(--orange);flex:none;padding:8px;display:flex;flex-direction:column;justify-content:space-between;font:700 9px Montserrat;color:#fff}
+.promo .mini{width:92px;height:58px;border-radius:9px;background:var(--orange);flex:none;padding:8px;display:flex;flex-direction:column;justify-content:space-between;font:700 9px Inter;color:#fff}
 .promo .mini i{display:block;width:16px;height:12px;border-radius:3px;background:rgba(255,255,255,.6)}
 
 .kidrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .kidrow:last-child{border-bottom:0}
-.kava{width:46px;height:46px;border-radius:var(--r-md);display:grid;place-items:center;color:#fff;font-family:Montserrat;font-weight:700;font-size:18px;flex:none}
+.kava{width:46px;height:46px;border-radius:var(--r-md);display:grid;place-items:center;color:#fff;font-family:Inter;font-weight:700;font-size:18px;flex:none}
 .kidrow .tx{flex:1;min-width:0}
 .kidrow b{display:block;font-weight:500}
 .kidrow small{color:var(--muted);font-size:13px}
@@ -171,8 +193,8 @@ svg{display:block;flex:none}
 
 /* Карта: один плотный цвет, без декоративных переливов */
 .bankcard{border-radius:16px;padding:16px;color:#fff;height:168px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
-.bankcard .bc-top{display:flex;justify-content:space-between;align-items:flex-start;font-weight:700;font-family:Montserrat;font-size:15px}
-.bankcard .bc-top span:last-child{font:500 12px Roboto;opacity:.9;display:flex;gap:6px;align-items:center}
+.bankcard .bc-top{display:flex;justify-content:space-between;align-items:flex-start;font-weight:700;font-family:Inter;font-size:15px}
+.bankcard .bc-top span:last-child{font:500 12px Inter;opacity:.9;display:flex;gap:6px;align-items:center}
 .bankcard .bc-num{font-size:17px;letter-spacing:2px}
 .bankcard .bc-bot{display:flex;justify-content:space-between;align-items:flex-end;font-size:13px;letter-spacing:.5px}
 .bankcard .chipm{width:34px;height:26px;border-radius:5px;background:rgba(255,255,255,.55)}
@@ -196,12 +218,12 @@ svg{display:block;flex:none}
 .goal-h b{font-weight:500;display:block}
 
 .lvl{display:flex;align-items:center;gap:12px;margin-top:16px;background:rgba(255,255,255,.16);border-radius:var(--r-md);padding:10px 12px;cursor:pointer}
-.lvl .n{width:40px;height:40px;border-radius:var(--r-sm);background:#fff;color:var(--blue);display:grid;place-items:center;font-family:Montserrat;font-weight:700;font-size:18px;flex:none}
+.lvl .n{width:40px;height:40px;border-radius:var(--r-sm);background:#fff;color:var(--blue);display:grid;place-items:center;font-family:Inter;font-weight:700;font-size:18px;flex:none}
 .lvl .tx{flex:1;font-size:13px}
 .lvl .tx b{font-size:14px;display:block}
 .lvl .bar{height:6px;margin-top:6px;background:rgba(255,255,255,.3)}
 .lvl .bar i{background:#fff}
-.coin{width:16px;height:16px;border-radius:50%;background:#29A8E0;display:inline-grid;place-items:center;font:700 10px Montserrat;color:#fff;flex:none}
+.coin{width:16px;height:16px;border-radius:50%;background:#29A8E0;display:inline-grid;place-items:center;font:700 10px Inter;color:#fff;flex:none}
 
 .req{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
 .req:last-child{border-bottom:0}
@@ -213,7 +235,7 @@ svg{display:block;flex:none}
 
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:13px;color:var(--muted)}
-.field input{border:1.5px solid var(--line);border-radius:var(--r-md);padding:13px 14px;font-size:16px;background:#fff;outline:none}
+.field input{border:1.5px solid var(--line);border-radius:999px;padding:14px 20px;font-size:16px;background:#fff;outline:none}
 .field input:focus{border-color:var(--blue)}
 .pills{display:flex;flex-wrap:wrap;gap:8px}
 .pill{border-radius:var(--r-sm);padding:9px 14px;background:var(--bg);font-weight:500;font-size:14px;min-height:40px;display:inline-flex;align-items:center;gap:6px}
@@ -236,14 +258,14 @@ svg{display:block;flex:none}
 .steps i.on{background:var(--blue)}
 .legal{display:flex;gap:10px;background:#F1F5FC;border-radius:var(--r-md);padding:12px;font-size:12.5px;color:#4F5A6E}
 .legal svg{color:var(--blue);margin-top:1px}
-.swatches{display:flex;gap:12px}
-.swatch{width:44px;height:44px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--line)}
-.swatch.on{box-shadow:0 0 0 2px var(--blue)}
+.swatches{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.swatch{width:76px;height:54px;border-radius:10px;border:3px solid transparent;flex:none;display:grid;place-items:center;color:#fff}
+.swatch.on{border-color:#1E88E5}
 
 .qr{width:150px;height:150px;display:grid;grid-template-columns:repeat(15,1fr);gap:1px;padding:8px;background:#fff;border-radius:var(--r-sm);border:1px solid var(--line)}
 .qr i{background:#1A1F2B;border-radius:1px}
 .qr i.w{background:transparent}
-.code{font-family:Montserrat;font-weight:700;font-size:26px;letter-spacing:3px;text-align:center}
+.code{font-family:Inter;font-weight:700;font-size:26px;letter-spacing:3px;text-align:center}
 
 .quiz-q{font-size:19px;font-weight:500;line-height:1.3}
 .opt{width:100%;text-align:left;background:#fff;border:2px solid var(--line);border-radius:var(--r-md);padding:14px 16px;font-size:15.5px}
@@ -261,7 +283,7 @@ svg{display:block;flex:none}
 .pstep:last-child{padding-bottom:0}
 .pstep::before{content:"";position:absolute;left:19px;top:40px;bottom:0;width:2px;background:#DCE3EE}
 .pstep:last-child::before{display:none}
-.pstep .n{width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;font-family:Montserrat;font-weight:700;background:#E6ECF5;color:#8D99AE;flex:none}
+.pstep .n{width:40px;height:40px;border-radius:var(--r-sm);display:grid;place-items:center;font-family:Inter;font-weight:700;background:#E6ECF5;color:#8D99AE;flex:none}
 .pstep.done .n{background:var(--blue-bg);color:var(--blue)}
 .pstep.cur .n{background:var(--blue);color:#fff}
 .pstep b{display:block;font-weight:500;margin-top:1px}
@@ -272,6 +294,7 @@ svg{display:block;flex:none}
 /* sheet & toast */
 .overlay{position:absolute;inset:0;background:rgba(15,25,45,.45);z-index:30;display:flex;align-items:flex-end;animation:fade 200ms ease-out}
 .sheet{background:#fff;width:100%;border-radius:24px 24px 0 0;padding:10px 18px 24px;max-height:90%;overflow-y:auto;animation:up 280ms var(--ease-drawer);display:flex;flex-direction:column;gap:14px}
+.sheet>*{flex-shrink:0}
 .sheet .grab{width:40px;height:5px;border-radius:3px;background:#D5DCE6;margin:0 auto 2px}
 .sheet h2{font-size:20px;font-weight:700}
 .result{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:6px 0}
@@ -425,13 +448,19 @@ const ICON_PATHS = {
 "tv": "<rect width=\"20\" height=\"15\" x=\"2\" y=\"7\" rx=\"2\" ry=\"2\"/> <polyline points=\"17 2 12 7 7 2\"/>",
 "trend": "<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/> <polyline points=\"16 7 22 7 22 13\"/>",
 "key": "<path d=\"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z\"/> <circle cx=\"16.5\" cy=\"7.5\" r=\".5\" fill=\"currentColor\"/>",
-"hand": "<path d=\"M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17\"/> <path d=\"m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9\"/> <path d=\"m2 16 6 6\"/> <circle cx=\"16\" cy=\"9\" r=\"2.9\"/> <circle cx=\"6\" cy=\"5\" r=\"3\"/>"
+"hand": "<path d=\"M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17\"/> <path d=\"m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9\"/> <path d=\"m2 16 6 6\"/> <circle cx=\"16\" cy=\"9\" r=\"2.9\"/> <circle cx=\"6\" cy=\"5\" r=\"3\"/>",
+"eyeOff": "<path d=\"M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49\"/> <path d=\"M14.084 14.158a3 3 0 0 1-4.242-4.242\"/> <path d=\"M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143\"/> <path d=\"m2 2 20 20\"/>",
+"history": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/> <path d=\"M3 3v5h5\"/> <path d=\"M12 7v5l4 2\"/>",
+"upload": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/> <polyline points=\"17 8 12 3 7 8\"/> <line x1=\"12\" x2=\"12\" y1=\"3\" y2=\"15\"/>",
+"cardPlus": "<line x1=\"15\" x2=\"15\" y1=\"12\" y2=\"18\"/> <line x1=\"12\" x2=\"18\" y1=\"15\" y2=\"15\"/> <rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"/> <path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"/>",
+"exchange": "<circle cx=\"12\" cy=\"12\" r=\"10\"/> <path d=\"M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8\"/> <path d=\"M12 18V6\"/>",
+"pin": "<path d=\"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0\"/> <circle cx=\"12\" cy=\"10\" r=\"3\"/>"
 };
 const icon = (name, size = 24, sw = 1.8) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`;
 
 /* ================= helpers ================= */
-const KEY = 'moby-family-demo-v2';
-const fmt = n => (Math.round(n * 100) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' BYN';
+const KEY = 'moby-family-demo-v3';
+const fmt = n => { const [i, d] = Math.abs(n).toFixed(2).split('.'); return (n < 0 ? '−' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009') + '.' + d + ' BYN'; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const now = () => { const d = new Date(); return 'Сегодня, ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 const r2 = n => Math.round(n * 100) / 100;
@@ -459,6 +488,7 @@ const PERMS = {
   'perms.deposit': 'Свой вклад',
   'perms.subs': 'Карта для подписок',
   'perms.newCards': 'Выпуск виртуальных карт',
+  'perms.qr': 'QR-оплата КРОК',
 };
 const PERM_SUB = {
   'cats.online': 'Маркетплейсы и интернет-магазины',
@@ -471,6 +501,7 @@ const PERM_SUB = {
   'perms.deposit': 'До 14 лет только с вашего согласия',
   'perms.subs': 'Отдельная карта, лимит 20 BYN в месяц',
   'perms.newCards': 'Иначе запрос на карту придёт вам',
+  'perms.qr': 'Оплата по QR на кассе прямо со счёта, без карты',
 };
 const getP = (o, p) => p.split('.').reduce((a, k) => a[k], o);
 const setP = (o, p, v) => { const ks = p.split('.'); ks.slice(0, -1).reduce((a, k) => a[k], o)[ks.at(-1)] = v; };
@@ -481,7 +512,7 @@ const CARD_TYPES = {
   bracelet: { label: 'Браслет NFC', icon: 'watch', sub: 'Не выпадает из кармана, подходит младшим', physical: true },
   virtual: { label: 'Виртуальная карта', icon: 'phone', sub: 'Работает сразу, оплата телефоном', physical: false },
 };
-const CARD_COLORS = ['#1F5FD6', '#E8630F', '#2B3445', '#178A52'];
+const CARD_COLORS = ['#4E6E58', '#1A4F8B', 'linear-gradient(135deg,#3D3FD9,#5B12A6)', '#E8630F'];
 const KID_COLORS = ['#E8630F', '#24324F', '#178A52', '#B0306A', '#0F7FA8'];
 const GOAL_ICONS = ['bike', 'headphones', 'phone', 'game', 'toy', 'plane', 'book', 'tent', 'target'];
 
@@ -496,7 +527,7 @@ function mkKid() {
     ],
     limits: { day: 15, month: 150 }, confirmAbove: 10,
     cats: { online: false, games: false, cash: false, fastfood: true },
-    perms: { goals: true, erip: false, p2p: false, deposit: false, subs: false, newCards: false },
+    perms: { qr: false, goals: true, erip: false, p2p: false, deposit: false, subs: false, newCards: false },
     allowance: { on: true, amount: 10 }, parentBonus: true, roundup: true,
     xp: 140, coins: 85, lessons: ['money'],
     goals: [
@@ -528,7 +559,7 @@ function mkTeen() {
     ],
     limits: { day: 60, month: 400 }, confirmAbove: 50,
     cats: { online: true, games: false, cash: true, fastfood: true },
-    perms: { goals: true, erip: true, p2p: true, deposit: true, subs: true, newCards: true },
+    perms: { qr: true, goals: true, erip: true, p2p: true, deposit: true, subs: true, newCards: true },
     allowance: { on: true, amount: 25 }, parentBonus: false, roundup: false,
     xp: 470, coins: 310, lessons: ['budget'],
     goals: [{ id: 'g3', title: 'Наушники', icon: 'headphones', target: 180, saved: 95 }],
@@ -553,7 +584,7 @@ function mkTeen() {
 function initial(full) {
   const s = {
     mode: 'parent', seq: 100,
-    parent: { name: 'Андрей', balance: 1240.50, card: '4*2110' },
+    parent: { name: 'Андрей', balance: 1240.50, card: '4*2110', lastOp: { t: 'UNIVERSAM', a: -14.08 } },
     children: [], requests: [], feed: [],
     familyGoal: { title: 'Отпуск на Нарочи', icon: 'tent', target: 1500, saved: 620 },
   };
@@ -576,7 +607,7 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e
 
 let S = load() || initial(true);
 const freshRoutes = () => ({ parent: [{ n: 'home' }], kid: [{ n: 'home' }], teen: [{ n: 'home' }] });
-const ui = { routes: freshRoutes(), sheet: null, toast: null, hide: false, ob: null, quiz: null, lastKey: '' };
+const ui = { routes: freshRoutes(), payMethod: 'card', sheet: null, toast: null, hide: false, ob: null, quiz: null, lastKey: '' };
 
 const child = id => S.children.find(c => c.id === id);
 const kid = () => S.children.find(c => c.group === 'kid');
@@ -608,7 +639,7 @@ function addXp(ch, n, coins = 0) {
   const after = levelOf(ch.xp);
   if (after.n > before.n) {
     const newDay = Math.round(ch.limits.day * 1.2);
-    addReq({ child: ch.id, type: 'level', level: after.n, newDay, reason: `${ch.name} достиг уровня «Крок ${after.n}: ${after.t}». Moby предлагает дать больше самостоятельности: дневной лимит ${ch.limits.day} → ${newDay} BYN.` });
+    addReq({ child: ch.id, type: 'level', level: after.n, newDay, reason: `${ch.name} достиг уровня ${after.n} «${after.t}». Moby предлагает дать больше самостоятельности: дневной лимит ${ch.limits.day} → ${newDay} BYN.` });
     return after;
   }
   return null;
@@ -617,21 +648,25 @@ function addXp(ch, n, coins = 0) {
 const CAT_PERM = { online: 'cats.online', games: 'cats.games', cash: 'cats.cash', fastfood: 'cats.fastfood', erip: 'perms.erip', p2p: 'perms.p2p' };
 const CAT_NAME = { food: 'Еда', shop: 'Покупки', fun: 'Развлечения', fastfood: 'Кафе', online: 'Онлайн', games: 'Игры', cash: 'Наличные', erip: 'Платежи', p2p: 'Переводы', gambling: 'Азартные игры', adult: 'Товары 18+' };
 
-function tryPay(ch, m) {
+function tryPay(ch, m, method = 'card') {
+  const qr = method === 'qr';
   const card = activeCard(ch);
-  if (!card) return { kind: 'no', title: 'Нет активных карт', text: 'Все карты заблокированы или ещё в доставке. Разблокировать карту может родитель.' };
+  if (qr && !ch.perms.qr) return { kind: 'no', title: 'QR-оплата закрыта родителем', text: 'Оплата по QR КРОК пока недоступна. Можно попросить родителя её включить.', ask: 'perm', key: 'perms.qr' };
+  if (qr && m.c === 'cash') return { kind: 'no', title: 'По QR наличные не выдаются', text: 'КРОК — это оплата покупок по QR. Для банкомата нужна карта.' };
+  if (!qr && !card) return { kind: 'no', title: 'Нет активных карт', text: 'Все карты заблокированы или ещё в доставке. Разблокировать карту может родитель.' };
   if (m.c === 'gambling' || m.c === 'adult') return { kind: 'no', title: 'Операция запрещена банком', text: m.c === 'gambling' ? 'Азартные игры, ставки и лотереи недоступны по картам до 18 лет. Эту защиту не может отключить даже родитель.' : 'Табак, алкоголь и вейпы недоступны по детским картам. Защиту нельзя отключить.' };
   const pk = CAT_PERM[m.c];
   if (pk && !getP(ch, pk)) return { kind: 'no', title: 'Категория закрыта родителем', text: `«${PERMS[pk]}» пока недоступны. Можно попросить родителя открыть доступ.`, ask: 'perm', key: pk };
   if (m.a > ch.balance) return { kind: 'no', title: 'Не хватает денег', text: `На карте ${fmt(ch.balance)}, нужно ещё ${fmt(m.a - ch.balance)}.`, ask: 'money', amount: Math.ceil(m.a - ch.balance) };
   if (m.a > ch.confirmAbove) {
-    addReq({ child: ch.id, type: 'purchase', m, reason: `${m.t}, ${fmt(m.a)}` });
+    addReq({ child: ch.id, type: 'purchase', m: qr ? { ...m, t: m.t + ' · QR КРОК' } : m, reason: `${m.t}, ${fmt(m.a)}` });
     return { kind: 'wait', title: 'Ждём подтверждения', text: `Покупки дороже ${fmt(ch.confirmAbove)} подтверждает родитель. Запрос отправлен: как только он одобрит, оплата пройдёт.` };
   }
   if (ch.spentToday + m.a > ch.limits.day) return { kind: 'no', title: 'Дневной лимит исчерпан', text: `Лимит ${fmt(ch.limits.day)} в день, сегодня потрачено ${fmt(ch.spentToday)}.`, ask: 'limit', newDay: Math.ceil(ch.spentToday + m.a) };
+  m = qr ? { ...m, t: m.t + ' · QR КРОК' } : m;
   doPay(ch, m);
   const change = ch.roundup && m.a % 1 && ch.goals[0] ? ` Сдача ${fmt(Math.ceil(m.a) - m.a)} ушла в копилку.` : '';
-  return { kind: 'ok', title: 'Оплачено', text: `${m.t}, ${fmt(m.a)}. ${CARD_TYPES[card.type].label} •• ${card.num}.${change}` };
+  return { kind: 'ok', title: 'Оплачено', text: `${m.t}, ${fmt(m.a)}. ${qr ? 'Списано со счёта мгновенно через КРОК' : `${CARD_TYPES[card.type].label} •• ${card.num}`}.${change}` };
 }
 function doPay(ch, m) {
   ch.balance = r2(ch.balance - m.a);
@@ -677,7 +712,7 @@ function resolveReq(id, ok) {
     const t = ch.tasks.find(x => x.id === r.task);
     t.status = 'paid'; moveToChild(ch, t.reward, 'Награда: ' + t.title);
     const lv = addXp(ch, 40, 10);
-    toast(`Награда ${fmt(t.reward)} отправлена${lv ? `, новый уровень Крок ${lv.n}` : ''}`);
+    toast(`Награда ${fmt(t.reward)} отправлена${lv ? `, новый уровень ${lv.n}` : ''}`);
   }
   if (r.type === 'goal') {
     const g = ch.goals.find(x => x.id === r.goal);
@@ -704,7 +739,7 @@ function bankcard(name, c) {
   const t = CARD_TYPES[c.type];
   const st = c.blocked ? 'blocked' : c.status === 'delivery' ? 'delivery' : '';
   return `<div class="bankcard ${st}" style="background:${c.color}">
-    <div class="bc-top"><span>Moby · Крок</span><span>${icon(t.icon, 16)}${t.label}</span></div>
+    <div class="bc-top"><span>Moby Семья</span><span>${icon(t.icon, 16)}${t.label}</span></div>
     ${c.type === 'virtual' ? '<div></div>' : '<div class="chipm"></div>'}
     <div class="bc-bot"><span>${esc((name || 'ИМЯ РЕБЁНКА').toUpperCase())}</span><span class="bc-num">•• ${c.num}</span></div>
   </div>`;
@@ -742,7 +777,7 @@ function familyGoalCard() {
 function promo() {
   return `<div class="promo"><div class="tx"><h2>Семья в Moby</h2><p>Карта ребёнку с 7 лет, свой вход в Moby, лимиты и копилки. Обслуживание 0 BYN.</p>
     <button class="btn white" style="width:auto;padding:10px 18px;min-height:0" data-a="startOb">Оформить</button></div>
-    <div class="mini"><span>Крок</span><i></i></div></div>`;
+    <div class="mini"><span>Moby</span><i></i></div></div>`;
 }
 
 /* ================= PARENT ================= */
@@ -750,43 +785,49 @@ const P = {};
 P.home = () => {
   const pend = S.requests.filter(r => r.status === 'pending');
   const names = [...new Set(pend.map(r => child(r.child)?.name))].join(', ');
+  const last = S.parent.lastOp;
   return `
   <div class="hero">
-    <div class="hero-top"><div class="ava">${icon('user', 28)}${pend.length ? `<span class="badge">${pend.length}</span>` : ''}</div><div class="hero-name">${S.parent.name}</div></div>
-    <div class="chips"><span class="chip">${S.children.length ? 'СЕМЬЯ' : 'ШОППЕР'}</span><span class="chip">${S.parent.card}</span></div>
-    <div class="bal-row"><div class="bal">${ui.hide ? '**** BYN' : fmt(S.parent.balance)}</div><button class="eye" data-a="hide" aria-label="Скрыть баланс">${icon('eye', 28)}</button></div>
+    <div class="hero-top"><div class="ava">${icon('user', 28)}<span class="badge">10</span></div><div class="hero-name">${S.parent.name}</div></div>
+    <div class="chips"><span class="chip">ШОППЕР</span><span class="chip">${S.parent.card}</span><span class="chip ghost">${icon('info', 20)}</span></div>
+    <div class="bal-row"><div class="bal">${ui.hide ? '**** BYN' : fmt(S.parent.balance)}</div><button class="eye" data-a="hide" aria-label="Скрыть баланс">${icon(ui.hide ? 'eye' : 'eyeOff', 30)}</button></div>
     <div class="actions">${act('topup', 'Пополнить', 'soon')}${act('transfer', 'Перевести', 'sheet', 'data-s="topup"')}${act('wallet', 'Оплатить', 'soon')}</div>
   </div>
   <div class="body">
+    <div class="hist"><button class="hbtn" data-a="soon" aria-label="История операций">${icon('history', 28)}</button>
+      <div class="hlast"><div class="ic solid sq">${icon('upload', 22)}</div><div class="tx"><b>${last.t}</b><small>ШОППЕР</small></div><b class="amt">${fmt(last.a)}</b></div></div>
     ${pend.length ? `<div class="banner" data-a="go" data-to="requests">${rowI('bell', 'orange')}<div style="flex:1"><b>Запросы от детей: ${pend.length}</b><small>${esc(names)} ждут ответа</small></div>${chev()}</div>` : ''}
     ${S.children.length ? `
-    <div class="card"><h3>Моя семья <a data-a="tab" data-to="family">Управлять</a></h3>
+    <div class="card"><h3><span>Семья <span class="new">NEW</span></span><a data-a="tab" data-to="family">Управлять</a></h3>
       <div style="margin-top:6px">${S.children.map(ch => { const mc = mainCard(ch); return `
-        <div class="kidrow" data-a="go" data-to="child" data-id="${ch.id}">${kava(ch)}<div class="tx"><b>${esc(ch.name)}, ${ch.age} ${yrs(ch.age)} ${groupTag(ch)}</b><small>${mc.blocked ? '<span class="tag lock">Карта заблокирована</span>' : `Крок ${levelOf(ch.xp).n} · ${CARD_TYPES[mc.type].label.toLowerCase()}`}</small></div><b>${fmt(ch.balance)}</b></div>`; }).join('')}
+        <div class="kidrow" data-a="go" data-to="child" data-id="${ch.id}">${kava(ch)}<div class="tx"><b>${esc(ch.name)}, ${ch.age} ${yrs(ch.age)} ${groupTag(ch)}</b><small>${mc.blocked ? '<span class="tag lock">Карта заблокирована</span>' : `Уровень ${levelOf(ch.xp).n} · ${CARD_TYPES[mc.type].label.toLowerCase()}`}</small></div><b>${fmt(ch.balance)}</b></div>`; }).join('')}
       </div>
       <button class="btn ghost" style="margin-top:10px" data-a="startOb">${icon('plus', 20)} Добавить ребёнка</button>
-    </div>
-    ${familyGoalCard()}` : promo()}
-    <div class="card"><h3>Лента семьи</h3>${S.feed.length ? S.feed.slice(0, 4).map(f => `<div class="row">${rowI(f.a ? 'wallet' : 'star')}<div class="tx"><b style="font-size:14.5px">${esc(f.t)}</b><small>${f.d}</small></div>${f.a ? `<div class="amt ${f.a > 0 ? 'plus' : ''}">${f.a > 0 ? '+' : '−'}${fmt(Math.abs(f.a))}</div>` : ''}</div>`).join('') : '<div class="empty">Здесь появятся покупки и успехи детей</div>'}</div>
+    </div>` : promo()}
+    <div class="mbanner" data-a="soon"><b>ОБМЕННИК MOBY</b><span>Обмен валют по выгодному курсу</span></div>
+    <div class="mbanner tall" data-a="soon"><b>ПАКЕТ УСЛУГ</b><span>Оформите МТкарту, чтобы получать <strong>дополнительные бонусы</strong></span><em>Оформить карту ${icon('chev', 16)}</em></div>
+    <div class="card addcard" data-a="soon"><div class="ic solid sq">${icon('card', 26)}</div><span>Добавить карту</span></div>
   </div>`;
 };
 P.products = () => `
-  <div class="page top" style="padding-top:56px">
+  <div class="page top" style="padding-top:56px;padding-bottom:110px">
     ${promo()}
+    <div class="dots"><i class="on"></i>${'<i></i>'.repeat(12)}</div>
     <div class="prod" data-a="soon">${icon('cards', 34)}<div><b>Карты и счета</b><small>Ваши карты и счета</small></div></div>
-    <div class="prod" data-a="${S.children.length ? 'tab' : 'startOb'}" data-to="family">${icon('family', 34)}<div><b>Семья <span class="new">NEW</span></b><small>Карты детей, лимиты, задания и копилки</small></div></div>
     <div class="prod" data-a="soon">${icon('wallet', 34)}<div><b>Кредиты</b><small>Ваши кредитные продукты</small></div></div>
     <div class="prod" data-a="soon">${icon('piggy', 34)}<div><b>Вклады</b><small>Ваши сбережения и вклады</small></div></div>
+    <div class="prod" data-a="${S.children.length ? 'tab' : 'startOb'}" data-to="family">${icon('family', 34)}<div><b>Семья <span class="new">NEW</span></b><small>Карты детей, лимиты, задания и копилки</small></div></div>
     <div style="border-top:1px solid var(--line);margin:4px 0"></div>
     <div class="prod" data-a="soon">${icon('briefcase', 34)}<div><b>Заявки на продукты</b><small>Ваши заявки на кредитные и иные продукты банка</small></div></div>
-  </div>`;
+  </div>
+  <button class="fab" data-a="sheet" data-s="oform">${icon('cardPlus', 28)} Оформить</button>`;
 P.family = () => {
   const pend = S.requests.filter(r => r.status === 'pending').length;
   return `${plainTop('Семья')}
   <div class="page tight">
     ${S.children.length ? S.children.map(ch => `
       <div class="card" data-a="go" data-to="child" data-id="${ch.id}" style="cursor:pointer">
-        <div class="kidrow" style="border:0;padding:0">${kava(ch)}<div class="tx"><b>${esc(ch.name)} ${groupTag(ch)}</b><small>Крок ${levelOf(ch.xp).n} · карт: ${ch.cards.length}</small></div><div style="text-align:right"><b>${fmt(ch.balance)}</b><small class="muted">сегодня −${fmt(ch.spentToday)}</small></div></div>
+        <div class="kidrow" style="border:0;padding:0">${kava(ch)}<div class="tx"><b>${esc(ch.name)} ${groupTag(ch)}</b><small>Уровень ${levelOf(ch.xp).n} · карт: ${ch.cards.length}</small></div><div style="text-align:right"><b>${fmt(ch.balance)}</b><small class="muted">сегодня −${fmt(ch.spentToday)}</small></div></div>
         <div class="bar" style="margin:12px 0 6px"><i style="width:${pct(ch.spentToday, ch.limits.day)}%"></i></div>
         <small class="muted">Дневной лимит ${fmt(ch.limits.day)}</small>
       </div>`).join('') : promo()}
@@ -797,6 +838,7 @@ P.family = () => {
       <button class="tile" data-a="startOb">${rowI('plus')}<b>Добавить</b><small>Ещё одного ребёнка</small></button>
     </div>
     ${S.children.length ? familyGoalCard() : ''}
+    <div class="card"><h3>Лента семьи</h3>${S.feed.length ? S.feed.slice(0, 5).map(f => `<div class="row">${rowI(f.a ? 'wallet' : 'star')}<div class="tx"><b style="font-size:14.5px">${esc(f.t)}</b><small>${f.d}</small></div>${f.a ? `<div class="amt ${f.a > 0 ? 'plus' : ''}">${f.a > 0 ? '+' : ''}${fmt(f.a)}</div>` : ''}</div>`).join('') : '<div class="empty">Здесь появятся покупки и успехи детей</div>'}</div>
     <div class="card"><h3>Пакет «Семья»</h3>
       <div class="row">${rowI('card')}<div class="tx"><b>Детские карты: 0 BYN</b><small>До 4 детей, у каждого до 3 карт</small></div></div>
       <div class="row">${rowI('coins')}<div class="tx"><b>Манички ×2 в детских категориях</b><small>Детские товары, аптеки, образование, досуг</small></div></div>
@@ -806,7 +848,7 @@ P.family = () => {
   </div>`;
 };
 const CAT_KEYS = ['cats.online', 'cats.games', 'cats.cash', 'cats.fastfood'];
-const MOBY_KEYS = ['perms.goals', 'perms.erip', 'perms.p2p', 'perms.subs', 'perms.newCards'];
+const MOBY_KEYS = ['perms.qr', 'perms.goals', 'perms.erip', 'perms.p2p', 'perms.subs', 'perms.newCards'];
 const permRow = (obj, k, a, extra) => `<div class="setrow"><div class="tx"><b>${PERMS[k]}</b><small>${PERM_SUB[k]}</small></div>${toggle(getP(obj, k), a, `${extra} data-k="${k}"`)}</div>`;
 const lockedRows = () => `
   <div class="setrow"><div class="tx"><b>Азартные игры и ставки</b><small>Запрещено банком до 18 лет</small></div>${toggle(false, 'locked', '', true)}</div>
@@ -826,9 +868,9 @@ P.child = p => {
     ${bankcard(ch.name, mainCard(ch))}
     <div class="card"><h3>Карты <span class="muted" style="font-weight:400">${ch.cards.length} из 3</span></h3>${cardRows(ch, 'parent')}
       ${ch.cards.length < 3 ? `<button class="btn ghost" style="margin-top:8px" data-a="sheet" data-s="newCard" ${ex}>${icon('plus', 20)} Выпустить карту</button>` : ''}</div>
-    <div class="card"><h3>Прогресс <span class="tag ${ch.group}">Крок ${lv.n}: ${lv.t}</span></h3>
+    <div class="card"><h3>Прогресс <span class="tag ${ch.group}">Уровень ${lv.n}: ${lv.t}</span></h3>
       <div class="bar" style="margin:12px 0 6px"><i style="width:${nx ? pct(ch.xp - lv.xp, nx.xp - lv.xp) : 100}%"></i></div>
-      <small class="muted">${nx ? `${ch.xp} из ${nx.xp} опыта до «Крок ${nx.n}»` : 'Максимальный уровень'} · уроков: ${ch.lessons.length} · Маничек: ${ch.coins}</small>
+      <small class="muted">${nx ? `${ch.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'} · уроков: ${ch.lessons.length} · Маничек: ${ch.coins}</small>
     </div>
     <div class="card"><h3>Что можно покупать</h3>${CAT_KEYS.map(k => permRow(ch, k, 'perm', ex)).join('')}${lockedRows()}</div>
     <div class="card"><h3>Лимиты и подтверждение</h3>
@@ -870,7 +912,7 @@ function reqText(r) {
   if (r.type === 'card') return CARD_TYPES[r.cardType].label;
   if (r.type === 'purchase') return `${esc(r.m.t)}, ${fmt(r.m.a)}`;
   if (r.type === 'limit') return `Дневной лимит до ${r.newDay} BYN`;
-  if (r.type === 'level') return `Крок ${r.level}`;
+  if (r.type === 'level') return `Уровень ${r.level}`;
   if (r.type === 'task') { const t = child(r.child).tasks.find(x => x.id === r.task); return `${esc(t.title)}, ${fmt(t.reward)}`; }
   if (r.type === 'goal') return `${fmt(r.amount)} в копилку`;
   return '';
@@ -889,21 +931,34 @@ P.requests = () => {
 };
 P.chat = () => `${topbar('Чат', `<span style="color:var(--blue)">${icon('search', 26)}</span>`)}<div class="page" style="background:#fff;min-height:100%"><div class="empty" style="padding-top:200px">Отправьте сообщение, чтобы начать чат</div></div>`;
 P.more = () => `<div class="page top" style="padding-top:56px"><div class="menu">
-  ${[['settings', 'Настройки'], ['user', 'Персональные данные'], ['doc', 'Документы'], ['family', 'Семейный доступ', 'Согласия и доступ детей'], ['bell', 'Уведомления'], ['coins', 'Манички. Вход в программу приятностей'], ['shield', 'Ваша безопасность']].map(m => `<div class="item" data-a="${m[0] === 'family' ? 'tab' : 'soon'}" data-to="family"><div class="ic">${icon(m[0], 24)}</div><div class="tx">${m[1]}${m[2] ? `<small>${m[2]}</small>` : ''}</div>${chev()}</div>`).join('')}
-  </div><p class="muted" style="text-align:center;margin-top:8px">Версия прототипа 0.2</p></div>`;
+  ${[['settings', 'Настройки', 'go', 'settings'], ['user', 'Персональные данные'], ['doc', 'Документы'], ['family', 'Семья и дети', 'tab', 'family', true], ['bell', 'Уведомления'], ['coins', 'Манички. Вход в программу приятностей'], ['exchange', 'Обменник Moby'], ['pin', 'Банк на карте'], ['info', 'О Банке'], ['shield', 'Ваша безопасность']].map(m => `<div class="item" data-a="${m[2] || 'soon'}" data-to="${m[3] || ''}"><div class="ic">${icon(m[0], 24)}</div><div class="tx">${m[1]}${m[4] ? '<span class="new">NEW</span>' : ''}</div>${chev()}</div>`).join('')}
+  </div><p class="muted" style="text-align:center;margin-top:8px">Версия приложения 1.0.199 · прототип «Семья»</p></div>`;
+P.settings = () => `${topbar('Настройки', `<span style="color:var(--blue);position:relative">${icon('bell', 28)}<span class="badge" style="top:-8px;right:-10px">10</span></span>`)}
+  <div class="page" style="background:#fff;min-height:100%;align-items:stretch">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0 30px"><div class="avatar-xl">АП</div><div style="font-size:26px">${S.parent.name} Петров</div><div class="muted">+375 (29) ••• ••-••</div></div>
+    <div class="setlist">
+      <div class="srow" data-a="soon">Переводы по номеру телефона ${chev()}</div>
+      <div class="srow" data-a="tab" data-to="family">Семья и дети <span class="new" style="margin-right:auto">NEW</span>${chev()}</div>
+      <div class="srow">Тёмная тема ${toggle(false, 'soon')}</div>
+      <div class="srow" data-a="soon">Изменить смарт-код ${chev()}</div>
+      <div class="srow" data-a="soon">Изменить Email ${chev()}</div>
+      <div class="srow">Запрет скриншотов ${toggle(false, 'soon')}</div>
+      <div class="srow" style="color:var(--red)" data-a="soon">Выйти</div>
+    </div>
+  </div>`;
 
 /* ---------- onboarding: добавить ребёнка ---------- */
 const OB_STEPS = 6;
 const PRESETS = {
   kid: {
-    strict: { label: 'Строгий', day: 10, month: 100, confirm: 5, cats: { online: false, games: false, cash: false, fastfood: false }, perms: { goals: true, erip: false, p2p: false, subs: false, deposit: false, newCards: false } },
-    balanced: { label: 'Обычный', day: 15, month: 150, confirm: 10, cats: { online: false, games: false, cash: false, fastfood: true }, perms: { goals: true, erip: false, p2p: false, subs: false, deposit: false, newCards: false } },
-    free: { label: 'Свободный', day: 25, month: 250, confirm: 15, cats: { online: true, games: false, cash: false, fastfood: true }, perms: { goals: true, erip: true, p2p: false, subs: false, deposit: false, newCards: false } },
+    strict: { label: 'Строгий', day: 10, month: 100, confirm: 5, cats: { online: false, games: false, cash: false, fastfood: false }, perms: { qr: false, goals: true, erip: false, p2p: false, subs: false, deposit: false, newCards: false } },
+    balanced: { label: 'Обычный', day: 15, month: 150, confirm: 10, cats: { online: false, games: false, cash: false, fastfood: true }, perms: { qr: false, goals: true, erip: false, p2p: false, subs: false, deposit: false, newCards: false } },
+    free: { label: 'Свободный', day: 25, month: 250, confirm: 15, cats: { online: true, games: false, cash: false, fastfood: true }, perms: { qr: true, goals: true, erip: true, p2p: false, subs: false, deposit: false, newCards: false } },
   },
   teen: {
-    strict: { label: 'Строгий', day: 30, month: 250, confirm: 25, cats: { online: false, games: false, cash: true, fastfood: true }, perms: { goals: true, erip: true, p2p: false, subs: false, deposit: true, newCards: false } },
-    balanced: { label: 'Обычный', day: 60, month: 400, confirm: 50, cats: { online: true, games: false, cash: true, fastfood: true }, perms: { goals: true, erip: true, p2p: true, subs: false, deposit: true, newCards: true } },
-    free: { label: 'Свободный', day: 100, month: 700, confirm: 80, cats: { online: true, games: true, cash: true, fastfood: true }, perms: { goals: true, erip: true, p2p: true, subs: true, deposit: true, newCards: true } },
+    strict: { label: 'Строгий', day: 30, month: 250, confirm: 25, cats: { online: false, games: false, cash: true, fastfood: true }, perms: { qr: true, goals: true, erip: true, p2p: false, subs: false, deposit: true, newCards: false } },
+    balanced: { label: 'Обычный', day: 60, month: 400, confirm: 50, cats: { online: true, games: false, cash: true, fastfood: true }, perms: { qr: true, goals: true, erip: true, p2p: true, subs: false, deposit: true, newCards: true } },
+    free: { label: 'Свободный', day: 100, month: 700, confirm: 80, cats: { online: true, games: true, cash: true, fastfood: true }, perms: { qr: true, goals: true, erip: true, p2p: true, subs: true, deposit: true, newCards: true } },
   },
 };
 function applyPreset(o) {
@@ -932,7 +987,7 @@ P.onboard = () => {
       ['phone', 'Свой вход в Moby', 'Детский или подростковый режим, доступ даёте вы'],
       ['sliders', 'Вы решаете, что можно', 'Категории, лимиты, подтверждение покупок, блокировка'],
       ['piggy', 'Копилки и задания', 'Карманные деньги по расписанию и награды за дела'],
-      ['game', 'Уровни «Крок»', 'Уроки финграмотности открывают больше самостоятельности'],
+      ['game', 'Уровни самостоятельности', 'Уроки финграмотности открывают больше самостоятельности'],
     ].map(x => `<div class="row">${rowI(x[0])}<div class="tx"><b>${x[1]}</b><small>${x[2]}</small></div></div>`).join('')}</div>
     <div class="legal">${icon('info', 18)}<span>До 14 лет понадобятся данные свидетельства о рождении, с 14 лет — паспорт или ID-карта ребёнка.</span></div>`;
     cta = 'Начать';
@@ -960,7 +1015,7 @@ P.onboard = () => {
   if (st === 3) {
     body = `<h2 style="font-size:22px">Карта для ${esc(o.name)}</h2>
     ${bankcard(o.name, { type: o.card, num: '••••', color: o.color, blocked: false, status: 'active' })}
-    <div class="swatches" role="radiogroup" aria-label="Цвет карты">${CARD_COLORS.map(c => `<button class="swatch ${o.color === c ? 'on' : ''}" style="background:${c}" data-a="ob" data-k="color" data-v="${c}" role="radio" aria-checked="${o.color === c}" aria-label="Цвет карты"></button>`).join('')}</div>
+    <div class="swatches" role="radiogroup" aria-label="Цвет карты">${CARD_COLORS.map(c => `<button class="swatch ${o.color === c ? 'on' : ''}" style="background:${c}" data-a="ob" data-k="color" data-v="${c}" role="radio" aria-checked="${o.color === c}" aria-label="Цвет карты">${o.color === c ? icon('check', 24, 2.6) : ''}</button>`).join('')}</div>
     ${['bracelet', 'sticker', 'plastic'].map(t => `<button class="choice ${o.card === t ? 'on' : ''}" data-a="ob" data-k="card" data-v="${t}">${rowI(CARD_TYPES[t].icon)}<span><b>${CARD_TYPES[t].label}</b><small>${CARD_TYPES[t].sub}</small></span></button>`).join('')}
     <div class="legal">${icon('phone', 18)}<span>Виртуальная карта выпускается сразу: ребёнок сможет платить телефоном, пока физическая карта в пути.</span></div>`;
     cta = 'Выпустить карту';
@@ -1007,7 +1062,7 @@ function finishOb() {
 /* ================= KID 7–13 ================= */
 const K = {};
 function noChild(group) {
-  return `<div class="page" style="padding-top:110px;text-align:center;align-items:center">${rowI(group === 'kid' ? 'smile' : 'user')}<h2 style="font-family:Montserrat">Пока нет доступа</h2><p class="muted" style="max-width:270px">Родитель ещё не подключил ${group === 'kid' ? 'ребёнка 7–13 лет' : 'подростка 14–17 лет'}. Переключитесь на режим «Родитель» и добавьте ребёнка.</p><button class="btn" style="max-width:260px" data-a="mode" data-m="parent">Перейти к родителю</button></div>`;
+  return `<div class="page" style="padding-top:110px;text-align:center;align-items:center">${rowI(group === 'kid' ? 'smile' : 'user')}<h2 style="font-family:Inter">Пока нет доступа</h2><p class="muted" style="max-width:270px">Родитель ещё не подключил ${group === 'kid' ? 'ребёнка 7–13 лет' : 'подростка 14–17 лет'}. Переключитесь на режим «Родитель» и добавьте ребёнка.</p><button class="btn" style="max-width:260px" data-a="mode" data-m="parent">Перейти к родителю</button></div>`;
 }
 function myReqs(ch) {
   const rs = S.requests.filter(r => r.child === ch.id).slice(0, 3);
@@ -1016,11 +1071,11 @@ function myReqs(ch) {
 }
 function levelBox(ch) {
   const lv = levelOf(ch.xp), nx = nextLevel(ch.xp);
-  return `<div class="lvl" data-a="tab" data-to="${S.mode === 'kid' ? 'learn' : 'krok'}"><div class="n">${lv.n}</div><div class="tx"><b>Крок ${lv.n}: ${lv.t}</b>${nx ? `${ch.xp} из ${nx.xp} опыта` : 'Максимальный уровень'}<div class="bar"><i style="width:${nx ? pct(ch.xp - lv.xp, nx.xp - lv.xp) : 100}%"></i></div></div><span class="chip">${coin}${ch.coins}</span></div>`;
+  return `<div class="lvl" data-a="tab" data-to="${S.mode === 'kid' ? 'learn' : 'krok'}"><div class="n">${lv.n}</div><div class="tx"><b>Уровень ${lv.n}: ${lv.t}</b>${nx ? `${ch.xp} из ${nx.xp} опыта` : 'Максимальный уровень'}<div class="bar"><i style="width:${nx ? pct(ch.xp - lv.xp, nx.xp - lv.xp) : 100}%"></i></div></div><span class="chip">${coin}${ch.coins}</span></div>`;
 }
 function physNote(ch) {
   const mc = mainCard(ch); const v = ch.cards.find(c => c.type === 'virtual' && usable(c));
-  if (mc.blocked) return `<div class="legal">${icon('lock', 18)}<span>Карта «${CARD_TYPES[mc.type].label}» заблокирована.${v ? ' Плати виртуальной картой в телефоне.' : ''} Нашлась? Попроси родителя разблокировать.</span></div>`;
+  if (mc.blocked) return `<div class="legal">${icon('lock', 18)}<span>Карта «${CARD_TYPES[mc.type].label}» заблокирована.${v ? ' Плати виртуальной картой в телефоне' : ''}${ch.perms.qr ? (v ? ' или по QR КРОК.' : ' Плати по QR КРОК.') : v ? '.' : ''} Нашлась? Попроси родителя разблокировать.</span></div>`;
   if (mc.status === 'delivery') return `<div class="legal">${icon('clock', 18)}<span>Карта «${CARD_TYPES[mc.type].label}» в пути. Пока плати виртуальной картой в телефоне.</span></div>`;
   return `<button class="btn red" data-a="kidLost">${icon('lock', 20)} Я потерял карту</button>`;
 }
@@ -1169,9 +1224,11 @@ const TEEN_M = [
 ];
 function payPage() {
   const ch = me(); const list = ch.group === 'kid' ? KID_M : TEEN_M; const card = activeCard(ch);
+  const qr = ui.payMethod === 'qr';
   return `${topbar('Оплатить')}<div class="page">
-    <div class="legal">${icon('info', 18)}<span>Симулятор: выберите, где ${esc(ch.name)} прикладывает карту. Решение принимается по настройкам родителя и защите банка.</span></div>
-    <small class="muted">${card ? `Платим: ${CARD_TYPES[card.type].label.toLowerCase()} •• ${card.num}` : 'Нет активной карты'} · сегодня ${fmt(ch.spentToday)} из ${fmt(ch.limits.day)} · подтверждение от ${fmt(ch.confirmAbove)}</small>
+    <div class="seg"><button class="${qr ? '' : 'on'}" data-a="payMethod" data-v="card">Картой</button><button class="${qr ? 'on' : ''}" data-a="payMethod" data-v="qr">По QR КРОК</button></div>
+    <div class="legal">${icon(qr ? 'qr' : 'info', 18)}<span>${qr ? `КРОК — национальный сервис QR-платежей (Нацбанк, ЕРИП). ${esc(ch.name)} сканирует QR на кассе в Moby, деньги списываются со счёта мгновенно, карта не нужна. Лимиты и запреты родителя действуют так же.${ch.perms.qr ? '' : ' Сейчас QR-оплата выключена родителем.'}` : `Симулятор: выберите, где ${esc(ch.name)} прикладывает карту. Решение принимается по настройкам родителя и защите банка.`}</span></div>
+    <small class="muted">${qr ? 'Платим по QR со счёта' : card ? `Платим: ${CARD_TYPES[card.type].label.toLowerCase()} •• ${card.num}` : 'Нет активной карты'} · сегодня ${fmt(ch.spentToday)} из ${fmt(ch.limits.day)} · подтверждение от ${fmt(ch.confirmAbove)}</small>
     ${list.map((m, i) => `<button class="merchant" data-a="pay" data-i="${i}">${rowI(m.i, m.c === 'gambling' || m.c === 'adult' ? 'red' : 'solid')}<span class="tx"><b style="font-weight:500">${m.t}</b><small>${CAT_NAME[m.c]}</small></span><b>${fmt(m.a)}</b></button>`).join('')}
   </div>`;
 }
@@ -1185,7 +1242,7 @@ T.home = () => {
   return `
   <div class="hero">
     <div class="hero-top"><div class="ava">${esc(ch.name[0])}</div><div><div class="hero-name">${esc(ch.name)}</div><div class="hero-sub">Moby 14+</div></div></div>
-    <div class="chips"><span class="chip">КРОК ${levelOf(ch.xp).n}</span><span class="chip">5*${mainCard(ch).num}</span><span class="chip">${coin}${ch.coins}</span></div>
+    <div class="chips"><span class="chip">УРОВЕНЬ ${levelOf(ch.xp).n}</span><span class="chip">5*${mainCard(ch).num}</span><span class="chip">${coin}${ch.coins}</span></div>
     <div class="bal-row"><div class="bal">${ui.hide ? '**** BYN' : fmt(ch.balance)}</div><button class="eye" data-a="hide" aria-label="Скрыть баланс">${icon('eye', 28)}</button></div>
     <div class="actions">${act('send', 'Попросить', 'sheet', 'data-s="reqMoney"')}${act('transfer', 'Перевести', ch.perms.p2p ? 'sheet' : 'askPerm', 'data-s="transfer" data-k="perms.p2p"')}${act('wallet', 'Оплатить', 'go', 'data-to="pay"')}</div>
   </div>
@@ -1197,7 +1254,7 @@ T.home = () => {
     </div>
     <div class="card"><h3>Траты за октябрь <a data-a="go" data-to="analytics">Подробнее</a></h3>${analyticsBars(ch, 3)}</div>
     ${ch.goals[0] ? goalCard(ch, ch.goals[0]) : ''}
-    <div class="banner" data-a="tab" data-to="krok">${rowI('rocket')}<div style="flex:1"><b>Путь к 18: Крок ${levelOf(ch.xp).n} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div>${chev()}</div>
+    <div class="banner" data-a="tab" data-to="krok">${rowI('rocket')}<div style="flex:1"><b>Путь к 18: уровень ${levelOf(ch.xp).n} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div>${chev()}</div>
     ${myReqs(ch)}
     <div class="card"><h3>История</h3>${opsList(ch.ops, 5)}</div>
   </div>`;
@@ -1221,6 +1278,8 @@ T.payments = () => {
   return `${plainTop('Платежи')}
   <div class="page tight">
     <div class="card"><h3>ЕРИП ${ch.perms.erip ? '' : '<span class="tag lock">Закрыто</span>'}</h3>${svc.map(s => `<div class="row" data-a="${ch.perms.erip ? 'sheet' : 'askPerm'}" data-s="erip" data-k="perms.erip" data-t="${s[1]}" data-v="${s[3]}">${rowI(s[0], '')}<div class="tx"><b>${s[1]}</b><small>${s[2]}</small></div>${chev()}</div>`).join('')}</div>
+    <div class="card"><h3>QR-оплата КРОК ${ch.perms.qr ? '' : '<span class="tag lock">Закрыто</span>'}</h3>
+      <div class="row" data-a="${ch.perms.qr ? 'payQr' : 'askPerm'}" data-k="perms.qr">${rowI('qr', '')}<div class="tx"><b>Оплатить по QR на кассе</b><small>Со счёта, мгновенно, без карты</small></div>${chev()}</div></div>
     <div class="card"><h3>Переводы</h3>
       <div class="row" data-a="${ch.perms.p2p ? 'sheet' : 'askPerm'}" data-s="transfer" data-k="perms.p2p">${rowI('transfer', '')}<div class="tx"><b>Другу по номеру телефона</b><small>Мгновенно, внутри Беларуси</small></div>${chev()}</div>
       <div class="row" data-a="sheet" data-s="reqMoney">${rowI('send', '')}<div class="tx"><b>Попросить у родителей</b><small>Запрос придёт в их Moby</small></div>${chev()}</div>
@@ -1262,7 +1321,7 @@ T.krok = () => {
   const ch = teen(); if (!ch) return noChild('teen');
   const lv = levelOf(ch.xp);
   const perks = ['Карта и карманные деньги', 'Копилки и платежи ЕРИП', 'Онлайн-покупки и переводы друзьям', 'Подписки, вклад, повышенные лимиты', 'Почти без ограничений, кроме 18+'];
-  return `${plainTop('Крок', coinTag(ch, 'teen'))}
+  return `${plainTop('Путь к 18', coinTag(ch, 'teen'))}
   <div class="page tight">
     <div class="card"><h3>Путь к 18</h3><p class="muted" style="margin:4px 0 14px">Каждый уровень предлагает родителю дать тебе больше свободы.</p>
       <div>${LEVELS.map((l, i) => `<div class="pstep ${l.n < lv.n ? 'done' : l.n === lv.n ? 'cur' : ''}"><div class="n">${l.n}</div><div><b>${l.t}</b><small>${perks[i]}</small></div></div>`).join('')}
@@ -1300,7 +1359,7 @@ function cardPicker(p, types, name) {
   if (!types.includes(p.type)) p.type = types[0];
   p.color = p.color || CARD_COLORS[0];
   return `${bankcard(name, { type: p.type, num: '••••', color: p.color, blocked: false, status: 'active' })}
-    <div class="swatches" role="radiogroup" aria-label="Цвет карты">${CARD_COLORS.map(c => `<button class="swatch ${p.color === c ? 'on' : ''}" style="background:${c}" data-a="shp" data-k="color" data-v="${c}" role="radio" aria-checked="${p.color === c}" aria-label="Цвет карты"></button>`).join('')}</div>
+    <div class="swatches" role="radiogroup" aria-label="Цвет карты">${CARD_COLORS.map(c => `<button class="swatch ${p.color === c ? 'on' : ''}" style="background:${c}" data-a="shp" data-k="color" data-v="${c}" role="radio" aria-checked="${p.color === c}" aria-label="Цвет карты">${p.color === c ? icon('check', 24, 2.6) : ''}</button>`).join('')}</div>
     ${types.length > 1 ? types.map(t => `<button class="choice ${p.type === t ? 'on' : ''}" data-a="shp" data-k="type" data-v="${t}">${rowI(CARD_TYPES[t].icon)}<span><b>${CARD_TYPES[t].label}</b><small>${CARD_TYPES[t].sub}</small></span></button>`).join('') : ''}`;
 }
 SH.newCard = p => {
@@ -1327,6 +1386,11 @@ SH.reqCard = p => {
     <div class="field"><label for="f-title">Зачем</label><input id="f-title" maxlength="80" placeholder="Например, чтобы платить на тренировке" value="${esc(p.title || '')}"></div>
     <button class="btn" data-a="doReqCard">${icon('send', 20)} Отправить запрос</button>`;
 };
+SH.oform = () => `<h2>Оформить</h2>
+    <div class="row" data-a="startOb">${rowI('family')}<div class="tx"><b>Карта ребёнку <span class="new">NEW</span></b><small>Пакет «Семья»: карта с 7 лет и вход в Moby</small></div>${chev()}</div>
+    <div class="row" data-a="soon">${rowI('card')}<div class="tx"><b>Карту</b><small>МТкарта, Халва и другие</small></div>${chev()}</div>
+    <div class="row" data-a="soon">${rowI('wallet')}<div class="tx"><b>Кредит</b><small>Онлайн-заявка</small></div>${chev()}</div>
+    <div class="row" data-a="soon">${rowI('piggy')}<div class="tx"><b>Вклад</b><small>Сбережения в BYN и валюте</small></div>${chev()}</div>`;
 SH.reqMoney = p => `<h2>Попросить у родителей</h2>
     <div class="field"><label for="f-amt">Сколько, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 5}"></div>
     <div class="pills">${[2, 5, 10, 20].map(v => `<button class="pill" data-a="setAmt" data-v="${v}">${v} BYN</button>`).join('')}</div>
@@ -1369,7 +1433,7 @@ const SCREENS = { parent: P, kid: K, teen: T };
 const TABS = {
   parent: [['home', 'Главная', 'home'], ['products', 'Продукты', 'cards'], ['family', 'Семья', 'family'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],
   kid: [['home', 'Главная', 'home'], ['goals', 'Копилки', 'piggy'], ['tasks', 'Задания', 'tasks'], ['learn', 'Игры', 'game']],
-  teen: [['home', 'Главная', 'home'], ['payments', 'Платежи', 'transfer'], ['savings', 'Накопления', 'piggy'], ['krok', 'Крок', 'rocket']],
+  teen: [['home', 'Главная', 'home'], ['payments', 'Платежи', 'transfer'], ['savings', 'Накопления', 'piggy'], ['krok', 'Рост', 'rocket']],
 };
 const $app = document.getElementById('app');
 function render() {
@@ -1444,7 +1508,7 @@ const A = {
     g.saved = r2(g.saved + v); toast(`+${fmt(v)} в «${g.title}»`); render();
   },
   startOb: () => {
-    ui.ob = { step: 0, name: '', age: null, group: null, consents: {}, card: 'bracelet', color: CARD_COLORS[1], preset: 'balanced', cfg: { cats: {}, perms: {}, limits: {}, confirmAbove: 0, allowance: 10 } };
+    ui.ob = { step: 0, name: '', age: null, group: null, consents: {}, card: 'bracelet', color: CARD_COLORS[3], preset: 'balanced', cfg: { cats: {}, perms: {}, limits: {}, confirmAbove: 0, allowance: 10 } };
     S.mode = 'parent'; go('onboard');
   },
   obAge: d => {
@@ -1472,7 +1536,9 @@ const A = {
   askPerm: d => { const ch = me(); ui.sheet = null; if (S.requests.some(r => r.child === ch.id && r.key === d.k && r.status === 'pending')) { toast('Запрос уже ждёт ответа'); return render(); } addReq({ child: ch.id, type: 'perm', key: d.k, reason: `Хочу пользоваться: ${PERMS[d.k].toLowerCase()}` }); toast(`Запрос «${PERMS[d.k]}» отправлен родителю`); render(); },
   askLimit: d => { const ch = me(); addReq({ child: ch.id, type: 'limit', newDay: +d.v, reason: `Не хватило дневного лимита ${ch.limits.day} BYN` }); ui.sheet = null; toast('Запрос на лимит отправлен'); render(); },
   askGoal: () => { const ch = me(); const g = ch.goals.find(x => x.id === ui.sheet.p.id); addReq({ child: ch.id, type: 'goal', goal: g.id, amount: 5, reason: `Помогите накопить на «${g.title}»` }); ui.sheet = null; toast('Попросили родителей поддержать копилку'); render(); },
-  pay: d => { const ch = me(); const m = (ch.group === 'kid' ? KID_M : TEEN_M)[+d.i]; sheet('result', { r: tryPay(ch, m) }); },
+  pay: d => { const ch = me(); const m = (ch.group === 'kid' ? KID_M : TEEN_M)[+d.i]; sheet('result', { r: tryPay(ch, m, ui.payMethod) }); },
+  payMethod: d => { ui.payMethod = d.v; render(); },
+  payQr: () => { ui.payMethod = 'qr'; go('pay'); },
   taskDone: d => { const ch = me(); const t = ch.tasks.find(x => x.id === d.id); t.status = 'review'; addReq({ child: ch.id, type: 'task', task: t.id }); toast('Родитель проверит и отправит награду'); render(); },
   doGoalAdd: () => {
     const ch = me(); const g = ch.goals.find(x => x.id === ui.sheet.p.id); const v = +(ui.sheet.p.amt || 2);
@@ -1480,7 +1546,7 @@ const A = {
     ch.balance = r2(ch.balance - v); let add = v;
     if (ch.parentBonus) { const b = r2(v * 0.1); S.parent.balance = r2(S.parent.balance - b); add = r2(v + b); }
     g.saved = r2(g.saved + add); ch.ops.unshift({ t: `В копилку «${g.title}»`, a: -v, d: now(), c: 'Копилки' });
-    const lv = addXp(ch, 10); ui.sheet = null; toast(`+${fmt(add)} в копилку${lv ? `, новый уровень Крок ${lv.n}` : ''}`); render();
+    const lv = addXp(ch, 10); ui.sheet = null; toast(`+${fmt(add)} в копилку${lv ? `, новый уровень ${lv.n}` : ''}`); render();
   },
   doNewGoal: () => { const ch = me(); const t = val('f-title').trim(); const v = num('f-amt'); if (!t || v <= 0) { toast('Назови цель и сумму'); return render(); } ch.goals.push({ id: nid('g'), title: t, icon: ui.sheet.p.icon || 'target', target: v, saved: 0 }); ui.sheet = null; toast('Цель создана'); render(); },
   doErip: () => { const ch = teen(); const v = num('f-amt'); sheet('result', { r: tryPay(ch, { t: 'ЕРИП: ' + ui.sheet.p.t, c: 'erip', a: v }) }); },
@@ -1495,14 +1561,14 @@ const A = {
     ui.quiz.i++; ui.quiz.pick = null;
     if (ui.quiz.i >= l.q.length && !ch.lessons.includes(l.id)) {
       ch.lessons.push(l.id); const lv = addXp(ch, 60, 15); addFeed(ch, `${ch.name}: пройден урок «${l.t}»`);
-      if (lv) toast(`Новый уровень Крок ${lv.n}. Родителю отправлено предложение расширить лимиты`);
+      if (lv) toast(`Новый уровень ${lv.n}. Родителю отправлено предложение расширить лимиты`);
     }
     render();
   },
   fpick: d => { ui.quiz.pick = +d.i; if ((+d.i === 1) === FRAUD[ui.quiz.i].fraud) ui.quiz.right++; render(); },
   fnext: () => {
     ui.quiz.i++; ui.quiz.pick = null;
-    if (ui.quiz.i >= FRAUD.length) { const ch = me(); const lv = addXp(ch, ui.quiz.right * 15, ui.quiz.right * 5); addFeed(ch, `${ch.name}: «Распознай мошенника», ${ui.quiz.right} из ${FRAUD.length}`); if (lv) toast(`Новый уровень Крок ${lv.n}. Родителю отправлено предложение расширить лимиты`); }
+    if (ui.quiz.i >= FRAUD.length) { const ch = me(); const lv = addXp(ch, ui.quiz.right * 15, ui.quiz.right * 5); addFeed(ch, `${ch.name}: «Распознай мошенника», ${ui.quiz.right} из ${FRAUD.length}`); if (lv) toast(`Новый уровень ${lv.n}. Родителю отправлено предложение расширить лимиты`); }
     render();
   },
 };
