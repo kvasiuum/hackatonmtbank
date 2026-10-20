@@ -1,0 +1,12 @@
+<resources>
+    <style name="Theme.MobyFamily" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/moby_blue</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:windowBackground">@color/moby_bg</item>
+    </style>
+    <style name="Theme.MobyFamily.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/moby_blue</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.MobyFamily</item>
+    </style>
+</resources>

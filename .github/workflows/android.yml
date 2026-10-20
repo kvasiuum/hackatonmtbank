@@ -1,0 +1,64 @@
+# Сборка Android-приложения «Семья Moby» на каждый пуш.
+# Результат: релиз build-N с APK в GitHub Releases; приложение само предлагает обновиться.
+name: Android APK
+
+on:
+  push:
+    paths: ['module/**', 'android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: module/package-lock.json
+
+      - name: Тесты и веб-сборка модуля
+        working-directory: module
+        run: |
+          npm ci
+          npm test
+          npm run build:pages
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Сборка APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/release/app-release.apk ../MobyFamily-${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MobyFamily-${{ github.run_number }}
+          path: MobyFamily-${{ github.run_number }}.apk
+
+      - name: Публикация релиза
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Семья Moby — сборка ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: MobyFamily-${{ github.run_number }}.apk
+          body: |
+            Ветка `${{ github.ref_name }}`, коммит ${{ github.sha }}.
+            Установка: скачайте APK на телефон и откройте. Новая сборка ставится поверх старой, данные сохраняются.

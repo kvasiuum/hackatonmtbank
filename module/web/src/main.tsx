@@ -3,8 +3,12 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Device as DeviceInfo } from '../../server/src/types';
 import { Device } from './device';
-import { api, LOCAL } from './lib';
+import { api, backHandlers, LOCAL } from './lib';
+import './fonts';
 import './styles.css';
+
+/** Запущено внутри Android-приложения (см. android/), а не в браузере */
+const IN_APP = navigator.userAgent.includes('MobyFamilyApp');
 
 function Stand() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
@@ -23,6 +27,12 @@ function Stand() {
   const parent = devices.find(d => d.role === 'parent');
   const kids = devices.filter(d => d.role === 'child');
   const current = kids.find(k => k.userId === childId) ?? kids[0];
+
+  // Системная кнопка «Назад» Android: закрыть шторку или вернуться на экран назад в видимом телефоне
+  useEffect(() => {
+    const active = mobile === 'parent' ? parent?.userId : current?.userId;
+    (window as any).mobyBack = () => (active ? backHandlers.get(active)?.() ?? false : false);
+  }, [mobile, parent?.userId, current?.userId]);
 
   const reset = async (empty: boolean) => {
     await api('/api/demo/reset', { body: { empty } });
@@ -48,7 +58,7 @@ function Stand() {
           <li>Подросток → «Платежи»: ЕРИП, перевод другу, QR КРОК.</li>
         </ol></div>
         <div className="reset"><button onClick={() => reset(false)}>Сбросить демо</button><button onClick={() => reset(true)}>Семья без детей</button></div>
-        <small>Смарт-код всех демо-пользователей: 1111. Данные хранятся в SQLite на сервере.</small>
+        <small>Смарт-код всех демо-пользователей: 1111. {LOCAL ? 'Данные хранятся на этом устройстве.' : 'Данные хранятся в SQLite на сервере.'}</small>
       </aside>
       <div className={`slot ${mobile === 'parent' ? '' : 'hidden'}`}>
         <div className="slot-head"><span className="lbl">Телефон родителя</span>{parent && <span className="chipbtn on">{parent.name}</span>}</div>
@@ -69,4 +79,4 @@ function Stand() {
 createRoot(document.getElementById('root')!).render(<StrictMode><Stand /></StrictMode>);
 
 // Автономная сборка ставится на Android как приложение и работает офлайн
-if (LOCAL && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (LOCAL && !IN_APP && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -76,6 +76,8 @@ interface DeviceCtx {
   logout: () => void;
 }
 const Ctx = createContext<DeviceCtx | null>(null);
+/** Обработчики кнопки «Назад» по устройствам: true — нажатие обработано */
+export const backHandlers = new Map<string, () => boolean>();
 export const useDevice = () => useContext(Ctx)!;
 
 export function DeviceProvider({ token, userId, onLogout, children, root }: { token: string; userId: string; onLogout: () => void; children: (p: { route: Route; depth: number; sheet: SheetState | null; toast: { text: string; err: boolean } | null; closeSheet: () => void }) => ReactNode; root: string }) {
@@ -107,6 +109,17 @@ export function DeviceProvider({ token, userId, onLogout, children, root }: { to
       return undefined;
     }
   }, [toast, bump, onLogout]);
+
+  const nav = useRef({ depth: stack.length, sheet: !!sheetState });
+  nav.current = { depth: stack.length, sheet: !!sheetState };
+  useEffect(() => {
+    backHandlers.set(userId, () => {
+      if (nav.current.sheet) { setSheet(null); return true; }
+      if (nav.current.depth > 1) { setStack(s => s.slice(0, -1)); return true; }
+      return false;
+    });
+    return () => { backHandlers.delete(userId); };
+  }, [userId]);
 
   const value: DeviceCtx = {
     token, userId, version, route: stack[stack.length - 1], depth: stack.length,
