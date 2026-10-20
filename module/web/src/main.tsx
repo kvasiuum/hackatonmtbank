@@ -3,7 +3,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Device as DeviceInfo } from '../../server/src/types';
 import { Device } from './device';
-import { api } from './lib';
+import { api, LOCAL } from './lib';
 import './styles.css';
 
 function Stand() {
@@ -34,6 +34,7 @@ function Stand() {
     <div className="mobile-switch">
       <button className={mobile === 'parent' ? 'on' : ''} onClick={() => setMobile('parent')}>Родитель</button>
       <button className={mobile === 'child' ? 'on' : ''} onClick={() => setMobile('child')}>Ребёнок</button>
+      <button className="reset-mini" onClick={() => { if (confirm('Сбросить демо-данные к исходным?')) reset(false); }} aria-label="Сбросить демо">↺</button>
     </div>
     <div className="stand" key={epoch}>
       <aside className="side">
@@ -66,3 +67,6 @@ function Stand() {
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Stand /></StrictMode>);
+
+// Автономная сборка ставится на Android как приложение и работает офлайн
+if (LOCAL && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -5,7 +5,7 @@ import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
   LESSONS, LESSON_REWARD, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
-import { type DB, newId, nowIso, tx } from './db';
+import { type DB, newId, nowIso, tx } from './schema';
 import type {
   AgeGroup, Card, CardType, ChildDetail, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
   FeedItem, Goal, ParentOverview, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Task, Tx,

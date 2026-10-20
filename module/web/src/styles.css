@@ -58,6 +58,7 @@ svg { display: block; flex: none; }
 .mobile-switch { display: none; gap: 6px; padding: 8px; background: #fff; border-bottom: 1px solid var(--line); }
 .mobile-switch button { flex: 1; padding: 9px; border-radius: var(--r-sm); background: var(--bg); font-weight: 600; font-size: 14px; }
 .mobile-switch button.on { background: var(--blue); color: #fff; }
+.mobile-switch .reset-mini { flex: 0 0 44px; font-size: 18px; color: var(--blue); }
 
 /* ---------- Moby: шапка и действия ---------- */
 .hero { background: linear-gradient(180deg, #1A52C9 0%, #3E7FE8 60%, #5C9BF3 100%); color: #fff; padding: 56px 20px 24px; border-radius: 0 0 36px 36px; }
@@ -110,7 +111,7 @@ svg { display: block; flex: none; }
 .hbtn { width: 64px; border-radius: var(--r-lg); background: #fff; color: var(--blue); display: grid; place-items: center; flex: none; }
 .hcar { flex: 1; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
 .hcar::-webkit-scrollbar { display: none; }
-.hop { flex: 0 0 272px; scroll-snap-align: start; display: flex; align-items: center; gap: 12px; background: #fff; border-radius: var(--r-lg); padding: 12px 14px; min-width: 0; }
+.hop { flex: 0 0 300px; scroll-snap-align: start; display: flex; align-items: center; gap: 12px; background: #fff; border-radius: var(--r-lg); padding: 12px 14px; min-width: 0; }
 .hop .amt { margin-left: 4px; font-size: 16px; }
 .hop .ic { position: relative; }
 .hop .ic .clock { position: absolute; right: -5px; bottom: -5px; background: #fff; border-radius: 50%; color: var(--muted); }

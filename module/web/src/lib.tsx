@@ -3,7 +3,17 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 
 export class ApiError extends Error { constructor(public status: number, public code: string, message: string) { super(message); } }
 
+/** Сборка для GitHub Pages: API выполняется в браузере (см. local.ts) */
+export const LOCAL = import.meta.env.VITE_LOCAL === '1';
+
 export async function api<T = any>(path: string, opts: { token?: string | null; method?: string; body?: unknown } = {}): Promise<T> {
+  if (LOCAL) {
+    const { request } = await import('./local');
+    const r = await request(opts.method ?? (opts.body ? 'POST' : 'GET'), path, opts.body, opts.token);
+    const data = r.body as any;
+    if (r.status >= 400) throw new ApiError(r.status, data.error?.code ?? 'error', data.error?.message ?? 'Ошибка');
+    return data as T;
+  }
   const res = await fetch(path, {
     method: opts.method ?? (opts.body ? 'POST' : 'GET'),
     headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}) },
@@ -12,6 +22,19 @@ export async function api<T = any>(path: string, opts: { token?: string | null; 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error?.code ?? 'error', data.error?.message ?? 'Ошибка сети');
   return data as T;
+}
+
+/** Живые обновления: SSE с сервера или события браузерного движка */
+export function subscribe(token: string, onChange: () => void, onReset: () => void): () => void {
+  if (LOCAL) {
+    let off: (() => void) | null = null, closed = false;
+    import('./local').then(m => { if (!closed) off = m.subscribe(token, onChange, onReset); });
+    return () => { closed = true; off?.(); };
+  }
+  const es = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
+  es.addEventListener('changed', onChange);
+  es.addEventListener('reset', onReset);
+  return () => es.close();
 }
 
 export function fmt(k: number) {
@@ -63,12 +86,7 @@ export function DeviceProvider({ token, userId, onLogout, children, root }: { to
   const timer = useRef<number | undefined>(undefined);
   const bump = useCallback(() => setVersion(v => v + 1), []);
 
-  useEffect(() => {
-    const es = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
-    es.addEventListener('changed', bump);
-    es.addEventListener('reset', () => onLogout());
-    return () => es.close();
-  }, [token, bump, onLogout]);
+  useEffect(() => subscribe(token, bump, onLogout), [token, bump, onLogout]);
 
   const toast = useCallback((text: string, err = false) => {
     setToast({ text, err });

@@ -2,13 +2,19 @@
   "name": "moby-family",
   "private": true,
   "description": "Модуль детско-семейного банкинга для Moby (МТБанк)",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "npm run build -w web",
     "start": "npm run build && npm start -w server",
     "test": "npm test -w server",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "build:pages": "npm run build:pages -w web"
   },
-  "engines": { "node": ">=22.5" }
+  "engines": {
+    "node": ">=22.5"
+  }
 }
