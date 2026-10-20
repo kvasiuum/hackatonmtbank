@@ -1,0 +1,1351 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Семья в Moby</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#1F5FD6; --blue-d:#1546B9; --blue-l:#5C9BF3; --blue-bg:#E8F0FD;
+  --bg:#EDF1F6; --card:#FFFFFF; --text:#1A1F2B; --muted:#7F8BA0; --line:#E2E7EF;
+  --red:#E3263B; --green:#1E9E58; --green-bg:#E3F5EB; --orange:#FF7A1A; --orange-bg:#FFF1E6;
+  --violet:#7B4DFF; --pink:#F0468C;
+  --radius:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:#DDE3EC;font-family:Roboto,system-ui,sans-serif;color:var(--text);font-size:15px;line-height:1.35}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+svg{display:block}
+
+/* ---------- stage ---------- */
+.stage{min-height:100%;display:flex;gap:40px;align-items:center;justify-content:center;padding:24px}
+.side{width:320px;display:flex;flex-direction:column;gap:16px}
+.side h1{font-family:Montserrat;font-size:24px;line-height:1.15}
+.side .sub{color:#5B6578;font-size:14px}
+.modes{display:flex;flex-direction:column;gap:8px}
+.mode{display:flex;gap:12px;align-items:center;text-align:left;background:#fff;border-radius:16px;padding:12px 14px;border:2px solid transparent}
+.mode b{display:block;font-weight:700}
+.mode small{color:var(--muted);font-size:12.5px}
+.mode .dot{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;color:#fff;flex:none}
+.mode.on{border-color:var(--blue)}
+.hints{background:#fff;border-radius:16px;padding:14px 16px;font-size:13.5px}
+.hints summary{font-weight:700;cursor:pointer}
+.hints ol{padding-left:18px;margin-top:8px;display:flex;flex-direction:column;gap:6px;color:#3C4558}
+.reset{display:flex;gap:8px}
+.reset button{flex:1;background:var(--bg);border-radius:12px;padding:10px;font-size:13px;color:var(--blue);font-weight:500}
+.note{font-size:12px;color:#6B7487}
+
+.phone{width:390px;height:844px;border-radius:52px;background:#0E1116;padding:12px;box-shadow:0 30px 60px rgba(20,40,90,.25);flex:none}
+.screen{position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.statusbar{height:40px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:500;position:absolute;top:0;left:0;right:0;z-index:5;pointer-events:none}
+.statusbar.light{color:#fff}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:24px;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.scroll.has-tabs{padding-bottom:110px}
+
+@media (max-width:820px){
+  body{background:var(--bg)}
+  .stage{flex-direction:column;padding:0;gap:0;align-items:stretch;height:100dvh;min-height:0}
+  .side{width:auto;padding:10px 12px 8px;gap:8px;position:sticky;top:0;z-index:20;background:#fff;box-shadow:0 1px 0 var(--line)}
+  .side h1,.side .sub,.side .note{display:none}
+  .modes{flex-direction:row}
+  .mode{flex:1;padding:8px;justify-content:center;border-radius:12px;background:var(--bg)}
+  .mode small,.mode .dot{display:none}
+  .mode{padding:8px 4px}
+  .mode b{font-size:12.5px;text-align:center;white-space:nowrap}
+  .hints{padding:8px 12px;font-size:13px;background:var(--bg)}
+  .reset button{background:#fff;padding:8px}
+  .phone{width:100%;height:auto;flex:1;min-height:0;border-radius:0;padding:0;box-shadow:none;background:none}
+  .screen{border-radius:0;height:100%}
+  .statusbar{display:none}
+  .hero{padding-top:22px}
+  .hero[style*="padding-top"]{padding-top:20px!important}
+  .topbar{padding-top:16px}
+  .page[style*="padding-top:56px"]{padding-top:16px!important}
+  div[style*="padding:52px 16px 0"]{padding-top:16px!important}
+}
+
+/* ---------- moby pieces ---------- */
+.hero{background:linear-gradient(180deg,#1A52C9 0%,#3E7FE8 60%,#5C9BF3 100%);color:#fff;padding:56px 22px 26px;border-radius:0 0 40px 40px}
+.hero.kid{background:linear-gradient(170deg,#1A52C9 0%,#3E7FE8 55%,#FF9A3D 140%)}
+.hero.teen{background:linear-gradient(170deg,#1A3FC0 0%,#4A63EE 50%,#8A55F5 100%)}
+.hero-top{display:flex;align-items:center;gap:14px}
+.ava{position:relative;width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.18);display:grid;place-items:center;font-family:Montserrat;font-weight:800;font-size:20px}
+.ava svg{width:28px;height:28px}
+.badge{position:absolute;top:-8px;right:-10px;min-width:22px;height:22px;border-radius:11px;background:var(--red);color:#fff;font:600 12px/22px Roboto;text-align:center;padding:0 6px}
+.hero-name{font-family:Montserrat;font-weight:700;font-size:22px}
+.hero-sub{font-size:13px;opacity:.85}
+.chips{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.chip{background:rgba(255,255,255,.18);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:500;letter-spacing:.3px}
+.bal-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.bal{font-family:Montserrat;font-weight:700;font-size:32px;letter-spacing:-.5px}
+.eye{color:#fff;opacity:.9}
+.eye svg{width:30px;height:30px}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.act{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;font-size:14px}
+.act span.box{width:100%;height:58px;border-radius:20px;background:#fff;display:grid;place-items:center;color:var(--blue)}
+.act span.box svg{width:28px;height:28px}
+
+.body{padding:16px 16px 0;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--card);border-radius:var(--radius);padding:18px}
+.card h3{font-size:17px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h3 a,.link{color:var(--blue);font-size:14px;font-weight:500;cursor:pointer}
+.card .muted,.muted{color:var(--muted);font-size:13.5px}
+.sec-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:6px 4px -4px}
+
+.topbar{display:flex;align-items:center;gap:14px;padding:52px 16px 12px;background:#fff;position:sticky;top:0;z-index:4}
+.topbar h1{font-size:21px;font-weight:500;flex:1}
+.topbar .back{color:var(--blue)}
+.topbar .back svg{width:28px;height:28px}
+.page{padding:16px;display:flex;flex-direction:column;gap:14px}
+.page.white{background:#fff;min-height:100%}
+
+.row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:0}
+.row .ic{width:44px;height:44px;border-radius:50%;border:1.5px dashed #C9D3E2;display:grid;place-items:center;color:var(--blue);flex:none}
+.row .ic svg{width:22px;height:22px}
+.row .ic.solid{border:0;background:var(--blue-bg)}
+.row .tx{flex:1;min-width:0}
+.row .tx b{font-weight:500;display:block}
+.row .tx small{color:var(--muted);font-size:13px}
+.row .chev{color:#AEB9CB}
+.row .chev svg{width:20px;height:20px}
+.row .amt{font-weight:500;white-space:nowrap}
+.amt.plus{color:var(--green)}
+
+.menu{display:flex;flex-direction:column;gap:12px}
+.menu .item{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer}
+.menu .item .ic{width:50px;height:50px;border-radius:50%;border:1.5px dashed #C9D3E2;display:grid;place-items:center;color:var(--blue)}
+.menu .item .ic svg{width:24px;height:24px}
+.menu .item .tx{flex:1;font-size:17px}
+.menu .item .tx small{display:block;color:var(--muted);font-size:13px}
+.new{background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:8px;padding:3px 7px;margin-left:6px;vertical-align:2px}
+
+.prod{display:flex;gap:18px;align-items:flex-start;padding:14px 4px;cursor:pointer}
+.prod svg{width:34px;height:34px;color:var(--blue);flex:none}
+.prod b{font-size:18px;font-weight:500;display:block}
+.prod small{color:var(--muted);font-size:15px}
+
+.tabbar{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:36px 36px 0 0;box-shadow:0 -1px 0 #E4E8EF,0 -8px 24px rgba(30,60,120,.06);display:flex;justify-content:space-around;padding:12px 6px 18px;z-index:6}
+.tab{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12.5px;color:#2A2F3A;position:relative;min-width:60px}
+.tab svg{width:28px;height:28px}
+.tab.on{color:var(--blue);font-weight:500}
+.tab .badge{top:-6px;right:4px}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--blue);color:#fff;border-radius:16px;padding:15px;font-weight:500;font-size:16px}
+.btn svg{width:20px;height:20px}
+.btn.ghost{background:var(--blue-bg);color:var(--blue)}
+.btn.white{background:#fff;color:var(--blue)}
+.btn.red{background:#FDE8EA;color:var(--red)}
+.btn.green{background:var(--green);}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btns{display:flex;gap:10px}
+.btns .btn{padding:12px}
+.sbtn{background:var(--blue-bg);color:var(--blue);border-radius:12px;padding:8px 12px;font-weight:500;font-size:14px;white-space:nowrap}
+.sbtn.green{background:var(--green-bg);color:var(--green)}
+.sbtn.red{background:#FDE8EA;color:var(--red)}
+
+.banner{display:flex;gap:14px;align-items:center;background:#fff;border-radius:20px;padding:14px 16px;cursor:pointer}
+.banner .ic{width:44px;height:44px;border-radius:14px;background:var(--orange-bg);color:var(--orange);display:grid;place-items:center;flex:none}
+.banner .ic svg{width:24px;height:24px}
+.banner b{display:block}
+.banner small{color:var(--muted)}
+
+.promo{background:linear-gradient(135deg,#1A52C9,#5C9BF3);color:#fff;border-radius:var(--radius);padding:20px;position:relative;overflow:hidden}
+.promo h2{font-family:Montserrat;font-size:21px;line-height:1.15;max-width:230px}
+.promo p{font-size:14px;opacity:.92;margin:8px 0 14px;max-width:250px}
+.promo .art{position:absolute;right:-18px;top:14px;width:120px;height:78px;border-radius:12px;background:linear-gradient(135deg,#FF9A3D,#F0468C);transform:rotate(-14deg);box-shadow:0 10px 24px rgba(0,0,0,.2)}
+.promo .art.b{right:18px;top:44px;background:linear-gradient(135deg,#7B4DFF,#5C9BF3);transform:rotate(8deg)}
+
+.kids{display:flex;flex-direction:column}
+.kidrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.kidrow:last-child{border-bottom:0}
+.kava{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;color:#fff;font-family:Montserrat;font-weight:800;font-size:18px;flex:none}
+.kidrow .tx{flex:1}
+.kidrow b{display:block;font-weight:500}
+.kidrow small{color:var(--muted);font-size:13px}
+.tag{display:inline-block;font-size:11.5px;font-weight:500;border-radius:7px;padding:2px 7px;margin-left:4px}
+.tag.kid{background:var(--orange-bg);color:#C85A00}
+.tag.teen{background:#EFE8FF;color:var(--violet)}
+.tag.lock{background:#FDE8EA;color:var(--red)}
+.tag.ok{background:var(--green-bg);color:var(--green)}
+.tag.wait{background:#FFF6DC;color:#A57300}
+
+.bar{height:10px;border-radius:5px;background:#E6ECF5;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--blue-l))}
+.bar.orange i{background:linear-gradient(90deg,#FF7A1A,#FFB648)}
+.bar.violet i{background:linear-gradient(90deg,var(--violet),var(--pink))}
+
+.toggle{width:50px;height:30px;border-radius:15px;background:#CBD3E0;position:relative;flex:none;transition:.2s}
+.toggle::after{content:"";position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle.on{background:var(--blue)}
+.toggle.on::after{left:23px}
+.toggle.locked{background:#F4C5CB}
+.setrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .tx{flex:1}
+.setrow .tx b{font-weight:500;display:block}
+.setrow .tx small{color:var(--muted);font-size:12.5px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:32px;height:32px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-size:20px;line-height:1}
+.stepper span{min-width:64px;text-align:center;font-weight:500}
+
+.bankcard{border-radius:18px;padding:16px;color:#fff;height:170px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.bankcard .bc-top{display:flex;justify-content:space-between;font-weight:700;font-family:Montserrat}
+.bankcard .bc-num{font-size:17px;letter-spacing:2px}
+.bankcard .bc-bot{display:flex;justify-content:space-between;align-items:flex-end;font-size:13px}
+.bankcard.blocked::after{content:"Заблокирована";position:absolute;inset:0;background:rgba(20,25,35,.62);display:grid;place-items:center;font-weight:700;font-size:18px}
+.bankcard .circles{display:flex}
+.bankcard .circles i{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.55)}
+.bankcard .circles i+i{margin-left:-9px;background:rgba(255,255,255,.3)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:#fff;border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+.tile .ic{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:var(--blue-bg);color:var(--blue)}
+.tile .ic svg{width:22px;height:22px}
+.tile b{font-weight:500}
+.tile small{color:var(--muted);font-size:12.5px}
+.tile.off{opacity:.55}
+
+.merchant{display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;text-align:left;width:100%}
+.merchant .em{width:42px;height:42px;border-radius:13px;background:var(--bg);display:grid;place-items:center;font-size:22px;flex:none}
+.merchant .tx{flex:1}
+.merchant small{color:var(--muted);font-size:12.5px}
+
+.goal{display:flex;flex-direction:column;gap:10px}
+.goal-h{display:flex;align-items:center;gap:12px}
+.goal-h .em{width:48px;height:48px;border-radius:16px;background:var(--orange-bg);display:grid;place-items:center;font-size:26px;flex:none}
+.goal-h .tx{flex:1}
+.goal-h b{font-weight:500;display:block}
+
+.lvl{display:flex;align-items:center;gap:12px;margin-top:16px;background:rgba(255,255,255,.16);border-radius:16px;padding:10px 12px}
+.lvl .n{width:42px;height:42px;border-radius:13px;background:#fff;color:var(--blue);display:grid;place-items:center;font-family:Montserrat;font-weight:800;font-size:18px;flex:none}
+.lvl .tx{flex:1;font-size:13px}
+.lvl .tx b{font-size:14px;display:block}
+.lvl .bar{height:7px;margin-top:6px;background:rgba(255,255,255,.3)}
+.lvl .bar i{background:#fff}
+
+.coins{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:500}
+.coin{width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#29C6F0,#1F5FD6);display:inline-grid;place-items:center;font:800 10px Montserrat;color:#fff}
+
+.req{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}
+.req:last-child{border-bottom:0}
+.req-h{display:flex;gap:12px;align-items:center}
+.req-h .tx{flex:1}
+.req-h b{display:block;font-weight:500}
+.req-h small{color:var(--muted);font-size:13px}
+.req .reason{background:var(--bg);border-radius:12px;padding:8px 12px;font-size:14px}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;color:var(--muted)}
+.field input{border:1.5px solid var(--line);border-radius:14px;padding:13px 14px;font-size:16px;background:#fff;outline:none}
+.field input:focus{border-color:var(--blue)}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border-radius:12px;padding:9px 14px;background:var(--bg);font-weight:500;font-size:14px}
+.pill.on{background:var(--blue);color:#fff}
+
+.choice{display:flex;gap:14px;align-items:flex-start;border:2px solid var(--line);border-radius:18px;padding:14px;cursor:pointer;text-align:left;width:100%;background:#fff}
+.choice.on{border-color:var(--blue);background:#F5F9FF}
+.choice .em{font-size:26px;width:44px;height:44px;border-radius:14px;background:var(--bg);display:grid;place-items:center;flex:none}
+.choice b{display:block;font-weight:700;margin-bottom:2px}
+.choice small{color:#4F5A6E;font-size:13px;display:block}
+.check{display:flex;gap:12px;align-items:flex-start;padding:10px 0;cursor:pointer;text-align:left;width:100%}
+.check .box{width:24px;height:24px;border-radius:7px;border:2px solid #B9C4D6;flex:none;display:grid;place-items:center;color:#fff}
+.check.on .box{background:var(--blue);border-color:var(--blue)}
+.check .box svg{width:16px;height:16px}
+.check span{font-size:14.5px}
+.check small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.steps{display:flex;gap:5px;padding:0 16px 4px;background:#fff}
+.steps i{flex:1;height:4px;border-radius:2px;background:#E1E7F0}
+.steps i.on{background:var(--blue)}
+.legal{display:flex;gap:10px;background:#F1F5FC;border-radius:14px;padding:12px;font-size:12.5px;color:#4F5A6E}
+.legal svg{width:18px;height:18px;color:var(--blue);flex:none;margin-top:1px}
+
+.qr{width:150px;height:150px;display:grid;grid-template-columns:repeat(15,1fr);gap:1px;padding:8px;background:#fff;border-radius:12px;border:1px solid var(--line)}
+.qr i{background:#1A1F2B;border-radius:1px}
+.qr i.w{background:transparent}
+.code{font-family:Montserrat;font-weight:800;font-size:26px;letter-spacing:3px;text-align:center}
+
+.quiz-q{font-size:19px;font-weight:500;line-height:1.3}
+.opt{width:100%;text-align:left;background:#fff;border:2px solid var(--line);border-radius:16px;padding:14px 16px;font-size:15.5px}
+.opt.right{border-color:var(--green);background:var(--green-bg)}
+.opt.wrong{border-color:var(--red);background:#FDE8EA}
+.msg{background:#fff;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:8px;border:1px solid var(--line)}
+.msg .from{font-size:12.5px;color:var(--muted);font-weight:500}
+.msg .text{font-size:16px}
+
+.bars{display:flex;flex-direction:column;gap:10px}
+.bars .b{display:flex;flex-direction:column;gap:4px}
+.bars .b div:first-child{display:flex;justify-content:space-between;font-size:14px}
+
+.path{display:flex;flex-direction:column;gap:0}
+.pstep{display:flex;gap:14px;position:relative;padding-bottom:18px}
+.pstep:last-child{padding-bottom:0}
+.pstep::before{content:"";position:absolute;left:20px;top:42px;bottom:0;width:2px;background:#DCE3EE}
+.pstep:last-child::before{display:none}
+.pstep .n{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-family:Montserrat;font-weight:800;background:#E6ECF5;color:#9AA6BA;flex:none}
+.pstep.done .n{background:var(--blue);color:#fff}
+.pstep.cur .n{background:linear-gradient(135deg,var(--violet),var(--pink));color:#fff}
+.pstep b{display:block;font-weight:500;margin-top:2px}
+.pstep small{color:var(--muted);font-size:13px}
+
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+
+/* sheet & toast */
+.overlay{position:absolute;inset:0;background:rgba(15,25,45,.45);z-index:30;display:flex;align-items:flex-end;animation:fade .2s}
+.sheet{background:#fff;width:100%;border-radius:28px 28px 0 0;padding:10px 18px 26px;max-height:88%;overflow-y:auto;animation:up .25s ease-out;display:flex;flex-direction:column;gap:14px}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:#D5DCE6;margin:0 auto 4px}
+.sheet h2{font-size:20px;font-weight:700}
+.result{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:8px 0}
+.result .big{width:72px;height:72px;border-radius:24px;display:grid;place-items:center}
+.result .big svg{width:38px;height:38px}
+.result .big.ok{background:var(--green-bg);color:var(--green)}
+.result .big.no{background:#FDE8EA;color:var(--red)}
+.result .big.wait{background:#FFF6DC;color:#C08A00}
+.result h2{font-size:21px}
+.result p{color:#4F5A6E;font-size:14.5px}
+.toast{position:absolute;left:16px;right:16px;bottom:104px;background:#1A1F2B;color:#fff;border-radius:16px;padding:13px 16px;font-size:14px;z-index:40;animation:up .25s ease-out;box-shadow:0 10px 24px rgba(0,0,0,.2)}
+@keyframes up{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <aside class="side">
+    <div>
+      <h1>Семья в Moby</h1>
+      <p class="sub" style="margin-top:6px">Прототип модуля детско-семейного банкинга для рынка Республики Беларусь. Переключайте роль: изменения общие, так что запрос ребёнка сразу видит родитель.</p>
+    </div>
+    <div class="modes" id="modes">
+      <button class="mode" data-mode="parent"><span class="dot" style="background:var(--blue)">Р</span><span><b>Родитель</b><small>Moby взрослого, управление семьёй</small></span></button>
+      <button class="mode" data-mode="kid"><span class="dot" style="background:var(--orange)">7+</span><span><b>Ребёнок 7–13</b><small>Миша, 9 лет · первая карта</small></span></button>
+      <button class="mode" data-mode="teen"><span class="dot" style="background:var(--violet)">14+</span><span><b>Подросток 14–17</b><small>Аня, 15 лет · свой счёт</small></span></button>
+    </div>
+    <details class="hints" id="hints">
+      <summary>Сценарии для демо</summary>
+      <ol>
+        <li>Ребёнок → «Оплатить» → «Донат в игре»: категория закрыта, запрос уходит родителю.</li>
+        <li>Ребёнок → «Попросить» 5 BYN → Родитель → «Запросы» → Одобрить.</li>
+        <li>Ребёнок → «Магазин игрушек»: покупка дороже 10 BYN ждёт подтверждения родителя.</li>
+        <li>Ребёнок → «Задания» → «Сделал!» → Родитель подтверждает → награда и опыт.</li>
+        <li>Ребёнок → «Игры» → «Распознай мошенника»: при новом уровне «Крок» родителю приходит предложение расширить лимит.</li>
+        <li>Подросток → «Платежи» → ЕРИП / перевод другу / подписки.</li>
+        <li>Родитель → «Добавить ребёнка»: оформление пакета с согласиями.</li>
+      </ol>
+      <div class="reset" style="margin-top:12px">
+        <button data-reset="full">Сбросить демо</button>
+        <button data-reset="empty">Начать без детей</button>
+      </div>
+    </details>
+    <p class="note">Концепт-прототип для хакатона. Данные вымышленные, хранятся только в этом браузере.</p>
+  </aside>
+  <div class="phone"><div class="screen" id="app"></div></div>
+</div>
+
+<script>
+/* ================= icons ================= */
+const sv = (d, extra='') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
+const I = {
+  home: sv('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
+  cards: sv('<rect x="2.5" y="8" width="16" height="11" rx="2"/><path d="M6 5h14a1.5 1.5 0 0 1 1.5 1.5V15"/><path d="M2.5 12h16"/>'),
+  chat: sv('<path d="M3 4h13v9H8l-4 3v-3H3z"/><path d="M19 8h2v9h-1v3l-4-3H9v-2"/><path d="M6.5 7.5h6M6.5 10h4"/>'),
+  more: sv('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'),
+  family: sv('<circle cx="9" cy="7.5" r="3"/><circle cx="17" cy="9.5" r="2.3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M15.5 14.6c2.9-.4 5.5 1.6 5.5 5.4"/>'),
+  piggy: sv('<path d="M4.5 11.5c0-3.6 3.4-6 7.5-6 2.6 0 4.6.9 5.9 2.4L20 7v3.4l1 .6v3l-1.6.6a6.6 6.6 0 0 1-2.4 2.6V20h-3v-1.6h-4V20H7v-3.1c-1.6-1.3-2.5-3.1-2.5-5.4z"/><circle cx="16" cy="10.5" r=".6" fill="currentColor"/><path d="M9.5 5.8a2.5 2.5 0 1 1 4-1.8"/>'),
+  tasks: sv('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.2l2.5 2.5 4.5-5"/>'),
+  game: sv('<path d="M7 8.5h10a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L14.8 14H9.2l-.8 1.3A3 3 0 0 1 3 13.5v-1a4 4 0 0 1 4-4z"/><path d="M8 10.5v3M6.5 12h3"/><circle cx="15.5" cy="11.5" r=".7" fill="currentColor"/><circle cx="17.5" cy="13" r=".7" fill="currentColor"/>'),
+  topup: sv('<rect x="3" y="9" width="18" height="11" rx="2"/><path d="M12 3v8M8.5 7.5L12 11l3.5-3.5"/>'),
+  transfer: sv('<circle cx="12" cy="12" r="9"/><path d="M8 10.5h8l-2.5-2.5M16 13.5H8l2.5 2.5"/>'),
+  wallet: sv('<path d="M4 8.5h15a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 8.5L15 4l1.3 4.5"/><circle cx="16" cy="14.3" r="1"/>'),
+  back: sv('<path d="M20 12H5M11 6l-6 6 6 6"/>'),
+  chev: sv('<path d="M9 6l6 6-6 6"/>'),
+  lock: sv('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  unlock: sv('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/>'),
+  shield: sv('<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+  bell: sv('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
+  plus: sv('<path d="M12 5v14M5 12h14"/>'),
+  eye: sv('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  gift: sv('<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/><path d="M12 8C10 4 6.5 4.5 7 7.2 7.3 8 9 8 12 8zM12 8c2-4 5.5-3.5 5-.8-.3.8-2 .8-5 .8z"/>'),
+  star: sv('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z"/>'),
+  chart: sv('<path d="M4 20h16"/><rect x="5" y="11" width="3" height="6" rx="1"/><rect x="10.5" y="6" width="3" height="11" rx="1"/><rect x="16" y="9" width="3" height="8" rx="1"/>'),
+  send: sv('<path d="M21 3L3 10.5l7 2.5 2.5 7z"/><path d="M10 13l5-5"/>'),
+  check: sv('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 'stroke-width="2.6"'),
+  x: sv('<path d="M6 6l12 12M18 6L6 18"/>', 'stroke-width="2.4"'),
+  clock: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  card: sv('<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18M7 15h4"/>'),
+  user: sv('<circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4.1 3.4-7.5 7.5-7.5s7.5 3.4 7.5 7.5"/>'),
+  book: sv('<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>'),
+  phone: sv('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'),
+  bus: sv('<rect x="4" y="3.5" width="16" height="14" rx="3"/><path d="M4 11h16M8 21v-3.5M16 21v-3.5"/><circle cx="8" cy="14.5" r=".8" fill="currentColor"/><circle cx="16" cy="14.5" r=".8" fill="currentColor"/>'),
+  wifi: sv('<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.2" r=".9" fill="currentColor"/>'),
+  edu: sv('<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3.2 2.2 8.8 2.2 12 0v-5M22 9v6"/>'),
+  sliders: sv('<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'),
+  doc: sv('<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>'),
+  info: sv('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
+  coins: sv('<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 14v3c0 1.7 2.7 3 6 3s6-1.3 6-3v-4c0-1.7-2.7-3-6-3"/>'),
+  settings: sv('<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'),
+  repeat: sv('<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>'),
+  briefcase: sv('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 12.5h18"/>'),
+  rocket: sv('<path d="M5 15c-1.5 1.5-2 4.5-2 6 1.5 0 4.5-.5 6-2"/><path d="M9 15l-3-3c1.5-4.5 5.5-9 13-9 0 7.5-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.5"/>'),
+};
+
+/* ================= helpers ================= */
+const KEY = 'moby-family-demo-v1';
+const fmt = n => (Math.round(n * 100) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' BYN';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const now = () => { const d = new Date(); return 'Сегодня, ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const r2 = n => Math.round(n * 100) / 100;
+const pct = (a, b) => Math.max(0, Math.min(100, Math.round(a / b * 100)));
+
+const LEVELS = [
+  { n: 1, xp: 0, t: 'Старт' },
+  { n: 2, xp: 100, t: 'Знаю цену' },
+  { n: 3, xp: 250, t: 'Планирую' },
+  { n: 4, xp: 400, t: 'Самостоятельный' },
+  { n: 5, xp: 600, t: 'Почти взрослый' },
+];
+const levelOf = xp => LEVELS.filter(l => l.xp <= xp).pop();
+const nextLevel = xp => LEVELS.find(l => l.xp > xp);
+
+const PERMS = {
+  'cats.online': 'Онлайн-покупки',
+  'cats.games': 'Покупки в играх',
+  'cats.cash': 'Снятие наличных',
+  'cats.fastfood': 'Фастфуд и кофейни',
+  'perms.goals': 'Копилки',
+  'perms.virtualCard': 'Виртуальная карта',
+  'perms.erip': 'Платежи ЕРИП',
+  'perms.p2p': 'Переводы друзьям',
+  'perms.deposit': 'Свой вклад',
+  'perms.subs': 'Подписки',
+};
+const getP = (o, p) => p.split('.').reduce((a, k) => a[k], o);
+const setP = (o, p, v) => { const ks = p.split('.'); ks.slice(0, -1).reduce((a, k) => a[k], o)[ks.at(-1)] = v; };
+
+/* ================= demo data ================= */
+function mkKid() {
+  return {
+    id: 'c1', name: 'Миша', age: 9, group: 'kid', color: '#FF8A1F',
+    balance: 23.40, spentToday: 3.5, cardBlocked: false, cardType: 'Платёжный стикер', cardNum: '5*4417',
+    limits: { day: 15, month: 150 }, confirmAbove: 10,
+    cats: { online: false, games: false, cash: false, fastfood: true },
+    perms: { goals: true, virtualCard: true, erip: false, p2p: false, deposit: false, subs: false },
+    allowance: { on: true, amount: 10 }, parentBonus: true, roundup: true,
+    xp: 140, coins: 85, lessons: ['money'],
+    goals: [
+      { id: 'g1', title: 'Самокат', icon: '🛴', target: 120, saved: 46 },
+      { id: 'g2', title: 'Конструктор', icon: '🧱', target: 60, saved: 12 },
+    ],
+    tasks: [
+      { id: 't1', title: 'Пропылесосить комнату', reward: 3, status: 'open' },
+      { id: 't2', title: 'Прочитать 50 страниц книги', reward: 5, status: 'open' },
+      { id: 't3', title: 'Выносить мусор всю неделю', reward: 4, status: 'paid' },
+    ],
+    ops: [
+      { t: 'Школьная столовая', a: -3.5, d: 'Сегодня, 12:40', c: 'Еда' },
+      { t: 'Карманные деньги', a: 10, d: 'Пн, 08:00', c: 'Пополнение' },
+      { t: 'Канцтовары', a: -4.2, d: 'Вс, 15:10', c: 'Покупки' },
+      { t: 'Награда: вынести мусор', a: 4, d: 'Сб, 19:30', c: 'Награда' },
+      { t: 'Кинотеатр', a: -8, d: 'Сб, 16:05', c: 'Развлечения' },
+    ],
+    subs: [], income: 0, deposit: null,
+  };
+}
+function mkTeen() {
+  return {
+    id: 'c2', name: 'Аня', age: 15, group: 'teen', color: '#7B4DFF',
+    balance: 86.70, spentToday: 0, cardBlocked: false, cardType: 'Пластиковая карта', cardNum: '5*9032',
+    limits: { day: 60, month: 400 }, confirmAbove: 50,
+    cats: { online: true, games: false, cash: true, fastfood: true },
+    perms: { goals: true, virtualCard: true, erip: true, p2p: true, deposit: true, subs: true },
+    allowance: { on: true, amount: 25 }, parentBonus: false, roundup: false,
+    xp: 470, coins: 310, lessons: ['budget'],
+    goals: [{ id: 'g3', title: 'Наушники', icon: '🎧', target: 180, saved: 95 }],
+    tasks: [{ id: 't4', title: 'Помочь с покраской балкона', reward: 15, status: 'open' }],
+    ops: [
+      { t: 'Кофейня', a: -4.8, d: 'Вчера, 17:20', c: 'Кафе' },
+      { t: 'ЕРИП: мобильная связь', a: -10, d: 'Вчера, 10:02', c: 'Платежи' },
+      { t: 'Карманные деньги', a: 25, d: 'Пн, 08:00', c: 'Пополнение' },
+      { t: 'Маркетплейс', a: -27.5, d: 'Вс, 21:14', c: 'Онлайн' },
+      { t: 'Музыкальный сервис', a: -5.49, d: '12 окт', c: 'Подписки' },
+      { t: 'Кинотеатр', a: -12, d: '11 окт', c: 'Развлечения' },
+      { t: 'Проездной (ЕРИП)', a: -18.6, d: '1 окт', c: 'Платежи' },
+    ],
+    subs: [
+      { id: 's1', t: 'Музыкальный сервис', p: 5.49, on: true },
+      { id: 's2', t: 'Онлайн-кинотеатр', p: 9.9, on: true },
+      { id: 's3', t: 'Облако для фото', p: 2.9, on: false },
+    ],
+    income: 65, deposit: { sum: 150, rate: 9 },
+  };
+}
+function initial(full) {
+  const s = {
+    mode: 'parent', seq: 100,
+    parent: { name: 'Андрей', balance: 1240.50, card: '4*2110' },
+    children: [], requests: [], feed: [],
+    familyGoal: { title: 'Отпуск на Нарочи', icon: '🏕', target: 1500, saved: 620 },
+  };
+  if (full) {
+    s.children = [mkKid(), mkTeen()];
+    s.requests = [
+      { id: 'r1', child: 'c1', type: 'money', amount: 5, reason: 'Открытка другу на день рождения', status: 'pending', d: 'Сегодня, 11:15' },
+      { id: 'r2', child: 'c2', type: 'perm', key: 'cats.games', reason: 'Хочу купить боевой пропуск в игре на месяц', status: 'pending', d: 'Вчера, 20:41' },
+    ];
+    s.feed = [
+      { child: 'c1', t: 'Миша: Школьная столовая', a: -3.5, d: 'Сегодня, 12:40' },
+      { child: 'c2', t: 'Аня: ЕРИП, мобильная связь', a: -10, d: 'Вчера, 10:02' },
+      { child: 'c1', t: 'Миша выполнил задание «Выносить мусор»', a: null, d: 'Сб, 19:30' },
+    ];
+  }
+  return s;
+}
+function load() { try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+let S = load() || initial(true);
+const ui = { routes: { parent: [{ n: 'home' }], kid: [{ n: 'home' }], teen: [{ n: 'home' }] }, sheet: null, toast: null, hide: false, ob: null, quiz: null, lastKey: '' };
+
+const child = id => S.children.find(c => c.id === id);
+const kid = () => S.children.find(c => c.group === 'kid');
+const teen = () => S.children.find(c => c.group === 'teen');
+const me = () => S.mode === 'kid' ? kid() : teen();
+const nid = p => p + (++S.seq);
+
+/* ================= navigation ================= */
+const cur = () => ui.routes[S.mode].at(-1);
+function go(n, p = {}) { ui.routes[S.mode].push({ n, p }); ui.sheet = null; render(); }
+function tab(n) { ui.routes[S.mode] = [{ n }]; ui.sheet = null; render(); }
+function back() { if (ui.routes[S.mode].length > 1) ui.routes[S.mode].pop(); render(); }
+function sheet(n, p = {}) { ui.sheet = { n, p }; render(); }
+function closeSheet() { ui.sheet = null; render(); }
+let toastTimer;
+function toast(t) { ui.toast = t; clearTimeout(toastTimer); toastTimer = setTimeout(() => { ui.toast = null; render(); }, 2600); }
+
+/* ================= domain logic ================= */
+function addFeed(ch, t, a = null) { S.feed.unshift({ child: ch.id, t, a, d: now() }); S.feed = S.feed.slice(0, 30); }
+function addReq(r) { const req = { id: nid('r'), status: 'pending', d: now(), ...r }; S.requests.unshift(req); return req; }
+
+function addXp(ch, n, coins = 0) {
+  const before = levelOf(ch.xp);
+  ch.xp += n; ch.coins += coins;
+  const after = levelOf(ch.xp);
+  if (after.n > before.n) {
+    const newDay = Math.round(ch.limits.day * 1.2);
+    addReq({ child: ch.id, type: 'level', level: after.n, newDay, reason: `${ch.name} достиг уровня «Крок ${after.n}: ${after.t}». Moby предлагает дать больше самостоятельности: дневной лимит ${ch.limits.day} → ${newDay} BYN.` });
+    return after;
+  }
+  return null;
+}
+
+const CAT_PERM = { online: 'cats.online', games: 'cats.games', cash: 'cats.cash', fastfood: 'cats.fastfood', erip: 'perms.erip', p2p: 'perms.p2p' };
+const CAT_NAME = { food: 'Еда', shop: 'Покупки', fun: 'Развлечения', fastfood: 'Кафе', online: 'Онлайн', games: 'Игры', cash: 'Наличные', erip: 'Платежи', p2p: 'Переводы' };
+
+function tryPay(ch, m) {
+  if (ch.cardBlocked) return { kind: 'no', title: 'Карта заблокирована', text: 'Разблокируйте карту в Moby, чтобы снова платить.' };
+  if (m.c === 'gambling' || m.c === 'adult') return { kind: 'no', title: 'Операция запрещена банком', text: m.c === 'gambling' ? 'Азартные игры, ставки и лотереи недоступны по картам до 18 лет. Эту защиту не может отключить даже родитель.' : 'Товары 18+ (табак, алкоголь, вейпы) недоступны по детским картам. Защиту нельзя отключить.' };
+  const pk = CAT_PERM[m.c];
+  if (pk && !getP(ch, pk)) return { kind: 'no', title: 'Категория закрыта родителем', text: `«${PERMS[pk]}» пока недоступны. Можно попросить родителя открыть доступ.`, ask: 'perm', key: pk };
+  if (m.a > ch.balance) return { kind: 'no', title: 'Не хватает денег', text: `На карте ${fmt(ch.balance)}, нужно ещё ${fmt(m.a - ch.balance)}.`, ask: 'money', amount: Math.ceil(m.a - ch.balance) };
+  if (m.a > ch.confirmAbove) {
+    addReq({ child: ch.id, type: 'purchase', m, reason: `${m.t} — ${fmt(m.a)}` });
+    return { kind: 'wait', title: 'Ждём подтверждения', text: `Покупки дороже ${fmt(ch.confirmAbove)} подтверждает родитель. Запрос уже отправлен — как только он одобрит, оплата пройдёт.` };
+  }
+  if (ch.spentToday + m.a > ch.limits.day) return { kind: 'no', title: 'Дневной лимит исчерпан', text: `Лимит ${fmt(ch.limits.day)} в день, сегодня потрачено ${fmt(ch.spentToday)}.`, ask: 'limit', newDay: Math.ceil(ch.spentToday + m.a) };
+  doPay(ch, m);
+  return { kind: 'ok', title: 'Оплачено', text: `${m.t} — ${fmt(m.a)}. ${ch.roundup && m.a % 1 ? 'Сдача ' + fmt(Math.ceil(m.a) - m.a) + ' ушла в копилку.' : ''}` };
+}
+function doPay(ch, m) {
+  ch.balance = r2(ch.balance - m.a);
+  ch.spentToday = r2(ch.spentToday + m.a);
+  ch.ops.unshift({ t: m.t, a: -m.a, d: now(), c: CAT_NAME[m.c] || 'Покупки' });
+  addFeed(ch, `${ch.name}: ${m.t}`, -m.a);
+  ch.coins += Math.floor(m.a / 5);
+  if (ch.roundup && m.a % 1 && ch.goals[0]) {
+    const change = r2(Math.ceil(m.a) - m.a);
+    if (ch.balance >= change) { ch.balance = r2(ch.balance - change); ch.goals[0].saved = r2(ch.goals[0].saved + change); }
+  }
+}
+function moveToChild(ch, amount, title) {
+  S.parent.balance = r2(S.parent.balance - amount);
+  ch.balance = r2(ch.balance + amount);
+  ch.ops.unshift({ t: title, a: amount, d: now(), c: 'Пополнение' });
+}
+
+function resolveReq(id, ok) {
+  const r = S.requests.find(x => x.id === id); if (!r) return;
+  const ch = child(r.child);
+  r.status = ok ? 'approved' : 'declined';
+  if (!ok) { addFeed(ch, `Вы отклонили запрос ${ch.name}`); toast('Запрос отклонён. Ребёнок увидит ответ в Moby'); return; }
+  if (r.type === 'money') { moveToChild(ch, r.amount, 'Перевод от родителя'); toast(`${fmt(r.amount)} отправлено ${ch.name}`); }
+  if (r.type === 'perm') { setP(ch, r.key, true); toast(`${ch.name}: «${PERMS[r.key]}» теперь доступно`); }
+  if (r.type === 'purchase') {
+    if (ch.balance < r.m.a) { r.status = 'pending'; toast(`У ${ch.name} не хватает денег — сначала пополните карту`); return; }
+    doPay(ch, r.m); toast(`Покупка одобрена: ${r.m.t}`);
+  }
+  if (r.type === 'limit') { ch.limits.day = r.newDay; toast(`Дневной лимит ${ch.name}: ${r.newDay} BYN`); }
+  if (r.type === 'level') { ch.limits.day = r.newDay; ch.confirmAbove = Math.round(ch.confirmAbove * 1.2); toast(`Лимиты ${ch.name} расширены`); }
+  if (r.type === 'task') {
+    const t = ch.tasks.find(x => x.id === r.task);
+    t.status = 'paid'; moveToChild(ch, t.reward, 'Награда: ' + t.title);
+    const lv = addXp(ch, 40, 10);
+    toast(`Награда ${fmt(t.reward)} отправлена${lv ? ' · новый уровень Крок ' + lv.n : ''}`);
+  }
+  if (r.type === 'goal') {
+    const g = ch.goals.find(x => x.id === r.goal);
+    if (g) { g.saved = r2(g.saved + r.amount); S.parent.balance = r2(S.parent.balance - r.amount); }
+    toast('Вы добавили в копилку ' + fmt(r.amount));
+  }
+}
+
+/* ================= shared fragments ================= */
+const topbar = (title, right = '') => `<div class="topbar"><button class="back" data-a="back">${I.back}</button><h1>${title}</h1>${right}</div>`;
+const act = (icon, label, a, extra = '') => `<button class="act" data-a="${a}" ${extra}><span class="box">${I[icon]}</span>${label}</button>`;
+const toggle = (on, a, extra = '', locked = false) => `<button class="toggle ${on ? 'on' : ''} ${locked ? 'locked' : ''}" data-a="${a}" ${extra} aria-pressed="${on}"></button>`;
+const kava = ch => `<div class="kava" style="background:${ch.color}">${esc(ch.name[0])}</div>`;
+const groupTag = ch => ch.group === 'kid' ? '<span class="tag kid">7–13</span>' : '<span class="tag teen">14–17</span>';
+const coin = '<span class="coin">М</span>';
+function opsList(ops, n = 6) {
+  if (!ops.length) return '<div class="empty">Операций пока нет</div>';
+  return ops.slice(0, n).map(o => `<div class="row" style="cursor:default"><div class="ic solid">${o.a > 0 ? I.topup : I.wallet}</div><div class="tx"><b>${esc(o.t)}</b><small>${o.d} · ${o.c}</small></div><div class="amt ${o.a > 0 ? 'plus' : ''}">${o.a > 0 ? '+' : '−'}${fmt(Math.abs(o.a))}</div></div>`).join('');
+}
+function bankcard(ch, small) {
+  const bg = ch.group === 'kid' ? 'linear-gradient(135deg,#FF8A1F,#FF4F7A)' : 'linear-gradient(135deg,#4A63EE,#8A55F5 60%,#F0468C)';
+  return `<div class="bankcard ${ch.cardBlocked ? 'blocked' : ''}" style="background:${bg};${small ? 'height:150px' : ''}">
+    <div class="bc-top"><span>Moby · Крок</span><span style="font-size:12px;font-weight:600;opacity:.9">${ch.cardType}</span></div>
+    <div class="bc-num">•••• ${ch.cardNum.slice(-4)}</div>
+    <div class="bc-bot"><span>${esc(ch.name.toUpperCase())}</span><span class="circles"><i></i><i></i></span></div>
+  </div>`;
+}
+function goalCard(ch, g, kidStyle) {
+  return `<div class="card goal">
+    <div class="goal-h"><div class="em">${g.icon}</div><div class="tx"><b>${esc(g.title)}</b><small class="muted">${fmt(g.saved)} из ${fmt(g.target)}</small></div>
+    <button class="sbtn" data-a="sheet" data-s="goalAdd" data-id="${g.id}">Положить</button></div>
+    <div class="bar ${kidStyle ? 'orange' : 'violet'}"><i style="width:${pct(g.saved, g.target)}%"></i></div>
+    ${g.saved >= g.target ? '<div class="tag ok" style="align-self:flex-start">Цель достигнута! 🎉</div>' : `<small class="muted">Осталось ${fmt(g.target - g.saved)}${ch.allowance.on ? ` · примерно ${Math.ceil((g.target - g.saved) / ch.allowance.amount)} нед. с карманных` : ''}</small>`}
+  </div>`;
+}
+function offers(group) {
+  const list = group === 'kid'
+    ? [['🎈', 'Детский развлекательный центр', '−15% на батуты и квесты'], ['🎬', 'Кинотеатр', '2 детских билета по цене 1 по средам'], ['📚', 'Книжный магазин', 'Кешбэк 7% Маничками'], ['⚽', 'Спортивные секции', '−10% на первый месяц']]
+    : [['🎬', 'Кинотеатр', '−20% по будням до 18:00'], ['☕', 'Кофейни-партнёры', 'Кешбэк 5% Маничками'], ['🎓', 'Курсы программирования', '−15% для клиентов Moby 14+'], ['🚌', 'Проездной через ЕРИП', 'Кешбэк 3%']];
+  return list.map(o => `<div class="row" data-a="toast" data-t="Предложение партнёра активировано"><div class="ic solid" style="font-size:20px">${o[0]}</div><div class="tx"><b>${o[1]}</b><small>${o[2]}</small></div><div class="chev">${I.chev}</div></div>`).join('');
+}
+
+/* ================= PARENT ================= */
+const P = {};
+P.home = () => {
+  const pend = S.requests.filter(r => r.status === 'pending');
+  return `
+  <div class="hero">
+    <div class="hero-top"><div class="ava">${I.user}${pend.length ? `<span class="badge">${pend.length}</span>` : ''}</div><div class="hero-name">${S.parent.name}</div></div>
+    <div class="chips"><span class="chip">${S.children.length ? 'СЕМЬЯ' : 'ШОППЕР'}</span><span class="chip">${S.parent.card}</span></div>
+    <div class="bal-row"><div class="bal">${ui.hide ? '**** BYN' : fmt(S.parent.balance)}</div><button class="eye" data-a="hide">${I.eye}</button></div>
+    <div class="actions">${act('topup', 'Пополнить', 'soon')}${act('transfer', 'Перевести', 'sheet', 'data-s="topup"')}${act('wallet', 'Оплатить', 'soon')}</div>
+  </div>
+  <div class="body">
+    ${pend.length ? `<div class="banner" data-a="go" data-to="requests"><div class="ic">${I.bell}</div><div style="flex:1"><b>Запросы от детей: ${pend.length}</b><small>${esc(pend.map(r => child(r.child)?.name).filter((v, i, a) => a.indexOf(v) === i).join(', '))} ждут вашего ответа</small></div><div class="chev" style="color:#AEB9CB">${I.chev}</div></div>` : ''}
+    ${S.children.length ? `
+    <div class="card"><h3>Моя семья <a data-a="tab" data-to="family">Управлять</a></h3>
+      <div class="kids" style="margin-top:6px">${S.children.map(ch => `
+        <div class="kidrow" data-a="go" data-to="child" data-id="${ch.id}">${kava(ch)}<div class="tx"><b>${esc(ch.name)}, ${ch.age} ${ch.age < 5 ? 'года' : 'лет'} ${groupTag(ch)}</b><small>${ch.cardBlocked ? '<span class="tag lock">Карта заблокирована</span>' : `Крок ${levelOf(ch.xp).n} · ${ch.cardType.toLowerCase()}`}</small></div><b>${fmt(ch.balance)}</b></div>`).join('')}
+      </div>
+      <button class="btn ghost" style="margin-top:10px" data-a="startOb">${I.plus} Добавить ребёнка</button>
+    </div>
+    ${familyGoalCard()}
+    ` : promo()}
+    <div class="card"><h3>Лента семьи</h3>${S.feed.length ? S.feed.slice(0, 4).map(f => `<div class="row" style="cursor:default"><div class="ic solid">${f.a ? I.wallet : I.star}</div><div class="tx"><b style="font-size:14.5px">${esc(f.t)}</b><small>${f.d}</small></div>${f.a ? `<div class="amt ${f.a > 0 ? 'plus' : ''}">${f.a > 0 ? '+' : '−'}${fmt(Math.abs(f.a))}</div>` : ''}</div>`).join('') : '<div class="empty">Здесь появятся покупки и успехи детей</div>'}</div>
+  </div>`;
+};
+function promo() {
+  return `<div class="promo"><div class="art"></div><div class="art b"></div>
+    <h2>Семья в Moby</h2>
+    <p>Карта ребёнку с 7 лет, свой вход в Moby, лимиты, копилки и задания с наградами.</p>
+    <button class="btn white" style="width:auto;padding:11px 18px" data-a="startOb">Подробнее</button></div>`;
+}
+function familyGoalCard() {
+  const g = S.familyGoal;
+  return `<div class="card goal"><div class="goal-h"><div class="em" style="background:var(--blue-bg)">${g.icon}</div><div class="tx"><small class="muted">Семейная цель</small><b>${g.title}</b></div><b>${pct(g.saved, g.target)}%</b></div>
+    <div class="bar"><i style="width:${pct(g.saved, g.target)}%"></i></div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><small class="muted">${fmt(g.saved)} из ${fmt(g.target)} · копит вся семья</small>${S.mode === 'parent' ? '<button class="sbtn" data-a="famGoal" data-v="50">+50 BYN</button>' : '<button class="sbtn" data-a="famGoal" data-v="2">+2 BYN</button>'}</div></div>`;
+}
+P.products = () => `
+  <div style="padding:52px 16px 0"><div class="promo" style="cursor:pointer" data-a="${S.children.length ? 'tab' : 'startOb'}" data-to="family"><div class="art"></div><div class="art b"></div><h2>Новое: Семья в Moby</h2><p>Детская карта и пакет услуг для всей семьи. Обслуживание 0 BYN.</p></div></div>
+  <div class="page">
+    <div class="prod" data-a="soon">${I.cards}<div><b>Карты и счета</b><small>Ваши карты и счета</small></div></div>
+    <div class="prod" data-a="${S.children.length ? 'tab' : 'startOb'}" data-to="family">${I.family}<div><b>Семья <span class="new">NEW</span></b><small>Карты детей, лимиты, задания и копилки</small></div></div>
+    <div class="prod" data-a="soon">${I.wallet}<div><b>Кредиты</b><small>Ваши кредитные продукты</small></div></div>
+    <div class="prod" data-a="soon">${I.piggy}<div><b>Вклады</b><small>Ваши сбережения и вклады</small></div></div>
+    <div style="border-top:1px solid var(--line);margin:4px 0"></div>
+    <div class="prod" data-a="soon">${I.briefcase}<div><b>Заявки на продукты</b><small>Ваши заявки на кредитные и иные продукты банка</small></div></div>
+  </div>`;
+P.family = () => {
+  const pend = S.requests.filter(r => r.status === 'pending').length;
+  return `
+  <div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Семья</h1></div>
+  <div class="page" style="padding-top:0">
+    ${S.children.length ? S.children.map(ch => `
+      <div class="card" data-a="go" data-to="child" data-id="${ch.id}" style="cursor:pointer">
+        <div class="kidrow" style="border:0;padding:0">${kava(ch)}<div class="tx"><b>${esc(ch.name)} ${groupTag(ch)}</b><small>Крок ${levelOf(ch.xp).n} · ${ch.coins} Маничек</small></div><div style="text-align:right"><b>${fmt(ch.balance)}</b><small class="muted">сегодня −${fmt(ch.spentToday)}</small></div></div>
+        <div class="bar ${ch.group === 'kid' ? 'orange' : 'violet'}" style="margin-top:12px"><i style="width:${pct(ch.spentToday, ch.limits.day)}%"></i></div>
+        <small class="muted">Дневной лимит ${fmt(ch.limits.day)}</small>
+      </div>`).join('') : promo()}
+    <div class="grid2">
+      <button class="tile" data-a="go" data-to="requests"><span class="ic">${I.bell}</span><b>Запросы ${pend ? `<span class="tag wait">${pend}</span>` : ''}</b><small>Деньги, покупки, доступ</small></button>
+      <button class="tile" data-a="sheet" data-s="newTask"><span class="ic">${I.tasks}</span><b>Задание</b><small>Поручение с наградой</small></button>
+      <button class="tile" data-a="sheet" data-s="topup"><span class="ic">${I.transfer}</span><b>Перевести</b><small>Мгновенно, без комиссии</small></button>
+      <button class="tile" data-a="startOb"><span class="ic">${I.plus}</span><b>Добавить</b><small>Ещё одного ребёнка</small></button>
+    </div>
+    ${S.children.length ? familyGoalCard() : ''}
+    <div class="card"><h3>Пакет «Семья»</h3>
+      <div class="row" style="cursor:default"><div class="ic solid">${I.card}</div><div class="tx"><b>Детские карты — 0 BYN</b><small>До 4 карт: пластик, стикер или браслет</small></div></div>
+      <div class="row" style="cursor:default"><div class="ic solid">${I.coins}</div><div class="tx"><b>Манички ×2 в детских категориях</b><small>Детские товары, аптеки, образование, досуг</small></div></div>
+      <div class="row" style="cursor:default"><div class="ic solid">${I.piggy}</div><div class="tx"><b>+1% к ставке по вкладу родителя</b><small>Если у ребёнка есть активная копилка</small></div></div>
+      <div class="row" style="cursor:default"><div class="ic solid">${I.shield}</div><div class="tx"><b>Страхование ребёнка</b><small>Несчастный случай и спорт — от 2 BYN в месяц</small></div></div>
+    </div>
+  </div>`;
+};
+P.child = p => {
+  const ch = child(p.id); if (!ch) return P.family();
+  const lv = levelOf(ch.xp), nx = nextLevel(ch.xp);
+  const catRow = (k, sub) => `<div class="setrow"><div class="tx"><b>${PERMS['cats.' + k]}</b><small>${sub}</small></div>${toggle(ch.cats[k], 'perm', `data-id="${ch.id}" data-k="cats.${k}"`)}</div>`;
+  const permRow = (k, sub) => `<div class="setrow"><div class="tx"><b>${PERMS['perms.' + k]}</b><small>${sub}</small></div>${toggle(ch.perms[k], 'perm', `data-id="${ch.id}" data-k="perms.${k}"`)}</div>`;
+  const step = (label, sub, field, d) => `<div class="setrow"><div class="tx"><b>${label}</b><small>${sub}</small></div><div class="stepper"><button data-a="step" data-id="${ch.id}" data-f="${field}" data-d="-${d}">−</button><span>${getP(ch, field)} BYN</span><button data-a="step" data-id="${ch.id}" data-f="${field}" data-d="${d}">+</button></div></div>`;
+  return `
+  <div class="hero ${ch.group}" style="padding-top:50px">
+    <div class="hero-top"><button class="eye" data-a="back" style="margin-right:-4px">${I.back}</button>${kava(ch)}<div><div class="hero-name">${esc(ch.name)}, ${ch.age}</div><div class="hero-sub">${ch.group === 'kid' ? 'Дополнительная карта к вашему счёту' : 'Собственный счёт · ваше согласие'}</div></div></div>
+    <div class="bal-row"><div class="bal">${fmt(ch.balance)}</div></div>
+    <div class="actions">${act('topup', 'Пополнить', 'sheet', `data-s="topup" data-id="${ch.id}"`)}${act(ch.cardBlocked ? 'unlock' : 'lock', ch.cardBlocked ? 'Разблок.' : 'Блок карты', 'block', `data-id="${ch.id}"`)}${act('tasks', 'Задание', 'sheet', `data-s="newTask" data-id="${ch.id}"`)}</div>
+  </div>
+  <div class="body">
+    ${bankcard(ch)}
+    <div class="card"><h3>Прогресс <span class="tag ${ch.group}">Крок ${lv.n}: ${lv.t}</span></h3>
+      <div class="bar ${ch.group === 'kid' ? 'orange' : 'violet'}" style="margin-top:12px"><i style="width:${nx ? pct(ch.xp - lv.xp, nx.xp - lv.xp) : 100}%"></i></div>
+      <small class="muted">${nx ? `${ch.xp} / ${nx.xp} опыта до «Крок ${nx.n}»` : 'Максимальный уровень'} · уроков пройдено: ${ch.lessons.length} · ${ch.coins} Маничек</small>
+    </div>
+    <div class="card"><h3>Карманные деньги</h3>
+      <div class="setrow"><div class="tx"><b>Каждый понедельник</b><small>Автоперевод с вашей карты ${S.parent.card}</small></div>${toggle(ch.allowance.on, 'allow', `data-id="${ch.id}"`)}</div>
+      ${step('Сумма', 'в неделю', 'allowance.amount', ch.group === 'kid' ? 1 : 5)}
+      <div class="setrow"><div class="tx"><b>Доплата к копилке +10%</b><small>Вы добавляете 10% к каждому взносу ребёнка</small></div>${toggle(ch.parentBonus, 'flag', `data-id="${ch.id}" data-k="parentBonus"`)}</div>
+      <div class="setrow"><div class="tx"><b>Сдачу — в копилку</b><small>Округлять покупки до 1 BYN</small></div>${toggle(ch.roundup, 'flag', `data-id="${ch.id}" data-k="roundup"`)}</div>
+    </div>
+    <div class="card"><h3>Лимиты</h3>
+      ${step('В день', `сегодня потрачено ${fmt(ch.spentToday)}`, 'limits.day', 5)}
+      ${step('В месяц', 'на все покупки', 'limits.month', 50)}
+      ${step('Подтверждать', 'покупки дороже этой суммы', 'confirmAbove', 5)}
+    </div>
+    <div class="card"><h3>Категории покупок</h3>
+      ${catRow('online', 'Маркетплейсы и интернет-магазины')}
+      ${catRow('games', 'Внутриигровые покупки и донаты')}
+      ${catRow('cash', 'Банкоматы')}
+      ${catRow('fastfood', 'Кафе, бургерные, кофейни')}
+      <div class="setrow"><div class="tx"><b>Азартные игры, ставки</b><small>Запрещено банком до 18 лет</small></div>${toggle(false, 'locked', '', true)}</div>
+      <div class="setrow"><div class="tx"><b>Товары 18+</b><small>Табак, алкоголь, вейпы — запрещено банком</small></div>${toggle(false, 'locked', '', true)}</div>
+    </div>
+    <div class="card"><h3>Доступ в Moby</h3>
+      ${permRow('goals', 'Создавать копилки и цели')}
+      ${permRow('virtualCard', 'Платить телефоном, пока нет пластика')}
+      ${permRow('erip', 'Связь, проезд, кружки')}
+      ${permRow('p2p', 'По номеру телефона +375')}
+      ${permRow('subs', 'Отдельная карта для подписок, лимит 20 BYN')}
+      ${ch.group === 'teen' ? `<div class="setrow"><div class="tx"><b>Свой вклад</b><small>С 14 лет можно открыть самостоятельно (ст. 26 ГК РБ)</small></div><span class="tag ok">Доступно по закону</span></div>` : permRow('deposit', 'Только с вашего согласия до 14 лет')}
+      <div class="setrow"><div class="tx"><b>Кредиты и рассрочка</b><small>Недоступны до 18 лет</small></div>${toggle(false, 'locked', '', true)}</div>
+    </div>
+    <div class="card"><h3>Задания</h3>
+      ${ch.tasks.length ? ch.tasks.map(t => `<div class="row" style="cursor:default"><div class="ic solid">${I.tasks}</div><div class="tx"><b>${esc(t.title)}</b><small>Награда ${fmt(t.reward)}</small></div>${taskTag(t)}</div>`).join('') : '<div class="empty">Нет заданий</div>'}
+      <button class="btn ghost" style="margin-top:8px" data-a="sheet" data-s="newTask" data-id="${ch.id}">${I.plus} Новое задание</button>
+    </div>
+    ${ch.group === 'teen' ? `<div class="card"><h3>Собственные средства</h3><div class="setrow"><div class="tx"><b>Заработок: ${fmt(ch.income)}</b><small>По ст. 26 ГК РБ подросток сам распоряжается своим заработком — лимиты на этот счёт не действуют</small></div></div>${ch.deposit ? `<div class="setrow"><div class="tx"><b>Вклад: ${fmt(ch.deposit.sum)}</b><small>${ch.deposit.rate}% годовых (условно)</small></div></div>` : ''}</div>` : ''}
+    <div class="card"><h3>Операции</h3>${opsList(ch.ops, 8)}</div>
+    <div class="card"><h3>Безопасность</h3>
+      <div class="row" data-a="block" data-id="${ch.id}"><div class="ic">${I.lock}</div><div class="tx"><b>${ch.cardBlocked ? 'Разблокировать карту' : 'Заблокировать карту'}</b><small>Мгновенно, ребёнок увидит уведомление</small></div></div>
+      <div class="row" data-a="reissue" data-id="${ch.id}"><div class="ic">${I.repeat}</div><div class="tx"><b>Потеряли карту?</b><small>Блокировка + перевыпуск, виртуальная карта сразу</small></div></div>
+      <div class="row" data-a="toast" data-t="Заявка на оспаривание создана — ответ в чате в течение 10 дней"><div class="ic">${I.doc}</div><div class="tx"><b>Оспорить операцию</b><small>Понятный порядок: заявка в чате банка</small></div></div>
+    </div>
+  </div>`;
+};
+function taskTag(t) {
+  return { open: '<span class="tag">В работе</span>', review: '<span class="tag wait">На проверке</span>', paid: '<span class="tag ok">Оплачено</span>' }[t.status];
+}
+const REQ_LABEL = { money: 'Просит деньги', perm: 'Просит доступ', purchase: 'Покупка ждёт подтверждения', limit: 'Просит увеличить лимит', level: 'Новый уровень', task: 'Задание выполнено', goal: 'Просит поддержать копилку' };
+function reqText(r) {
+  if (r.type === 'money') return `<b>${fmt(r.amount)}</b>`;
+  if (r.type === 'perm') return `<b>${PERMS[r.key]}</b>`;
+  if (r.type === 'purchase') return `<b>${esc(r.m.t)} · ${fmt(r.m.a)}</b>`;
+  if (r.type === 'limit') return `<b>Дневной лимит до ${r.newDay} BYN</b>`;
+  if (r.type === 'level') return `<b>Крок ${r.level}</b>`;
+  if (r.type === 'task') { const t = child(r.child).tasks.find(x => x.id === r.task); return `<b>${esc(t.title)} · ${fmt(t.reward)}</b>`; }
+  if (r.type === 'goal') return `<b>${fmt(r.amount)} в копилку</b>`;
+  return '';
+}
+P.requests = () => {
+  const pend = S.requests.filter(r => r.status === 'pending');
+  const done = S.requests.filter(r => r.status !== 'pending').slice(0, 6);
+  return `${topbar('Запросы детей')}
+  <div class="page">
+    <div class="card">${pend.length ? pend.map(r => { const ch = child(r.child); return `
+      <div class="req"><div class="req-h">${kava(ch)}<div class="tx"><small>${ch.name} · ${REQ_LABEL[r.type]} · ${r.d}</small>${reqText(r)}</div></div>
+      ${r.reason ? `<div class="reason">${esc(r.reason)}</div>` : ''}
+      <div class="btns"><button class="btn red" data-a="resolve" data-id="${r.id}" data-ok="0">Отклонить</button><button class="btn green" data-a="resolve" data-id="${r.id}" data-ok="1">${r.type === 'level' ? 'Расширить' : 'Одобрить'}</button></div></div>`; }).join('') : '<div class="empty">Новых запросов нет</div>'}</div>
+    ${done.length ? `<div class="sec-title">История</div><div class="card">${done.map(r => `<div class="row" style="cursor:default">${kava(child(r.child))}<div class="tx"><b style="font-size:14px">${REQ_LABEL[r.type]}</b><small>${reqText(r).replace(/<\/?b>/g, '')}</small></div><span class="tag ${r.status === 'approved' ? 'ok' : 'lock'}">${r.status === 'approved' ? 'Одобрено' : 'Отклонено'}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+};
+P.chat = () => `${topbar('Чат', `<span style="color:var(--blue)">${sv('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 'width="26" height="26"')}</span>`)}<div class="page white"><div class="empty" style="padding-top:200px">Отправьте сообщение чтобы начать чат</div></div>`;
+P.more = () => `<div class="page" style="padding-top:56px"><div class="menu">
+  ${[['settings', 'Настройки'], ['user', 'Персональные данные'], ['doc', 'Документы'], ['family', 'Семейный доступ', 'Согласия и доступ детей'], ['bell', 'Уведомления'], ['coins', 'Манички. Вход в программу приятностей'], ['shield', 'Ваша безопасность']].map(m => `<div class="item" data-a="${m[0] === 'family' ? 'tab' : 'soon'}" data-to="family"><div class="ic">${I[m[0]]}</div><div class="tx">${m[1]}${m[2] ? `<small>${m[2]}</small>` : ''}</div><div style="color:#AEB9CB">${I.chev}</div></div>`).join('')}
+  </div><p class="muted" style="text-align:center;margin-top:8px">Версия прототипа 0.1</p></div>`;
+
+/* ---------- onboarding ---------- */
+const OB_STEPS = 6;
+P.onboard = () => {
+  const o = ui.ob; const st = o.step;
+  const steps = `<div class="steps">${Array.from({ length: OB_STEPS }, (_, i) => `<i class="${i <= st ? 'on' : ''}"></i>`).join('')}</div>`;
+  let body = '', cta = '', ok = true;
+  if (st === 0) {
+    body = `<div class="promo" style="margin-bottom:4px"><div class="art"></div><div class="art b"></div><h2>Пакет «Семья»</h2><p>Всё для финансов ребёнка — в вашем Moby.</p></div>
+    <div class="card">${[
+      ['card', 'Карта ребёнку с 7 лет', 'Пластик, платёжный стикер или браслет. Обслуживание 0 BYN'],
+      ['phone', 'Свой вход в Moby', 'Детский или подростковый режим — доступ даёте вы'],
+      ['sliders', 'Полный контроль', 'Лимиты, категории, подтверждение покупок, блокировка'],
+      ['piggy', 'Копилки и задания', 'Карманные деньги по расписанию и награды за дела'],
+      ['game', 'Игра «Крок»', 'Уроки финграмотности и уровни самостоятельности'],
+      ['coins', 'Манички всей семье', 'Баллы копятся отдельно у ребёнка и у вас'],
+    ].map(x => `<div class="row" style="cursor:default"><div class="ic solid">${I[x[0]]}</div><div class="tx"><b>${x[1]}</b><small>${x[2]}</small></div></div>`).join('')}</div>
+    <div class="legal">${I.info}<span>Оформление онлайн за 3 минуты. Для ребёнка до 14 лет нужны данные свидетельства о рождении, с 14 лет — паспорт или ID-карта ребёнка.</span></div>`;
+    cta = 'Оформить';
+  }
+  if (st === 1) {
+    ok = o.name.trim().length > 1 && o.group;
+    body = `<h2 style="font-size:22px">Кто ваш ребёнок?</h2>
+    <div class="field"><label>Имя ребёнка</label><input data-bind="name" value="${esc(o.name)}" placeholder="Например, Соня" maxlength="20"></div>
+    <div class="sec-title">Возраст определяет состав пакета</div>
+    <button class="choice ${o.group === 'kid' ? 'on' : ''}" data-a="ob" data-k="group" data-v="kid"><span class="em">🧒</span><span><b>7–13 лет · «Первая карта»</b><small>Дополнительная карта к вашему счёту. Договор заключаете вы — ребёнок до 14 лет сам совершает только мелкие бытовые сделки (ст. 25 ГК РБ).</small></span></button>
+    <button class="choice ${o.group === 'teen' ? 'on' : ''}" data-a="ob" data-k="group" data-v="teen"><span class="em">🧑</span><span><b>14–17 лет · «Свой счёт»</b><small>Счёт и карта на имя подростка с вашего письменного согласия. Подросток сам распоряжается заработком и может открыть вклад (ст. 26 ГК РБ).</small></span></button>`;
+    cta = 'Далее';
+  }
+  if (st === 2) {
+    const c = o.consents; ok = c.rep && c.pd && c.terms;
+    const ck = (k, t, s) => `<button class="check ${c[k] ? 'on' : ''}" data-a="obc" data-k="${k}"><span class="box">${c[k] ? I.check : ''}</span><span>${t}<small>${s}</small></span></button>`;
+    body = `<h2 style="font-size:22px">Согласия</h2><p class="muted">Подтверждаются в приложении смарт-кодом, бумажный визит в банк не нужен.</p>
+    <div class="card" style="padding:8px 16px">
+      ${ck('rep', 'Я законный представитель ребёнка', 'Данные сверяются с реестром населения через МСИ')}
+      ${ck('pd', 'Согласие на обработку персональных данных ребёнка', 'Закон РБ № 99-З «О защите персональных данных». Данные ребёнка не передаются партнёрам')}
+      ${ck('terms', o.group === 'kid' ? 'Выпуск дополнительной карты к моему счёту' : 'Согласие на открытие счёта подростку', 'Условия пакета «Семья», тарифы 0 BYN')}
+      ${ck('mkt', 'Персональные предложения партнёров', 'Необязательно. Детям — только образование, спорт и досуг')}
+    </div>`;
+    cta = 'Подтвердить';
+  }
+  if (st === 3) {
+    const types = [['Пластиковая карта', '💳', 'Классика, доставка 3–5 дней'], ['Платёжный стикер', '🏷', 'Клеится на телефон или пенал'], ['Браслет NFC', '⌚', 'Сложно потерять — для младших']];
+    body = `<h2 style="font-size:22px">Выберите карту</h2><p class="muted">Её получит ${esc(o.name)}</p>
+    ${types.map(t => `<button class="choice ${o.card === t[0] ? 'on' : ''}" data-a="ob" data-k="card" data-v="${t[0]}"><span class="em">${t[1]}</span><span><b>${t[0]}</b><small>${t[2]}</small></span></button>`).join('')}
+    <div class="legal">${I.info}<span>Виртуальная карта будет доступна сразу после оформления — ребёнок сможет платить телефоном, пока физическая карта в пути.</span></div>`;
+    cta = 'Выпустить';
+  }
+  if (st === 4) {
+    const code = 'MOBY-' + (4800 + S.seq % 200);
+    let cells = '';
+    for (let i = 0; i < 225; i++) {
+      const x = i % 15, y = Math.floor(i / 15);
+      const fx = x < 4 ? x : x > 10 ? x - 11 : -1, fy = y < 4 ? y : y > 10 ? y - 11 : -1;
+      const finder = fx >= 0 && fy >= 0 && !(x > 10 && y > 10);
+      const on = finder ? !(fx > 0 && fx < 3 && fy > 0 && fy < 3) || (fx === 1 && fy === 1) : (x * 7 + y * 13 + x * y + S.seq) % 3 === 0;
+      cells += `<i class="${on ? '' : 'w'}"></i>`;
+    }
+    body = `<h2 style="font-size:22px">Доступ в Moby</h2><p class="muted">${esc(o.name)} скачивает Moby на свой телефон, выбирает «Я ребёнок» и сканирует код. Свой смарт-код ребёнок придумает сам.</p>
+    <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:14px"><div class="qr">${cells}</div><div class="code">${code}</div><small class="muted">Код действует 24 часа и только один раз</small></div>
+    <div class="legal">${I.shield}<span>Вход ребёнка привязан к его устройству. Вы можете отключить доступ в любой момент.</span></div>`;
+    cta = 'Ребёнок вошёл';
+  }
+  if (st === 5) {
+    const ps = o.group === 'kid'
+      ? [['strict', 'Строгий', '10 BYN в день, подтверждение от 5 BYN, только офлайн-покупки'], ['balanced', 'Сбалансированный', '15 BYN в день, подтверждение от 10 BYN, без онлайна и игр'], ['free', 'Свободный', '25 BYN в день, онлайн-покупки, без игр']]
+      : [['strict', 'Строгий', '30 BYN в день, подтверждение от 25 BYN, без онлайна'], ['balanced', 'Сбалансированный', '60 BYN в день, онлайн-покупки и ЕРИП, без игр'], ['free', 'Свободный', '100 BYN в день, всё кроме запрещённого банком']];
+    body = `<h2 style="font-size:22px">Ограничения</h2><p class="muted">Выберите стартовый режим — всё можно поменять позже.</p>
+    ${ps.map(p => `<button class="choice ${o.preset === p[0] ? 'on' : ''}" data-a="ob" data-k="preset" data-v="${p[0]}"><span class="em">${p[0] === 'strict' ? '🛡' : p[0] === 'balanced' ? '⚖️' : '🚀'}</span><span><b>${p[1]}</b><small>${p[2]}</small></span></button>`).join('')}
+    <div class="card"><div class="setrow"><div class="tx"><b>Карманные деньги</b><small>Каждый понедельник</small></div><div class="stepper"><button data-a="obAllow" data-d="-${o.group === 'kid' ? 1 : 5}">−</button><span>${o.allowance} BYN</span><button data-a="obAllow" data-d="${o.group === 'kid' ? 1 : 5}">+</button></div></div></div>
+    <div class="legal">${I.lock}<span>Азартные игры, ставки и товары 18+ закрыты всегда — эту защиту банк включает автоматически.</span></div>`;
+    cta = 'Готово';
+  }
+  return `${topbar(st === 0 ? 'Семья в Moby' : 'Оформление', '')}${steps}<div class="page">${body}<button class="btn" data-a="obNext" ${ok ? '' : 'disabled'}>${cta}</button></div>`;
+};
+function finishOb() {
+  const o = ui.ob, g = o.group;
+  const presets = {
+    kid: { strict: [10, 100, 5, { online: false, games: false, cash: false, fastfood: false }], balanced: [15, 150, 10, { online: false, games: false, cash: false, fastfood: true }], free: [25, 250, 15, { online: true, games: false, cash: false, fastfood: true }] },
+    teen: { strict: [30, 250, 25, { online: false, games: false, cash: true, fastfood: true }], balanced: [60, 400, 50, { online: true, games: false, cash: true, fastfood: true }], free: [100, 700, 80, { online: true, games: true, cash: true, fastfood: true }] },
+  }[g][o.preset];
+  const id = nid('c');
+  const ch = {
+    id, name: o.name.trim(), age: g === 'kid' ? 8 : 14, group: g, color: ['#1E9E58', '#F0468C', '#0FA3C8', '#E8A100'][S.children.length % 4],
+    balance: 0, spentToday: 0, cardBlocked: false, cardType: o.card, cardNum: '5*' + (1000 + S.seq * 7 % 9000),
+    limits: { day: presets[0], month: presets[1] }, confirmAbove: presets[2], cats: presets[3],
+    perms: g === 'kid' ? { goals: true, virtualCard: true, erip: false, p2p: false, deposit: false, subs: false } : { goals: true, virtualCard: true, erip: true, p2p: true, deposit: true, subs: false },
+    allowance: { on: true, amount: o.allowance }, parentBonus: g === 'kid', roundup: g === 'kid',
+    xp: 0, coins: 50, lessons: [], goals: [], tasks: [], ops: [], subs: [], income: 0, deposit: null,
+  };
+  S.children.push(ch);
+  addFeed(ch, `${ch.name} подключён к пакету «Семья»`);
+  ui.ob = null;
+  ui.routes.parent = [{ n: 'home' }, { n: 'child', p: { id } }];
+  toast(`Готово! Карта ${ch.name} выпущена, виртуальная уже работает`);
+  render();
+}
+
+/* ================= KID 7–13 ================= */
+const K = {};
+function noChild(group) {
+  return `<div class="page" style="padding-top:120px;text-align:center;align-items:center"><div style="font-size:56px">${group === 'kid' ? '🧒' : '🧑'}</div><h2 style="font-family:Montserrat">Пока нет доступа</h2><p class="muted" style="max-width:260px">Родитель ещё не подключил ${group === 'kid' ? 'ребёнка 7–13 лет' : 'подростка 14–17 лет'} к пакету «Семья». Переключитесь на режим «Родитель» и добавьте ребёнка.</p><button class="btn" style="max-width:260px" data-a="mode" data-m="parent">Перейти к родителю</button></div>`;
+}
+function myReqs(ch) {
+  const rs = S.requests.filter(r => r.child === ch.id).slice(0, 3);
+  if (!rs.length) return '';
+  return `<div class="card"><h3>Мои запросы</h3>${rs.map(r => `<div class="row" style="cursor:default"><div class="ic solid">${I.send}</div><div class="tx"><b style="font-size:14.5px">${REQ_LABEL[r.type]}</b><small>${reqText(r).replace(/<\/?b>/g, '')}</small></div><span class="tag ${r.status === 'pending' ? 'wait' : r.status === 'approved' ? 'ok' : 'lock'}">${r.status === 'pending' ? 'Ждём' : r.status === 'approved' ? 'Да' : 'Нет'}</span></div>`).join('')}</div>`;
+}
+function levelBox(ch) {
+  const lv = levelOf(ch.xp), nx = nextLevel(ch.xp);
+  return `<div class="lvl" data-a="tab" data-to="${S.mode === 'kid' ? 'learn' : 'krok'}" style="cursor:pointer"><div class="n">${lv.n}</div><div class="tx"><b>Крок ${lv.n}: ${lv.t}</b>${nx ? `${ch.xp} / ${nx.xp} опыта` : 'Максимум!'}<div class="bar"><i style="width:${nx ? pct(ch.xp - lv.xp, nx.xp - lv.xp) : 100}%"></i></div></div><span class="coins">${coin}${ch.coins}</span></div>`;
+}
+K.home = () => {
+  const ch = kid(); if (!ch) return noChild('kid');
+  const open = ch.tasks.filter(t => t.status === 'open');
+  return `
+  <div class="hero kid">
+    <div class="hero-top"><div class="ava">🦊</div><div><div class="hero-name">Привет, ${esc(ch.name)}!</div><div class="hero-sub">У тебя на карте</div></div></div>
+    <div class="bal-row"><div class="bal">${fmt(ch.balance)}</div></div>
+    ${levelBox(ch)}
+    <div class="actions">${act('send', 'Попросить', 'sheet', 'data-s="reqMoney"')}${act('wallet', 'Оплатить', 'go', 'data-to="pay"')}${act('piggy', 'Копилки', 'tab', 'data-to="goals"')}</div>
+  </div>
+  <div class="body">
+    ${bankcard(ch, true)}
+    ${ch.cardBlocked ? `<div class="legal">${I.lock}<span>Карта заблокирована. Если нашлась — попроси родителя разблокировать.</span></div>` : `<button class="btn red" data-a="kidLost">${I.lock} Я потерял карту</button>`}
+    ${open.length ? `<div class="card"><h3>Задания от родителей <a data-a="tab" data-to="tasks">Все</a></h3>${open.slice(0, 2).map(t => `<div class="row" style="cursor:default"><div class="ic solid">${I.tasks}</div><div class="tx"><b>${esc(t.title)}</b><small>+${fmt(t.reward)} · +40 опыта</small></div><button class="sbtn green" data-a="taskDone" data-id="${t.id}">Сделал!</button></div>`).join('')}</div>` : ''}
+    ${ch.goals[0] ? goalCard(ch, ch.goals[0], true) : ''}
+    <div class="banner" data-a="go" data-to="fraud"><div class="ic" style="background:#FDE8EA;color:var(--red)">${I.shield}</div><div style="flex:1"><b>Игра: распознай мошенника</b><small>+5 Маничек за каждый правильный ответ</small></div></div>
+    ${myReqs(ch)}
+    <div class="card"><h3>Мои покупки</h3>${opsList(ch.ops, 5)}</div>
+  </div>`;
+};
+K.goals = () => {
+  const ch = kid(); if (!ch) return noChild('kid');
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Копилки</h1></div>
+  <div class="page" style="padding-top:0">
+    ${ch.parentBonus ? `<div class="banner" style="cursor:default"><div class="ic">${I.gift}</div><div><b>Родители добавляют +10%</b><small>Положи 10 BYN — в копилке станет 11 BYN</small></div></div>` : ''}
+    ${ch.goals.map(g => goalCard(ch, g, true)).join('') || '<div class="empty">Копилок пока нет</div>'}
+    ${ch.roundup ? `<div class="legal">${I.coins}<span>Сдача с покупок округляется и падает в копилку «${esc(ch.goals[0]?.title || '')}».</span></div>` : ''}
+    ${familyGoalCard()}
+    ${ch.perms.goals ? `<button class="btn" data-a="sheet" data-s="newGoal">${I.plus} Новая цель</button>` : ''}
+  </div>`;
+};
+K.tasks = () => {
+  const ch = kid(); if (!ch) return noChild('kid');
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Задания</h1></div>
+  <div class="page" style="padding-top:0">
+    <p class="muted">Выполняй задания от родителей и получай деньги и опыт для нового уровня.</p>
+    ${ch.tasks.map(t => `<div class="card" style="display:flex;gap:12px;align-items:center"><div style="font-size:28px">${t.status === 'paid' ? '✅' : t.status === 'review' ? '⏳' : '📝'}</div><div style="flex:1"><b style="font-weight:500">${esc(t.title)}</b><div class="muted">+${fmt(t.reward)} · +40 опыта</div></div>${t.status === 'open' ? `<button class="sbtn green" data-a="taskDone" data-id="${t.id}">Сделал!</button>` : taskTag(t)}</div>`).join('') || '<div class="empty">Пока заданий нет — попроси родителей придумать!</div>'}
+  </div>`;
+};
+const LESSONS = {
+  kid: [
+    { id: 'money', t: 'Откуда берутся деньги', icon: '💰', q: [
+      ['Откуда у родителей деньги на карте?', ['Банк их дарит', 'Родители зарабатывают их на работе', 'Они появляются сами'], 1],
+      ['Хочешь игрушку прямо сейчас. Что лучше сделать?', ['Подождать день — вдруг желание пройдёт', 'Сразу купить, пока не передумал'], 0],
+      ['Карманные деньги — это…', ['Деньги, которыми ты учишься распоряжаться сам', 'Деньги только на сладости'], 0]] },
+    { id: 'save', t: 'Копить или тратить', icon: '🐷', q: [
+      ['Самокат стоит 120 BYN, ты получаешь 10 BYN в неделю. Сколько недель копить?', ['6', '12', '20'], 1],
+      ['Что такое копилка-цель?', ['Деньги, которые откладываешь на что-то важное', 'Деньги для игр', 'Долг'], 0],
+      ['Родители добавляют 10% к взносу. Ты положил 10 BYN. Сколько стало?', ['10 BYN', '11 BYN', '20 BYN'], 1]] },
+    { id: 'safe', t: 'Безопасность карты', icon: '🔐', q: [
+      ['Ты потерял карту. Что делать?', ['Ничего, найдётся', 'Сразу заблокировать в Moby и сказать родителям', 'Попросить друга поискать'], 1],
+      ['Пишут: «Скажи код из SMS и получишь скин в игре». Что делать?', ['Сказать код', 'Никому не говорить и показать родителям'], 1],
+      ['PIN-код от карты можно…', ['Написать на карте', 'Сказать лучшему другу', 'Держать в секрете'], 2]] },
+  ],
+  teen: [
+    { id: 'budget', t: 'Бюджет 50/30/20', icon: '📊', q: [
+      ['Правило 50/30/20 — это…', ['50% нужное, 30% желания, 20% накопления', '50% накопления, 30% игры, 20% еда'], 0],
+      ['Получила 100 BYN. Сколько отложить по правилу?', ['5 BYN', '20 BYN', '50 BYN'], 1],
+      ['Что лучше помогает понять, куда уходят деньги?', ['Аналитика трат по категориям', 'Угадывать'], 0]] },
+    { id: 'deposit', t: 'Как работает вклад', icon: '🏦', q: [
+      ['100 BYN на год под 10% годовых. Сколько будет через год?', ['101 BYN', '110 BYN', '200 BYN'], 1],
+      ['Чем вклад отличается от копилки?', ['Банк начисляет проценты', 'Ничем'], 0],
+      ['С какого возраста в Беларуси можно самому открыть вклад?', ['С 18 лет', 'С 14 лет', 'С 10 лет'], 1]] },
+    { id: 'subs', t: 'Подписки без сюрпризов', icon: '🔁', q: [
+      ['Пробный период 0 BYN, потом 15 BYN в месяц. Что сделать сразу?', ['Отключить автопродление или поставить напоминание', 'Ничего'], 0],
+      ['Где удобнее держать подписки?', ['На отдельной виртуальной карте с лимитом', 'На основной карте без лимита'], 0],
+      ['5 подписок по 7 BYN — это в год:', ['35 BYN', '84 BYN', '420 BYN'], 2]] },
+  ],
+};
+const FRAUD = [
+  { from: 'SMS · «Банк»', text: 'Ваша карта заблокирована! Срочно перейдите по ссылке bank-unlock.online и введите номер карты и CVV.', fraud: true, why: 'Банк никогда не просит ввести данные карты по ссылке. Адрес сайта поддельный.' },
+  { from: 'Звонок', text: '«Служба безопасности банка. Назовите код из SMS, чтобы отменить подозрительный перевод».', fraud: true, why: 'Сотрудники банка никогда не спрашивают коды из SMS. Положи трубку и расскажи родителям.' },
+  { from: 'Moby', text: 'Карманные деньги: +10,00 BYN от папы.', fraud: false, why: 'Обычное уведомление в приложении — оно ничего не просит.' },
+  { from: 'Мессенджер · «Друг»', text: 'Привет! Пишу с нового номера. Срочно скинь 20 BYN, вечером верну.', fraud: true, why: 'Аккаунт друга могли взломать. Позвони другу и проверь.' },
+  { from: 'Игра', text: 'Бесплатные 10 000 кристаллов! Введи номер карты и срок действия, чтобы получить.', fraud: true, why: 'Бесплатное не требует данных карты. Это ловушка.' },
+  { from: 'Электронный дневник', text: 'Оплата экскурсии через ЕРИП: номер услуги указан в дневнике класса.', fraud: false, why: 'Оплата через ЕРИП по официальному номеру безопасна. Сомневаешься — спроси родителей.' },
+];
+function learnPage(ch, group) {
+  return `
+    <div class="card" data-a="go" data-to="fraud" style="cursor:pointer;background:linear-gradient(135deg,#1A52C9,#5C9BF3);color:#fff"><div style="display:flex;gap:14px;align-items:center"><div style="font-size:40px">🕵️</div><div><b style="font-size:17px">Распознай мошенника</b><div style="opacity:.9;font-size:13.5px">6 ситуаций · +5 Маничек за ответ</div></div></div></div>
+    <div class="sec-title">Уроки</div>
+    ${LESSONS[group].map(l => { const done = ch.lessons.includes(l.id); return `<div class="card" data-a="go" data-to="quiz" data-id="${l.id}" style="cursor:pointer;display:flex;gap:14px;align-items:center"><div style="font-size:30px">${l.icon}</div><div style="flex:1"><b style="font-weight:500">${l.t}</b><div class="muted">3 вопроса · +60 опыта · +15 Маничек</div></div>${done ? '<span class="tag ok">Пройден</span>' : `<span style="color:#AEB9CB">${I.chev}</span>`}</div>`; }).join('')}
+    <div class="sec-title">Предложения партнёров</div>
+    <div class="card" style="padding-top:6px;padding-bottom:6px">${offers(group)}</div>`;
+}
+K.learn = () => {
+  const ch = kid(); if (!ch) return noChild('kid');
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Игры и уроки</h1><span class="tag kid" style="font-size:13px">${coin} ${ch.coins}</span></div>
+  <div class="page" style="padding-top:0">${learnPage(ch, 'kid')}</div>`;
+};
+function quizPage(p) {
+  const ch = me(); const l = LESSONS[ch.group].find(x => x.id === p.id);
+  if (!ui.quiz || ui.quiz.id !== l.id) ui.quiz = { id: l.id, i: 0, pick: null, right: 0 };
+  const q = ui.quiz;
+  if (q.i >= l.q.length) {
+    return `${topbar(l.t)}<div class="page"><div class="result"><div class="big ok">${I.star}</div><h2>Урок пройден!</h2><p>Правильных ответов: ${q.right} из ${l.q.length}</p><p><b>+60 опыта · +15 Маничек</b></p></div><button class="btn" data-a="back">Отлично</button></div>`;
+  }
+  const [text, opts, ans] = l.q[q.i];
+  return `${topbar(l.t)}<div class="page">
+    <small class="muted">Вопрос ${q.i + 1} из ${l.q.length}</small>
+    <div class="bar ${ch.group === 'kid' ? 'orange' : 'violet'}"><i style="width:${(q.i) / l.q.length * 100}%"></i></div>
+    <div class="quiz-q">${text}</div>
+    ${opts.map((o, i) => `<button class="opt ${q.pick !== null ? (i === ans ? 'right' : i === q.pick ? 'wrong' : '') : ''}" data-a="qpick" data-i="${i}" ${q.pick !== null ? 'disabled' : ''}>${o}</button>`).join('')}
+    ${q.pick !== null ? `<button class="btn" data-a="qnext">${q.i + 1 === l.q.length ? 'Завершить' : 'Дальше'}</button>` : ''}
+  </div>`;
+}
+function fraudPage() {
+  const ch = me();
+  if (!ui.quiz || ui.quiz.id !== 'fraud') ui.quiz = { id: 'fraud', i: 0, pick: null, right: 0 };
+  const q = ui.quiz;
+  if (q.i >= FRAUD.length) return `${topbar('Распознай мошенника')}<div class="page"><div class="result"><div class="big ok">${I.shield}</div><h2>${q.right >= 5 ? 'Тебя не обмануть!' : 'Хорошая попытка!'}</h2><p>Правильно: ${q.right} из ${FRAUD.length}</p><p><b>+${q.right * 5} Маничек · +${q.right * 15} опыта</b></p></div><button class="btn" data-a="back">Готово</button></div>`;
+  const f = FRAUD[q.i];
+  const picked = q.pick !== null; const correct = picked && (q.pick === 1) === f.fraud;
+  return `${topbar('Распознай мошенника')}<div class="page">
+    <small class="muted">Ситуация ${q.i + 1} из ${FRAUD.length} · правильно ${q.right}</small>
+    <div class="msg"><div class="from">${f.from}</div><div class="text">${f.text}</div></div>
+    ${!picked ? `<div class="btns"><button class="btn green" data-a="fpick" data-i="0">Безопасно</button><button class="btn red" data-a="fpick" data-i="1">Мошенник!</button></div>`
+      : `<div class="card" style="border:2px solid ${correct ? 'var(--green)' : 'var(--red)'}"><b>${correct ? 'Верно! ' : 'Не совсем. '}${f.fraud ? 'Это мошенники.' : 'Это безопасно.'}</b><p class="muted" style="margin-top:6px;font-size:14.5px;color:#4F5A6E">${f.why}</p></div><button class="btn" data-a="fnext">Дальше</button>`}
+  </div>`;
+}
+K.quiz = quizPage; K.fraud = fraudPage;
+const KID_M = [
+  { t: 'Школьная столовая', c: 'food', a: 3.5, e: '🍽' },
+  { t: 'Канцтовары', c: 'shop', a: 6.2, e: '✏️' },
+  { t: 'Бургерная', c: 'fastfood', a: 7.4, e: '🍔' },
+  { t: 'Магазин игрушек', c: 'shop', a: 14.9, e: '🧸' },
+  { t: 'Донат в онлайн-игре', c: 'games', a: 12, e: '🎮' },
+  { t: 'Кинотеатр', c: 'fun', a: 8, e: '🎬' },
+  { t: 'Банкомат', c: 'cash', a: 20, e: '🏧' },
+  { t: 'Букмекерская контора', c: 'gambling', a: 10, e: '🎰' },
+  { t: 'Табачный магазин', c: 'adult', a: 6, e: '🚬' },
+];
+const TEEN_M = [
+  { t: 'Кофейня', c: 'fastfood', a: 4.8, e: '☕' },
+  { t: 'Маркетплейс', c: 'online', a: 39.9, e: '📦' },
+  { t: 'Покупка в игре', c: 'games', a: 15, e: '🎮' },
+  { t: 'Кинотеатр', c: 'fun', a: 12, e: '🎬' },
+  { t: 'Кроссовки', c: 'shop', a: 189, e: '👟' },
+  { t: 'Банкомат', c: 'cash', a: 30, e: '🏧' },
+  { t: 'Ставки на спорт', c: 'gambling', a: 20, e: '🎰' },
+  { t: 'Вейп-шоп', c: 'adult', a: 25, e: '💨' },
+];
+function payPage() {
+  const ch = me(); const list = ch.group === 'kid' ? KID_M : TEEN_M;
+  return `${topbar('Оплатить')}<div class="page">
+    <div class="legal">${I.info}<span>Симулятор: выберите, где ${ch.group === 'kid' ? 'Миша' : 'Аня'} прикладывает ${ch.cardType.toLowerCase()}. Решение принимается по настройкам родителя и защите банка.</span></div>
+    <small class="muted">Сегодня потрачено ${fmt(ch.spentToday)} из ${fmt(ch.limits.day)} · подтверждение от ${fmt(ch.confirmAbove)}</small>
+    ${list.map((m, i) => `<button class="merchant" data-a="pay" data-i="${i}"><span class="em">${m.e}</span><span class="tx"><b style="font-weight:500">${m.t}</b><br><small>${CAT_NAME[m.c] || (m.c === 'gambling' ? 'Азартные игры' : '18+')}</small></span><b>${fmt(m.a)}</b></button>`).join('')}
+  </div>`;
+}
+K.pay = payPage;
+
+/* ================= TEEN 14–17 ================= */
+const T = {};
+T.home = () => {
+  const ch = teen(); if (!ch) return noChild('teen');
+  return `
+  <div class="hero teen">
+    <div class="hero-top"><div class="ava">${esc(ch.name[0])}</div><div><div class="hero-name">${esc(ch.name)}</div><div class="hero-sub">Moby · 14+</div></div></div>
+    <div class="chips"><span class="chip">КРОК ${levelOf(ch.xp).n}</span><span class="chip">${ch.cardNum}</span><span class="chip">${coin.replace('coin', 'coin" style="vertical-align:-3px')} ${ch.coins}</span></div>
+    <div class="bal-row"><div class="bal">${ui.hide ? '**** BYN' : fmt(ch.balance)}</div><button class="eye" data-a="hide">${I.eye}</button></div>
+    <div class="actions">${act('send', 'Попросить', 'sheet', 'data-s="reqMoney"')}${act('transfer', 'Перевести', 'sheet', 'data-s="transfer"')}${act('wallet', 'Оплатить', 'go', 'data-to="pay"')}</div>
+  </div>
+  <div class="body">
+    <div class="card"><h3>Мои карты</h3>
+      <div class="row" style="cursor:default"><div class="ic solid">${I.card}</div><div class="tx"><b>${ch.cardType}</b><small>${ch.cardNum} · ${ch.cardBlocked ? 'заблокирована' : 'активна'}</small></div><button class="sbtn ${ch.cardBlocked ? '' : 'red'}" data-a="teenBlock">${ch.cardBlocked ? 'Разблок.' : 'Блок'}</button></div>
+      <div class="row" ${ch.perms.subs ? 'data-a="go" data-to="subs"' : 'data-a="askPerm" data-k="perms.subs"'}><div class="ic solid">${I.repeat}</div><div class="tx"><b>Карта для подписок</b><small>${ch.perms.subs ? `${ch.subs.filter(s => s.on).length} подписки · ${fmt(ch.subs.filter(s => s.on).reduce((a, s) => a + s.p, 0))}/мес` : 'Нужно разрешение родителя'}</small></div>${ch.perms.subs ? `<div class="chev">${I.chev}</div>` : '<span class="sbtn">Запросить</span>'}</div>
+      <div class="row" data-a="go" data-to="earn"><div class="ic solid">${I.briefcase}</div><div class="tx"><b>Мой заработок</b><small>${fmt(ch.income)} · распоряжаюсь сама</small></div><div class="chev">${I.chev}</div></div>
+    </div>
+    <div class="card"><h3>Траты за октябрь <a data-a="go" data-to="analytics">Подробнее</a></h3>${analyticsBars(ch, 3)}</div>
+    ${ch.goals[0] ? goalCard(ch, ch.goals[0], false) : ''}
+    <div class="banner" data-a="tab" data-to="krok"><div class="ic" style="background:#EFE8FF;color:var(--violet)">${I.rocket}</div><div style="flex:1"><b>Путь к 18: Крок ${levelOf(ch.xp).n} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div></div>
+    ${myReqs(ch)}
+    <div class="card"><h3>История</h3>${opsList(ch.ops, 5)}</div>
+  </div>`;
+};
+function analyticsBars(ch, n) {
+  const by = {}; ch.ops.filter(o => o.a < 0).forEach(o => by[o.c] = (by[o.c] || 0) + -o.a);
+  const arr = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, n); const max = arr[0]?.[1] || 1;
+  return `<div class="bars" style="margin-top:12px">${arr.map(([c, v]) => `<div class="b"><div><span>${c}</span><b>${fmt(v)}</b></div><div class="bar violet"><i style="width:${v / max * 100}%"></i></div></div>`).join('')}</div>`;
+}
+T.analytics = () => {
+  const ch = teen(); const total = ch.ops.filter(o => o.a < 0).reduce((a, o) => a - o.a, 0);
+  return `${topbar('Аналитика')}<div class="page">
+    <div class="card"><small class="muted">Потрачено в октябре</small><div class="bal" style="font-size:28px;margin-top:4px">${fmt(total)}</div>${analyticsBars(ch, 8)}</div>
+    <div class="card"><h3>Совет Moby</h3><p style="margin-top:8px;font-size:14.5px">По правилу 50/30/20 из карманных ${fmt(ch.allowance.amount * 4)} в месяц стоит откладывать ${fmt(ch.allowance.amount * 4 * 0.2)}. Сейчас в копилках — ${fmt(ch.goals.reduce((a, g) => a + g.saved, 0))}.</p></div>
+  </div>`;
+};
+T.payments = () => {
+  const ch = teen(); if (!ch) return noChild('teen');
+  const svc = [['phone', 'Мобильная связь', '+375 (29) 123-45-67', 10], ['bus', 'Проездной', 'Городской транспорт, месяц', 18.6], ['wifi', 'Домашний интернет', 'Лицевой счёт 7741025', 25], ['edu', 'Кружки и секции', 'Робототехника, октябрь', 35]];
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Платежи</h1></div>
+  <div class="page" style="padding-top:0">
+    <div class="card"><h3>ЕРИП ${ch.perms.erip ? '' : '<span class="tag lock">Закрыто</span>'}</h3>${svc.map(s => `<div class="row" data-a="${ch.perms.erip ? 'sheet' : 'askPerm'}" data-s="erip" data-k="perms.erip" data-t="${s[1]}" data-v="${s[3]}"><div class="ic">${I[s[0]]}</div><div class="tx"><b>${s[1]}</b><small>${s[2]}</small></div><div class="chev">${I.chev}</div></div>`).join('')}</div>
+    <div class="card"><h3>Переводы</h3>
+      <div class="row" data-a="${ch.perms.p2p ? 'sheet' : 'askPerm'}" data-s="transfer" data-k="perms.p2p"><div class="ic">${I.transfer}</div><div class="tx"><b>Другу по номеру телефона</b><small>Мгновенно, внутри Беларуси</small></div><div class="chev">${I.chev}</div></div>
+      <div class="row" data-a="sheet" data-s="reqMoney"><div class="ic">${I.send}</div><div class="tx"><b>Попросить у родителей</b><small>Запрос придёт в их Moby</small></div><div class="chev">${I.chev}</div></div>
+    </div>
+    <div class="card"><h3>Подписки</h3><div class="row" data-a="${ch.perms.subs ? 'go' : 'askPerm'}" data-to="subs" data-k="perms.subs"><div class="ic">${I.repeat}</div><div class="tx"><b>Управлять подписками</b><small>Отдельная карта с лимитом 20 BYN в месяц</small></div><div class="chev">${I.chev}</div></div></div>
+  </div>`;
+};
+T.subs = () => {
+  const ch = teen(); const sum = ch.subs.filter(s => s.on).reduce((a, s) => a + s.p, 0);
+  return `${topbar('Подписки')}<div class="page">
+    <div class="card"><small class="muted">В месяц</small><div class="bal" style="font-size:28px">${fmt(sum)}</div><div class="bar violet" style="margin-top:10px"><i style="width:${pct(sum, 20)}%"></i></div><small class="muted">Лимит карты подписок 20 BYN · за год это ${fmt(sum * 12)}</small></div>
+    <div class="card">${ch.subs.map(s => `<div class="setrow"><div class="tx"><b>${s.t}</b><small>${fmt(s.p)} в месяц ${s.on ? '· следующее списание 12 ноября' : '· отключена'}</small></div>${toggle(s.on, 'sub', `data-id="${s.id}"`)}</div>`).join('')}</div>
+    <div class="legal">${I.bell}<span>За 3 дня до списания Moby напомнит о подписке, а после пробного периода — спросит, продлевать ли её.</span></div>
+  </div>`;
+};
+T.earn = () => {
+  const ch = teen();
+  return `${topbar('Мой заработок')}<div class="page">
+    <div class="card"><small class="muted">Собственные средства</small><div class="bal" style="font-size:28px">${fmt(ch.income)}</div><small class="muted">Летняя подработка · стипендия кружка</small></div>
+    <div class="legal">${I.doc}<span>С 14 лет ты самостоятельно распоряжаешься своим заработком и стипендией и можешь открыть вклад (ст. 26 ГК РБ). Лимиты родителя на эти деньги не действуют, но родитель видит общий баланс.</span></div>
+    <button class="btn" data-a="earnToGoal">Отложить 20 BYN на «${esc(ch.goals[0]?.title || 'цель')}»</button>
+    <button class="btn ghost" data-a="tab" data-to="savings">Открыть вклад</button>
+  </div>`;
+};
+T.savings = () => {
+  const ch = teen(); if (!ch) return noChild('teen');
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Накопления</h1></div>
+  <div class="page" style="padding-top:0">
+    <div class="card"><h3>Вклад «Мой старт»</h3>
+      ${ch.deposit ? `<div class="bal" style="font-size:28px;margin-top:8px">${fmt(ch.deposit.sum)}</div><small class="muted">${ch.deposit.rate}% годовых (условно) · через год ≈ ${fmt(ch.deposit.sum * (1 + ch.deposit.rate / 100))}</small><button class="btn ghost" style="margin-top:12px" data-a="depAdd">Пополнить на 10 BYN</button>`
+      : `<p class="muted" style="margin-top:6px">Отзывный вклад от 10 BYN. С 14 лет можно открыть самостоятельно.</p><button class="btn" style="margin-top:12px" data-a="depOpen">Открыть вклад</button>`}
+    </div>
+    ${ch.goals.map(g => goalCard(ch, g, false)).join('')}
+    ${familyGoalCard()}
+    <button class="btn" data-a="sheet" data-s="newGoal">${I.plus} Новая цель</button>
+  </div>`;
+};
+T.krok = () => {
+  const ch = teen(); if (!ch) return noChild('teen');
+  const lv = levelOf(ch.xp);
+  const perks = ['Карта и карманные деньги', 'Копилки и платежи ЕРИП', 'Онлайн-покупки и переводы друзьям', 'Подписки, вклад, повышенные лимиты', 'Почти без ограничений, кроме 18+'];
+  return `<div class="topbar" style="background:transparent"><h1 style="font-weight:700;font-family:Montserrat">Крок</h1><span class="tag teen" style="font-size:13px">${coin} ${ch.coins}</span></div>
+  <div class="page" style="padding-top:0">
+    <div class="card"><h3>Путь к 18</h3><p class="muted" style="margin:4px 0 14px">Каждый уровень предлагает родителю дать тебе больше свободы.</p>
+      <div class="path">${LEVELS.map((l, i) => `<div class="pstep ${l.n < lv.n ? 'done' : l.n === lv.n ? 'cur' : ''}"><div class="n">${l.n}</div><div><b>${l.t}</b><small>${perks[i]}</small></div></div>`).join('')}
+      <div class="pstep"><div class="n" style="background:var(--blue-bg);color:var(--blue)">18</div><div><b>Взрослый Moby</b><small>Карта переоформляется на тебя, копилки, вклад и Манички сохраняются. Бонус: 3 месяца премиум-пакета</small></div></div></div>
+    </div>
+    ${learnPage(ch, 'teen')}
+  </div>`;
+};
+T.quiz = quizPage; T.fraud = fraudPage; T.pay = payPage;
+
+/* ================= sheets ================= */
+const SH = {};
+SH.topup = p => {
+  const sel = p.id || S.children[0]?.id;
+  if (!S.children.length) return `<h2>Перевести</h2><div class="empty">Сначала добавьте ребёнка</div>`;
+  ui.sheet.p.id = sel;
+  return `<h2>Перевести ребёнку</h2>
+    <div class="pills">${S.children.map(ch => `<button class="pill ${ch.id === sel ? 'on' : ''}" data-a="shp" data-k="id" data-v="${ch.id}">${esc(ch.name)}</button>`).join('')}</div>
+    <div class="field"><label>Сумма, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 10}"></div>
+    <div class="pills">${[5, 10, 20, 50].map(v => `<button class="pill" data-a="setAmt" data-v="${v}">${v} BYN</button>`).join('')}</div>
+    <small class="muted">С карты ${S.parent.card} · ${fmt(S.parent.balance)} · без комиссии</small>
+    <button class="btn" data-a="doTopup">Перевести</button>`;
+};
+SH.newTask = p => {
+  const sel = p.id || S.children[0]?.id; ui.sheet.p.id = sel;
+  if (!S.children.length) return `<h2>Задание</h2><div class="empty">Сначала добавьте ребёнка</div>`;
+  return `<h2>Новое задание</h2>
+    <div class="pills">${S.children.map(ch => `<button class="pill ${ch.id === sel ? 'on' : ''}" data-a="shp" data-k="id" data-v="${ch.id}">${esc(ch.name)}</button>`).join('')}</div>
+    <div class="field"><label>Что нужно сделать</label><input id="f-title" maxlength="60" placeholder="Например, полить цветы" value="${esc(p.title || '')}"></div>
+    <div class="pills">${['Убрать в комнате', 'Сделать уроки без напоминаний', 'Погулять с собакой', 'Помыть посуду'].map(t => `<button class="pill" data-a="setTitle" data-v="${t}">${t}</button>`).join('')}</div>
+    <div class="field"><label>Награда, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 3}"></div>
+    <div class="pills">${[1, 3, 5, 10].map(v => `<button class="pill" data-a="setAmt" data-v="${v}">${v} BYN</button>`).join('')}</div>
+    <button class="btn" data-a="doTask">Отправить задание</button>`;
+};
+SH.reqMoney = p => `<h2>Попросить у родителей</h2>
+    <div class="field"><label>Сколько, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 5}"></div>
+    <div class="pills">${[2, 5, 10, 20].map(v => `<button class="pill" data-a="setAmt" data-v="${v}">${v} BYN</button>`).join('')}</div>
+    <div class="field"><label>На что</label><input id="f-title" maxlength="80" placeholder="Например, на экскурсию" value="${esc(p.title || '')}"></div>
+    <div class="pills">${['Обед в школе', 'Подарок другу', 'Проезд', 'Кино с друзьями'].map(t => `<button class="pill" data-a="setTitle" data-v="${t}">${t}</button>`).join('')}</div>
+    <button class="btn" data-a="doReqMoney">${I.send} Отправить запрос</button>`;
+SH.goalAdd = p => {
+  const ch = S.mode === 'parent' ? null : me(); const g = ch?.goals.find(x => x.id === p.id);
+  if (!g) return '';
+  return `<h2>${g.icon} ${esc(g.title)}</h2><small class="muted">На карте ${fmt(ch.balance)}${ch.parentBonus ? ' · родители добавят +10%' : ''}</small>
+    <div class="pills">${[1, 2, 5, 10].map(v => `<button class="pill ${+(p.amt || 2) === v ? 'on' : ''}" data-a="shp" data-k="amt" data-v="${v}">${v} BYN</button>`).join('')}</div>
+    <button class="btn" data-a="doGoalAdd">Положить ${fmt(+(p.amt || 2))}${ch.parentBonus ? ` → станет +${fmt(+(p.amt || 2) * 1.1)}` : ''}</button>
+    <button class="btn ghost" data-a="askGoal">Попросить родителей добавить</button>`;
+};
+SH.newGoal = p => `<h2>Новая цель</h2>
+    <div class="pills">${['🛴', '🎧', '📱', '🎮', '🚲', '📚', '🧸', '✈️'].map(e => `<button class="pill ${(p.icon || '🎯') === e ? 'on' : ''}" style="font-size:20px" data-a="shp" data-k="icon" data-v="${e}">${e}</button>`).join('')}</div>
+    <div class="field"><label>На что копим</label><input id="f-title" maxlength="30" placeholder="Например, велосипед" value="${esc(p.title || '')}"></div>
+    <div class="field"><label>Сколько нужно, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 50}"></div>
+    <button class="btn" data-a="doNewGoal">Создать</button>`;
+SH.erip = p => `<h2>ЕРИП · ${esc(p.t)}</h2>
+    <div class="field"><label>Сумма, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.v}"></div>
+    <small class="muted">На карте ${fmt(teen().balance)} · комиссия 0 BYN</small>
+    <button class="btn" data-a="doErip">Оплатить</button>`;
+SH.transfer = p => `<h2>Перевод другу</h2>
+    <div class="field"><label>Номер телефона</label><input id="f-title" inputmode="tel" value="${esc(p.title || '+375 (29) ')}"></div>
+    <div class="field"><label>Сумма, BYN</label><input id="f-amt" type="number" inputmode="decimal" value="${p.amt || 5}"></div>
+    <div class="legal">${I.shield}<span>Переводите только тем, кого знаете лично. Если «друг» пишет с нового номера — сначала позвоните ему.</span></div>
+    <button class="btn" data-a="doTransfer">Перевести</button>`;
+SH.result = p => {
+  const r = p.r;
+  const ic = r.kind === 'ok' ? I.check : r.kind === 'wait' ? I.clock : I.x;
+  let extra = '';
+  if (r.ask === 'perm') extra = `<button class="btn" data-a="askPerm" data-k="${r.key}">${I.send} Попросить доступ у родителя</button>`;
+  if (r.ask === 'money') extra = `<button class="btn" data-a="sheet" data-s="reqMoney" data-amt="${r.amount}">${I.send} Попросить ${fmt(r.amount)}</button>`;
+  if (r.ask === 'limit') extra = `<button class="btn" data-a="askLimit" data-v="${r.newDay}">${I.send} Попросить увеличить лимит</button>`;
+  return `<div class="result"><div class="big ${r.kind === 'ok' ? 'ok' : r.kind === 'wait' ? 'wait' : 'no'}">${ic}</div><h2>${r.title}</h2><p>${r.text}</p></div>${extra}<button class="btn ghost" data-a="close">Понятно</button>`;
+};
+
+/* ================= render ================= */
+const SCREENS = { parent: P, kid: K, teen: T };
+const TABS = {
+  parent: [['home', 'Главная', 'home'], ['products', 'Продукты', 'cards'], ['family', 'Семья', 'family'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],
+  kid: [['home', 'Главная', 'home'], ['goals', 'Копилки', 'piggy'], ['tasks', 'Задания', 'tasks'], ['learn', 'Игры', 'game']],
+  teen: [['home', 'Главная', 'home'], ['payments', 'Платежи', 'transfer'], ['savings', 'Накопления', 'piggy'], ['krok', 'Крок', 'rocket']],
+};
+const $app = document.getElementById('app');
+function render() {
+  const r = cur(); const stack = ui.routes[S.mode];
+  const fn = SCREENS[S.mode][r.n] || SCREENS[S.mode].home;
+  const key = S.mode + '|' + stack.length + '|' + r.n + '|' + JSON.stringify(r.p || {});
+  const prevScroll = $app.querySelector('.scroll')?.scrollTop || 0;
+  const showTabs = stack.length === 1;
+  const pend = S.requests.filter(x => x.status === 'pending').length;
+  const ch = S.mode === 'parent' ? null : me();
+  const tasksOpen = ch ? ch.tasks.filter(t => t.status === 'open').length : 0;
+  const lightBar = stack.length === 1 && r.n === 'home' || r.n === 'child';
+  $app.innerHTML = `
+    <div class="statusbar ${lightBar ? 'light' : ''}"><span>13:08</span><span style="display:flex;gap:6px;align-items:center">${sv('<path d="M2 20h2M7 20v-4M12 20v-8M17 20V8M22 20V4"/>', 'width="18" height="18" stroke-width="2.4"')}<span style="border:1.5px solid currentColor;border-radius:4px;padding:0 4px;font-size:11px">71</span></span></div>
+    <div class="scroll ${showTabs ? 'has-tabs' : ''}">${fn(r.p || {})}</div>
+    ${showTabs ? `<nav class="tabbar">${TABS[S.mode].map(([n, l, ic]) => `<button class="tab ${r.n === n ? 'on' : ''}" data-a="tab" data-to="${n}">${I[ic]}${l}${n === 'family' && pend ? `<span class="badge">${pend}</span>` : ''}${n === 'tasks' && tasksOpen ? `<span class="badge">${tasksOpen}</span>` : ''}</button>`).join('')}</nav>` : ''}
+    ${ui.sheet ? `<div class="overlay" data-a="overlay"><div class="sheet"><div class="grab"></div>${SH[ui.sheet.n](ui.sheet.p)}</div></div>` : ''}
+    ${ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''}`;
+  if (key === ui.lastKey) $app.querySelector('.scroll').scrollTop = prevScroll;
+  ui.lastKey = key;
+  document.querySelectorAll('.mode').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode));
+  save();
+}
+
+/* ================= actions ================= */
+const val = id => document.getElementById(id)?.value ?? '';
+const num = id => r2(parseFloat(String(val(id)).replace(',', '.')) || 0);
+const A = {
+  go: d => { if (d.to === 'quiz' || d.to === 'fraud') ui.quiz = null; go(d.to, d.id ? { id: d.id } : {}); },
+  tab: d => tab(d.to),
+  back: () => back(),
+  soon: () => { toast('В прототипе этот раздел не реализован'); render(); },
+  toast: d => { toast(d.t); render(); },
+  hide: () => { ui.hide = !ui.hide; render(); },
+  mode: d => setMode(d.m),
+  sheet: d => sheet(d.s, { ...d }),
+  close: () => closeSheet(),
+  overlay: (d, e) => { if (e.target.classList.contains('overlay')) closeSheet(); },
+  shp: d => { ui.sheet.p[d.k] = d.v; keepInputs(); render(); },
+  setAmt: d => { ui.sheet.p.amt = d.v; keepInputs(['amt']); render(); },
+  setTitle: d => { ui.sheet.p.title = d.v; keepInputs(['title']); render(); },
+  resolve: d => { resolveReq(d.id, d.ok === '1'); render(); },
+  perm: d => { const ch = child(d.id); setP(ch, d.k, !getP(ch, d.k)); addFeed(ch, `${PERMS[d.k]}: ${getP(ch, d.k) ? 'включено' : 'выключено'} для ${ch.name}`); render(); },
+  flag: d => { const ch = child(d.id); ch[d.k] = !ch[d.k]; render(); },
+  allow: d => { const ch = child(d.id); ch.allowance.on = !ch.allowance.on; render(); },
+  locked: () => { toast('Эту защиту установил банк, её нельзя отключить до 18 лет'); render(); },
+  step: d => { const ch = child(d.id); setP(ch, d.f, Math.max(1, getP(ch, d.f) + +d.d)); render(); },
+  block: d => { const ch = child(d.id); ch.cardBlocked = !ch.cardBlocked; addFeed(ch, `Карта ${ch.name} ${ch.cardBlocked ? 'заблокирована' : 'разблокирована'}`); toast(ch.cardBlocked ? `Карта ${ch.name} заблокирована` : 'Карта снова работает'); render(); },
+  reissue: d => { const ch = child(d.id); ch.cardBlocked = false; ch.cardNum = '5*' + (1000 + S.seq * 13 % 9000); S.seq++; toast('Старая карта заблокирована, новая будет через 3–5 дней. Виртуальная уже работает'); render(); },
+  kidLost: () => { const ch = kid(); ch.cardBlocked = true; addFeed(ch, `${ch.name} заблокировал карту: «потерял»`); toast('Карта заблокирована. Мама и папа уже знают'); render(); },
+  teenBlock: () => { const ch = teen(); ch.cardBlocked = !ch.cardBlocked; addFeed(ch, `${ch.name} ${ch.cardBlocked ? 'заблокировала' : 'разблокировала'} карту`); render(); },
+  famGoal: d => {
+    const v = +d.v; const g = S.familyGoal;
+    if (S.mode === 'parent') { S.parent.balance = r2(S.parent.balance - v); }
+    else { const ch = me(); if (ch.balance < v) { toast('Не хватает денег'); return render(); } ch.balance = r2(ch.balance - v); ch.ops.unshift({ t: 'Семейная цель', a: -v, d: now(), c: 'Копилки' }); addFeed(ch, `${ch.name} добавил${ch.group === 'teen' ? 'а' : ''} ${fmt(v)} в «${g.title}»`); addXp(ch, 10); }
+    g.saved = r2(g.saved + v); toast(`+${fmt(v)} в «${g.title}»`); render();
+  },
+  startOb: () => { ui.ob = { step: 0, name: '', group: null, consents: {}, card: 'Платёжный стикер', preset: 'balanced', allowance: 10 }; S.mode = 'parent'; go('onboard'); },
+  ob: d => { ui.ob[d.k] = d.v; if (d.k === 'group') { ui.ob.allowance = d.v === 'kid' ? 10 : 25; ui.ob.card = d.v === 'kid' ? 'Платёжный стикер' : 'Пластиковая карта'; } render(); },
+  obc: d => { ui.ob.consents[d.k] = !ui.ob.consents[d.k]; render(); },
+  obAllow: d => { ui.ob.allowance = Math.max(1, ui.ob.allowance + +d.d); render(); },
+  obNext: () => { if (ui.ob.step === 2) toast('Согласия подписаны смарт-кодом'); if (ui.ob.step === 3) toast('Карта заказана, виртуальная выпущена'); if (ui.ob.step < OB_STEPS - 1) { ui.ob.step++; $app.querySelector('.scroll').scrollTop = 0; ui.lastKey = ''; render(); } else finishOb(); },
+  doTopup: () => { const ch = child(ui.sheet.p.id); const v = num('f-amt'); if (v <= 0) return; moveToChild(ch, v, 'Перевод от родителя'); addFeed(ch, `Вы перевели ${ch.name}`, v); ui.sheet = null; toast(`${fmt(v)} — ${ch.name}. Пришло мгновенно`); render(); },
+  doTask: () => { const ch = child(ui.sheet.p.id); const t = val('f-title').trim(); const v = num('f-amt'); if (!t || v <= 0) { toast('Заполните задание и награду'); return render(); } ch.tasks.unshift({ id: nid('t'), title: t, reward: v, status: 'open' }); ui.sheet = null; toast(`Задание отправлено ${ch.name}`); render(); },
+  doReqMoney: () => { const ch = me(); const v = num('f-amt'); if (v <= 0) return; addReq({ child: ch.id, type: 'money', amount: v, reason: val('f-title').trim() || 'Без комментария' }); ui.sheet = null; toast('Запрос отправлен родителям'); render(); },
+  askPerm: d => { const ch = me(); if (S.requests.some(r => r.child === ch.id && r.key === d.k && r.status === 'pending')) { toast('Запрос уже ждёт ответа'); ui.sheet = null; return render(); } addReq({ child: ch.id, type: 'perm', key: d.k, reason: `Хочу пользоваться: ${PERMS[d.k]}` }); ui.sheet = null; toast(`Запрос «${PERMS[d.k]}» отправлен родителю`); render(); },
+  askLimit: d => { const ch = me(); addReq({ child: ch.id, type: 'limit', newDay: +d.v, reason: `Не хватило дневного лимита ${ch.limits.day} BYN` }); ui.sheet = null; toast('Запрос на лимит отправлен'); render(); },
+  askGoal: () => { const ch = me(); const g = ch.goals.find(x => x.id === ui.sheet.p.id); addReq({ child: ch.id, type: 'goal', goal: g.id, amount: 5, reason: `Помогите накопить на «${g.title}»` }); ui.sheet = null; toast('Попросили родителей поддержать копилку'); render(); },
+  pay: d => { const ch = me(); const m = (ch.group === 'kid' ? KID_M : TEEN_M)[+d.i]; const r = tryPay(ch, m); sheet('result', { r }); },
+  taskDone: d => { const ch = me(); const t = ch.tasks.find(x => x.id === d.id); t.status = 'review'; addReq({ child: ch.id, type: 'task', task: t.id }); toast('Отлично! Родитель проверит и отправит награду'); render(); },
+  doGoalAdd: () => {
+    const ch = me(); const g = ch.goals.find(x => x.id === ui.sheet.p.id); const v = +(ui.sheet.p.amt || 2);
+    if (ch.balance < v) { toast('Не хватает денег на карте'); return render(); }
+    ch.balance = r2(ch.balance - v); let add = v;
+    if (ch.parentBonus) { const b = r2(v * 0.1); S.parent.balance = r2(S.parent.balance - b); add = r2(v + b); }
+    g.saved = r2(g.saved + add); ch.ops.unshift({ t: 'В копилку «' + g.title + '»', a: -v, d: now(), c: 'Копилки' });
+    const lv = addXp(ch, 10); ui.sheet = null; toast(`+${fmt(add)} в копилку${lv ? ' · Новый уровень!' : ''}`); render();
+  },
+  doNewGoal: () => { const ch = me(); const t = val('f-title').trim(); const v = num('f-amt'); if (!t || v <= 0) { toast('Назови цель и сумму'); return render(); } ch.goals.push({ id: nid('g'), title: t, icon: ui.sheet.p.icon || '🎯', target: v, saved: 0 }); ui.sheet = null; toast('Цель создана'); render(); },
+  doErip: () => { const ch = teen(); const v = num('f-amt'); const r = tryPay(ch, { t: 'ЕРИП: ' + ui.sheet.p.t, c: 'erip', a: v }); sheet('result', { r }); },
+  doTransfer: () => { const ch = me(); const v = num('f-amt'); const ph = val('f-title'); const r = tryPay(ch, { t: 'Перевод ' + ph.slice(-9), c: 'p2p', a: v }); sheet('result', { r }); },
+  sub: d => { const s = teen().subs.find(x => x.id === d.id); s.on = !s.on; toast(s.on ? 'Подписка включена' : 'Подписка отключена — списаний больше не будет'); render(); },
+  earnToGoal: () => { const ch = teen(); if (ch.income < 20 || !ch.goals[0]) return; ch.income -= 20; ch.goals[0].saved = r2(ch.goals[0].saved + 20); addXp(ch, 15); toast('20 BYN отложено на цель'); render(); },
+  depOpen: () => { const ch = teen(); if (ch.balance < 10) { toast('Нужно минимум 10 BYN'); return render(); } ch.balance = r2(ch.balance - 10); ch.deposit = { sum: 10, rate: 9 }; addFeed(ch, `${ch.name} открыла вклад «Мой старт»`); toast('Вклад открыт'); render(); },
+  depAdd: () => { const ch = teen(); if (ch.balance < 10) { toast('Не хватает денег'); return render(); } ch.balance = r2(ch.balance - 10); ch.deposit.sum = r2(ch.deposit.sum + 10); addXp(ch, 10); toast('+10 BYN на вклад'); render(); },
+  qpick: d => { const ch = me(); const l = LESSONS[ch.group].find(x => x.id === ui.quiz.id); ui.quiz.pick = +d.i; if (+d.i === l.q[ui.quiz.i][2]) ui.quiz.right++; render(); },
+  qnext: () => {
+    const ch = me(); const l = LESSONS[ch.group].find(x => x.id === ui.quiz.id);
+    ui.quiz.i++; ui.quiz.pick = null;
+    if (ui.quiz.i >= l.q.length) { let lv = null; if (!ch.lessons.includes(l.id)) { ch.lessons.push(l.id); lv = addXp(ch, 60, 15); addFeed(ch, `${ch.name} прошёл урок «${l.t}»`); } if (lv) toast(`Новый уровень: Крок ${lv.n}! Родителю отправлено предложение расширить лимиты`); }
+    render();
+  },
+  fpick: d => { ui.quiz.pick = +d.i; if ((+d.i === 1) === FRAUD[ui.quiz.i].fraud) ui.quiz.right++; render(); },
+  fnext: () => {
+    ui.quiz.i++; ui.quiz.pick = null;
+    if (ui.quiz.i >= FRAUD.length) { const ch = me(); const lv = addXp(ch, ui.quiz.right * 15, ui.quiz.right * 5); addFeed(ch, `${ch.name}: «Распознай мошенника» — ${ui.quiz.right}/${FRAUD.length}`); if (lv) toast(`Новый уровень: Крок ${lv.n}! Родителю отправлено предложение расширить лимиты`); }
+    render();
+  },
+};
+function keepInputs(except = []) {
+  if (!ui.sheet) return;
+  if (!except.includes('amt') && document.getElementById('f-amt')) ui.sheet.p.amt = val('f-amt');
+  if (!except.includes('title') && document.getElementById('f-title')) ui.sheet.p.title = val('f-title');
+}
+function setMode(m) { S.mode = m; ui.sheet = null; ui.quiz = null; ui.lastKey = ''; render(); }
+
+$app.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]'); if (!el || !$app.contains(el)) return;
+  const a = el.dataset.a;
+  if (a !== 'overlay') e.stopPropagation();
+  if (A[a]) A[a](el.dataset, e);
+});
+$app.addEventListener('input', e => { const b = e.target.dataset.bind; if (b && ui.ob) { ui.ob[b] = e.target.value; const btn = $app.querySelector('[data-a="obNext"]'); if (btn) btn.disabled = !(ui.ob.name.trim().length > 1 && ui.ob.group); } });
+document.getElementById('modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (b) setMode(b.dataset.mode); });
+document.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () => {
+  S = initial(b.dataset.reset === 'full');
+  ui.routes = { parent: [{ n: 'home' }], kid: [{ n: 'home' }], teen: [{ n: 'home' }] }; ui.sheet = null; ui.ob = null; ui.quiz = null;
+  toast(b.dataset.reset === 'full' ? 'Демо сброшено' : 'Семьи пока нет — оформите пакет'); render();
+}));
+if (window.innerWidth > 820) document.getElementById('hints').open = true;
+render();
+</script>
+</body>
+</html>
