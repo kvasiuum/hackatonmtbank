@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { CARD_COLORS, CARD_TYPES, CAT_KEYS, PERM_KEYS, SETTING_LABELS } from '../../server/src/content';
 import type { Card, CardType, ChildSettings, ChildSummary, SettingPath, Tx } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, useDevice, when } from './lib';
+import { fmt, initial, useDevice, when } from './lib';
 
 export const TopBar = ({ title, right }: { title: string; right?: ReactNode }) => {
   const { back } = useDevice();
@@ -46,7 +46,7 @@ export const Bar = ({ value, max, red }: { value: number; max: number; red?: boo
 );
 
 export const Kava = ({ c, size }: { c: Pick<ChildSummary, 'name' | 'color'>; size?: number }) => (
-  <div className="kava" style={{ background: c.color, ...(size ? { width: size, height: size } : {}) }}>{c.name[0]}</div>
+  <div className="kava" style={{ background: c.color, ...(size ? { width: size, height: size } : {}) }}>{initial(c.name)}</div>
 );
 export const GroupTag = ({ g }: { g: 'kid' | 'teen' }) => <span className={`tag ${g === 'kid' ? 'red' : ''}`}>{g === 'kid' ? '7–13' : '14–17'}</span>;
 export const Coin = () => <span className="coin">М</span>;

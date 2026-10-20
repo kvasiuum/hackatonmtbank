@@ -6,7 +6,7 @@ import {
 } from '../../server/src/content';
 import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, toKop, useData, useDevice } from './lib';
+import { fmt, initial, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
 import { Act, AmountField, BankCard, Bar, CardStatus, CardTypePicker, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
@@ -183,7 +183,7 @@ export function KidHome() {
   const open = o.me.tasks.filter(t => t.status === 'open');
   return <>
     <div className="hero">
-      <div className="hero-top"><div className="ava">{o.me.name[0]}</div><div><div className="hero-name">Привет, {o.me.name}</div><div className="hero-sub">У тебя на счёте</div></div></div>
+      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">Привет, {o.me.name}</div><div className="hero-sub">У тебя на счёте</div></div></div>
       <div className="bal-row"><div className="bal">{fmt(o.me.balance)}</div></div>
       <LevelBox o={o} to="learn" />
       <div className="actions">
@@ -352,7 +352,7 @@ export function TeenHome() {
   const subs = o.me.subscriptions.filter(x => x.active);
   return <>
     <div className="hero">
-      <div className="hero-top"><div className="ava">{o.me.name[0]}</div><div><div className="hero-name">{o.me.name}</div><div className="hero-sub">Moby 14+</div></div></div>
+      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">{o.me.name}</div><div className="hero-sub">Moby 14+</div></div></div>
       <div className="chips"><span className="chip">УРОВЕНЬ {o.me.level}</span>{o.me.cards[0] && <span className="chip">5*{mainCard(o.me.cards).last4}</span>}<span className="chip"><Coin />{o.me.coins}</span></div>
       <div className="bal-row"><div className="bal">{hide ? '**** BYN' : fmt(o.me.balance)}</div><button className="iconbtn" onClick={() => setHide(!hide)} aria-label="Скрыть баланс"><Icon name={hide ? 'eye' : 'eye-off'} size={30} sw={1.6} /></button></div>
       <div className="actions">

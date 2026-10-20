@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BYN, CARD_COLORS, CARD_TYPES, MAX_CARDS, PRESETS, groupOf, levelOf, nextLevel, type PresetKey } from '../../server/src/content';
 import type { CardType, ChildDetail, ChildRequest, ChildSettings, ParentOverview, SettingPath } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, plural, toKop, useData, useDevice, when, years } from './lib';
+import { fmt, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
   Act, AmountField, BankCard, BankLocked, Bar, CardStatus, CardTypePicker, Chev, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
   PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
@@ -113,7 +113,7 @@ export function ParentSettings() {
     <TopBar title="Настройки" right={<span style={{ color: 'var(--blue)' }}><Icon name="bell" size={28} /></span>} />
     <div className="page" style={{ background: '#fff', minHeight: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '30px 0 24px' }}>
-        <div className="avatar-xl">{o?.parent.name[0]}</div><div style={{ fontSize: 26 }}>{o?.parent.name}</div><div className="muted">+375 (29) ••• ••-••</div>
+        <div className="avatar-xl">{o ? initial(o.parent.name) : ''}</div><div style={{ fontSize: 26 }}>{o?.parent.name}</div><div className="muted">+375 (29) ••• ••-••</div>
       </div>
       <button className="srow" onClick={soon}>Переводы по номеру телефона <Chev /></button>
       <button className="srow" onClick={() => push('family')}>Семья и дети <Chev /></button>

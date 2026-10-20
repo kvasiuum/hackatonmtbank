@@ -37,6 +37,9 @@ export function subscribe(token: string, onChange: () => void, onReset: () => vo
   return () => es.close();
 }
 
+/** Буква или номер для аватарки: «Ребёнок 2» → «2», «Соня» → «С» */
+export const initial = (name: string) => /\d+$/.exec(name.trim())?.[0] ?? name.trim()[0] ?? '?';
+
 export function fmt(k: number) {
   const [i, d] = (Math.abs(k) / 100).toFixed(2).split('.');
   return `${k < 0 ? '−' : ''}${i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}.${d} BYN`;

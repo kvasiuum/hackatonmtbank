@@ -99,7 +99,7 @@ export function seed(db: DB) {
   const ins = (sql: string, ...args: (string | number | null)[]) => db.prepare(sql).run(...args);
   tx(db, () => {
     const pin = hashPin(DEMO_PIN);
-    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Андрей', '+375291234567', pin, ago(60 * 24 * 400));
+    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
     ins('INSERT INTO parents VALUES (?,?,?)', 'u_parent', 124050, '4*2110');
     ins('INSERT INTO families VALUES (?,?,?,?,?,?)', 'f_demo', 'u_parent', 'Отпуск на Нарочи', 'tent', 150000, 62000);
     const pOps: [string, number, string, number][] = [
@@ -109,7 +109,7 @@ export function seed(db: DB) {
     for (const [t, a, c, m] of pOps) ins('INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)', newId('t'), 'u_parent', t, a, c, 'card', a > 0 ? 'income' : 'spend', ago(m));
 
     const kidSettings = defaultSettings('kid');
-    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_misha', 'child', 'Миша', null, pin, ago(60 * 24 * 90));
+    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_misha', 'child', 'Ребёнок 2', null, pin, ago(60 * 24 * 90));
     ins(`INSERT INTO children (user_id,family_id,age,grp,color,balance,income,xp,coins,settings,lessons,allowance_paid_at,invite_code,joined)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_misha', 'f_demo', 9, 'kid', '#E4252F', 2340, 0, 140, 85, JSON.stringify(kidSettings), '["money"]', nowIso(), null);
     ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_misha1', 'u_misha', 'sticker', '4417', '#E4252F', 'active', ago(60 * 24 * 80));
@@ -126,7 +126,7 @@ export function seed(db: DB) {
     ins('INSERT INTO tasks VALUES (?,?,?,?,?,?)', 'k_trash', 'u_misha', 'Выносить мусор всю неделю', 400, 'paid', ago(60 * 70));
 
     const teenSettings = defaultSettings('teen');
-    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_anya', 'child', 'Аня', '+375297654321', pin, ago(60 * 24 * 200));
+    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_anya', 'child', 'Ребёнок 1', '+375297654321', pin, ago(60 * 24 * 200));
     ins(`INSERT INTO children (user_id,family_id,age,grp,color,balance,income,xp,coins,settings,lessons,allowance_paid_at,invite_code,joined)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_anya', 'f_demo', 15, 'teen', '#1F5FD6', 8670, 6500, 470, 310, JSON.stringify(teenSettings), '["budget"]', nowIso(), null);
     ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_anya1', 'u_anya', 'plastic', '9032', '#0F2F7A', 'active', ago(60 * 24 * 190));
@@ -150,8 +150,8 @@ export function seed(db: DB) {
     }
     ins('INSERT INTO requests VALUES (?,?,?,?,?,?,?,?)', 'r_seed1', 'u_misha', 'money', JSON.stringify({ amount: 500 }), 'Открытка другу на день рождения', 'pending', ago(40), null);
     ins('INSERT INTO requests VALUES (?,?,?,?,?,?,?,?)', 'r_seed2', 'u_anya', 'perm', JSON.stringify({ key: 'cats.games' }), 'Хочу купить боевой пропуск в игре на месяц', 'pending', ago(60 * 14), null);
-    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_misha', 'Миша: школьная столовая', -350, ago(90));
-    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_anya', 'Аня: ЕРИП, мобильная связь', -1000, ago(60 * 26));
-    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_misha', 'Миша выполнил задание «Выносить мусор»', null, ago(60 * 70));
+    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_misha', 'Ребёнок 2: школьная столовая', -350, ago(90));
+    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_anya', 'Ребёнок 1: ЕРИП, мобильная связь', -1000, ago(60 * 26));
+    ins('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), 'f_demo', 'u_misha', 'Ребёнок 2 выполнил задание «Выносить мусор»', null, ago(60 * 70));
   });
 }

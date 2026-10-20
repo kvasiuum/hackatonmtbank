@@ -40,7 +40,7 @@ function Stand() {
     setChildId(null); setEpoch(e => e + 1);
   };
 
-  return <>
+  return <div className="app-root">
     <div className="mobile-switch">
       <button className={mobile === 'parent' ? 'on' : ''} onClick={() => setMobile('parent')}>Родитель</button>
       {kids.map((k, i) => (
@@ -76,7 +76,7 @@ function Stand() {
           : <div className="phone"><div className="screen"><div className="loading" style={{ padding: 30, textAlign: 'center' }}>Детей пока нет. Добавьте ребёнка в Moby родителя.</div></div></div>}
       </div>
     </div>
-  </>;
+  </div>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Stand /></StrictMode>);
