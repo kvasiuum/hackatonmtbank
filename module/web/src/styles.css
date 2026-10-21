@@ -75,7 +75,7 @@ svg { display: block; flex: none; }
 .bal-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
 .bal { font-weight: 700; font-size: 32px; letter-spacing: -.5px; }
 .iconbtn { color: inherit; padding: 6px; margin: -6px; }
-.actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px; margin-top: 18px; }
 .act { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #fff; font-size: 14px; }
 .act .box { width: 100%; height: 56px; border-radius: var(--r-lg); background: #fff; display: grid; place-items: center; color: var(--blue); transition: transform 120ms var(--ease-out); }
 .act:active .box { transform: scale(.97); }

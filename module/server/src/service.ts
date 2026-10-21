@@ -3,7 +3,7 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import { SAVE_CAP, monthName, monthStartMs, monthWeeks, nextMonthMs, savePercents, weekPercent } from './domain/weeks';
 import {
-  AVATAR_COLORS, BYN, CARD_TYPES, COINS_PER_BYN, PARTNER_OFFERS, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
+  AVATAR_COLORS, BYN, CARD_TYPES, COINS_PER_BYN, NO_WITHDRAW_AGE, PARTNER_OFFERS, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
   DISPUTE_REASONS, GAME_REWARD, PURCHASE_COINS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
@@ -596,6 +596,7 @@ export class FamilyService {
   /** Родитель забирает деньги со счёта ребёнка на свою карту. Заработок подростка (ст. 26 ГК РБ) не трогаем: он хранится отдельно */
   withdraw(parentId: string, childId: string, amount: number, cardId = 'main') {
     const c = this.ownChild(parentId, childId);
+    if (c.age >= NO_WITHDRAW_AGE) throw forbidden(`С ${NO_WITHDRAW_AGE} лет списывать деньги со счёта ребёнка нельзя`);
     const card = this.parentCards(parentId).find(x => x.id === cardId);
     if (!card) throw notFound('Карта');
     tx(this.db, () => {

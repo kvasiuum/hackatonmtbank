@@ -301,6 +301,9 @@ describe('API модуля «Семья»', () => {
     const parent = await login('u_parent');
     expect((await call('POST', '/api/parent/children/u_misha/withdraw', parent, { amount: 2341, cardId: 'pc_salary' })).body.error.code).toBe('funds');
     expect((await call('POST', '/api/parent/children/u_misha/withdraw', parent, { amount: 2340, cardId: 'pc_salary' })).status).toBe(200);
+    ctx.db.prepare("UPDATE children SET age = 16 WHERE user_id = 'u_anya'").run();
+    const w16 = await call('POST', '/api/parent/children/u_anya/withdraw', parent, { amount: 100, cardId: 'pc_salary' });
+    expect(w16.status).toBe(403); // с 16 лет списывать нельзя
     const o = (await call('GET', '/api/parent/overview', parent)).body;
     expect(o.children.find((k: any) => k.id === 'u_misha').balance).toBe(0);
     expect(o.parent.cards.find((c: any) => c.id === 'pc_salary').balance).toBe(1246 + 2340);

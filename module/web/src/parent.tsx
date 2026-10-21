@@ -1,7 +1,7 @@
 // Moby родителя: главная и «Продукты» как в приложении, плюс раздел «Семья».
 import { useEffect, useRef, useState } from 'react';
 import {
-  BYN, CARD_COLORS, CARD_TYPES, CAT_KEYS, FAMILY_OFFERS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, MAX_CARDS, PARENT_COINS, PARENT_TIPS, PERM_KEYS, PRESETS, SETTING_LABELS, TARIFFS,
+  BYN, CARD_COLORS, CARD_TYPES, CAT_KEYS, FAMILY_OFFERS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, MAX_CARDS, NO_WITHDRAW_AGE, PARENT_COINS, PARENT_TIPS, PERM_KEYS, PRESETS, SETTING_LABELS, TARIFFS,
   groupOf, levelOf, nextLevel, type InsurancePlan, type PresetKey,
 } from '../../server/src/content';
 import type { AgeGroup, CardType, ChildDetail, ChildRequest, ChildSettings, FamilyPlan, JoinRequest, ParentOverview, ParentTask, SettingPath, Tariff, Task } from '../../server/src/types';
@@ -440,7 +440,7 @@ export function ChildScreen({ id }: { id: string }) {
       <div className="bal-row"><div className="bal">{fmt(c.balance)}</div></div>
       <div className="actions">
         <Act icon="topup" label="Пополнить" onClick={() => sheet(close => <TopupSheet o={o} close={close} childId={id} />)} />
-        <Act icon="upload" label="Списать" onClick={() => sheet(close => <WithdrawSheet o={o} c={c} close={close} />)} />
+        {c.age < NO_WITHDRAW_AGE && <Act icon="upload" label="Списать" onClick={() => sheet(close => <WithdrawSheet o={o} c={c} close={close} />)} />}
         <Act icon="list-checks" label="Задание" onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)} />
       </div>
     </div>

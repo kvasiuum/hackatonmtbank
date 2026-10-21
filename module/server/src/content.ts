@@ -245,6 +245,8 @@ export const groupOf = (age: number): AgeGroup => (age < 14 ? 'kid' : 'teen');
 export const SUBS_MONTHLY_LIMIT = 20 * BYN;
 export const PARENT_BONUS_RATE = 0.1;
 export const DEPOSIT_RATE = 9;
+/** С 16 лет родитель не может списывать деньги со счёта ребёнка: подросток распоряжается ими сам */
+export const NO_WITHDRAW_AGE = 16;
 
 // ---------- пакет «Семья»: тарифы и спецусловия ----------
 export const TARIFFS = {
