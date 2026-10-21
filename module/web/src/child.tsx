@@ -265,6 +265,7 @@ export function KidHome() {
   const o = useChild();
   const { push, tab, sheet } = useDevice();
   const ask = useAsk();
+  const [hide, setHide] = useHidden();
   if (!o) return <Loading />;
   const main = mainCard(o.me.cards);
   const virtualOk = o.me.cards.some(c => c.type === 'virtual' && c.status === 'active');
@@ -273,8 +274,8 @@ export function KidHome() {
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div className="hero-name">Привет, {o.me.name}</div></div>
       <div className="chips"><button className="chip" onClick={() => tab('play')}>Уровень {o.me.level}</button><button className="chip" onClick={() => tab('play')}><Coin />{o.me.coins}</button></div>
-      <div className="bal-row"><div className="bal">{fmt(o.me.balance)}</div></div>
-      <div className="hero-sub">Сегодня можно потратить ещё {fmt(left)}</div>
+      <div className="bal-row"><div className="bal">{hide ? '**** BYN' : fmt(o.me.balance)}</div><button className="iconbtn" onClick={() => setHide(!hide)} aria-label={hide ? 'Показать баланс' : 'Скрыть баланс'}><Icon name={hide ? 'eye' : 'eye-off'} size={30} sw={1.6} /></button></div>
+      <div className="hero-sub">Сегодня можно потратить ещё {hide ? '****' : fmt(left)}</div>
       <div className="actions">
         <Act icon="pay" label="Оплатить" onClick={() => push('pay')} />
         <Act icon="transfer" label="Перевести" onClick={() => (o.me.settings.perms.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
@@ -716,14 +717,34 @@ function useHidden() {
   return [hide, set] as const;
 }
 
-/** «Ещё» подростка: как у взрослого Moby, но только то, что нужно в 14–17 */
-export function TeenMore() {
+/** Все запросы ребёнка родителям с ответами */
+function RequestsSheet() {
+  const o = useChild();
+  if (!o) return <Loading />;
+  return <><h2>Мои запросы</h2>
+    {o.requests.length ? <div>{o.requests.map(r => (
+      <Row key={r.id} icon="send" title={REQ_LABEL[r.type]} sub={`${r.summary}${r.amount != null ? `, ${fmt(r.amount)}` : ''}`}
+        right={<span className={`tag ${r.status === 'declined' ? 'solid-red' : r.status === 'pending' ? 'red' : ''}`}>{r.status === 'pending' ? 'Ждём' : r.status === 'approved' ? 'Одобрено' : 'Отказ'}</span>} />
+    ))}</div> : <div className="empty">Ты ещё ничего не просил(а)</div>}
+  </>;
+}
+
+/** «Ещё»: как у взрослого Moby, но только то, что нужно ребёнку 7–13 или подростку 14–17 */
+export function ChildMore() {
   const o = useChild();
   const { push, sheet, toast, logout } = useDevice();
   const ask = useAsk();
   if (!o) return <Loading />;
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
-  const items: [string, string, () => void][] = [
+  const items: [string, string, () => void][] = o.me.group === 'kid' ? [
+    ['settings', 'Настройки', () => push('settings')],
+    ['credit-card', 'Моя карта', () => sheet(c => <CardsSheet close={c} />)],
+    ['history', 'Мои покупки', () => sheet(() => <OpsSheet title="Мои покупки" />)],
+    ['send', 'Мои запросы', () => sheet(() => <RequestsSheet />)],
+    ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ['shield', 'Ваша безопасность', () => push('fraud')],
+    ['info', 'О Банке', soon],
+  ] : [
     ['settings', 'Настройки', () => push('settings')],
     ['credit-card', 'Мои карты', () => sheet(c => <CardsSheet close={c} />)],
     ['rocket', 'Путь к 18', () => push('path')],
@@ -740,7 +761,7 @@ export function TeenMore() {
   </div>;
 }
 
-export function TeenSettings() {
+export function ChildSettings() {
   const o = useChild();
   const { toast, logout } = useDevice();
   const [hide, setHide] = useHidden();

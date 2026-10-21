@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Device as DeviceInfo } from '../../server/src/types';
 import {
   Fraud, KidGoals, KidHome, KidTasks, Memory, MobyPlay, PathScreen, Pay, PriceGame, Quiz,
-  TeenAnalytics, TeenEarn, TeenHome, TeenMore, TeenPayments, TeenSavings, TeenSettings, TeenSubs,
+  ChildMore, ChildSettings, TeenAnalytics, TeenEarn, TeenHome, TeenPayments, TeenSavings, TeenSubs,
 } from './child';
 import { Icon, MobyLogo } from './icons';
 import { api, ApiError, DeviceProvider, useDevice, type Route } from './lib';
@@ -202,17 +202,18 @@ const PARENT: Record<string, Screen> = {
 };
 const KID: Record<string, Screen> = {
   home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, play: () => <MobyPlay />, memory: () => <Memory />, price: () => <PriceGame />,
+  more: () => <ChildMore />, settings: () => <ChildSettings />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
 };
 const TEEN: Record<string, Screen> = {
-  home: () => <TeenHome />, savings: () => <TeenSavings />, play: () => <MobyPlay />, more: () => <TeenMore />,
-  payments: () => <TeenPayments />, path: () => <PathScreen />, settings: () => <TeenSettings />, memory: () => <Memory />, price: () => <PriceGame />,
+  home: () => <TeenHome />, savings: () => <TeenSavings />, play: () => <MobyPlay />, more: () => <ChildMore />,
+  payments: () => <TeenPayments />, path: () => <PathScreen />, settings: () => <ChildSettings />, memory: () => <Memory />, price: () => <PriceGame />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
   subs: () => <TeenSubs />, earn: () => <TeenEarn />, analytics: () => <TeenAnalytics />,
 };
 const TABS: Record<'parent' | 'kid' | 'teen', [string, string, string][]> = {
   parent: [['home', 'Главная', 'moby'], ['products', 'Продукты', 'products'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],
-  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['tasks', 'Задания', 'list-checks'], ['play', 'MobyPlay', 'gamepad-2']],
+  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['tasks', 'Задания', 'list-checks'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
   teen: [['home', 'Главная', 'moby'], ['savings', 'Накопления', 'piggy-bank'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
 };
 
@@ -235,7 +236,7 @@ function Shell({ info, token, onLogout }: { info: DeviceInfo; token: string; onL
 
 function TabBar({ kind, current }: { kind: 'parent' | 'kid' | 'teen'; current: string }) {
   const { tab } = useDevice();
-  return <nav className="tabbar">{TABS[kind].map(([name, label, ic]) => (
+  return <nav className={`tabbar ${TABS[kind].length > 4 ? 'five' : ''}`}>{TABS[kind].map(([name, label, ic]) => (
     <button key={name} className={`tab ${current === name ? 'on' : ''}`} onClick={() => tab(name)}>
       {ic === 'moby' ? <MobyLogo active={current === name} /> : <Icon name={ic} size={28} sw={1.5} />}{label}
       {kind === 'parent' && name === 'more' && <span className="badge">10</span>}
