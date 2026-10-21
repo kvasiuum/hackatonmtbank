@@ -3,7 +3,7 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
-  GAME_REWARD, LESSONS, LESSON_REWARD, type GameId, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
+  DISPUTE_REASONS, GAME_REWARD, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
@@ -148,9 +148,14 @@ export class FamilyService {
     const parentId = this.parentOfFamily(familyId);
     const name = this.childRow(childId).name;
     const card = this.debitParent(parentId, amount, cardId);
+    // Манички родителю за деньги, отправленные ребёнку; в «Семья+» вдвое больше
+    this.addParentCoins(parentId, Math.floor(amount / PARENT_COINS.per) * (this.meta(familyId).tariff === 'plus' ? 2 : 1));
     this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', amount, childId);
     this.addTx(parentId, `${title}: ${name}${card.id === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Семья', 'internal');
     this.addTx(childId, title, amount, 'Пополнение', 'income');
+  }
+  private addParentCoins(parentId: string, n: number) {
+    if (n > 0) this.run('UPDATE parents SET coins = coins + ? WHERE user_id = ?', n, parentId);
   }
   private parentCards(parentId: string): ParentCard[] {
     const main = this.one<{ balance: number; card_mask: string }>('SELECT balance, card_mask FROM parents WHERE user_id = ?', parentId)!;
@@ -201,19 +206,29 @@ export class FamilyService {
       subscriptions: this.q<{ id: string; title: string; price: number; active: number; icon: string }>('SELECT * FROM subscriptions WHERE child_id = ?', c.user_id)
         .map(s => ({ id: s.id, title: s.title, price: s.price, active: !!s.active, icon: s.icon })),
       deposit: dep ?? null,
+      insurance: this.insurance(c.user_id),
       cashbackWeek: this.cashbackWeek(c),
       phone: this.one<{ phone: string | null }>('SELECT phone FROM users WHERE id = ?', c.user_id)?.phone ?? null,
     };
   }
+  private insurance(childId: string): ChildDetail['insurance'] {
+    const i = this.one<{ plan: InsurancePlan; price: number; since: string }>('SELECT plan, price, since FROM insurance WHERE child_id = ?', childId);
+    return i ? { plan: i.plan, title: INSURANCE_PLANS[i.plan].title, price: i.price, cover: INSURANCE_PLANS[i.plan].cover, since: i.since } : null;
+  }
   private cashbackWeek(c: ChildRow) {
     const spent = this.one<{ s: number | null }>('SELECT SUM(amount) AS s FROM partner_spend WHERE child_id = ? AND paid = 0', c.user_id)?.s ?? 0;
     const rate = this.tariff(c.family_id).cashbackRate;
-    return { spent, rate, expected: Math.round(spent * rate) };
+    const kop = Math.round(spent * rate);
+    return c.grp === 'kid'
+      ? { spent, rate, expected: Math.floor(kop / KID_CASHBACK_KOP_PER_COIN), unit: 'coins' as const }
+      : { spent, rate, expected: kop, unit: 'byn' as const };
   }
   private ops(userId: string, limit: number): Tx[] {
-    return this.q<{ id: string; title: string; amount: number; category: string; method: string | null; created_at: string }>(
-      'SELECT id, title, amount, category, method, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?', userId, limit,
-    ).map(r => ({ id: r.id, title: r.title, amount: r.amount, category: r.category, method: r.method, createdAt: r.created_at }));
+    return this.q<{ id: string; title: string; amount: number; category: string; method: string | null; created_at: string; kind: string; dispute: 'review' | null }>(
+      `SELECT t.id, t.title, t.amount, t.category, t.method, t.created_at, t.kind, d.status AS dispute FROM transactions t LEFT JOIN disputes d ON d.tx_id = t.id
+       WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT ?`, userId, limit,
+    ).map(r => ({ id: r.id, title: r.title, amount: r.amount, category: r.category, method: r.method, createdAt: r.created_at, dispute: r.dispute ?? null,
+      disputable: r.kind === 'spend' && r.amount < 0 && !r.dispute }));
   }
   private request(r: ReqRow): ChildRequest {
     const p = JSON.parse(r.payload);
@@ -252,7 +267,8 @@ export class FamilyService {
       "SELECT * FROM join_requests WHERE family_id = ? AND status = 'pending' ORDER BY created_at DESC", familyId,
     ).map<JoinRequest>(j => ({ id: j.id, name: j.name, age: j.age, phone: j.phone, createdAt: j.created_at }));
     return {
-      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone, cards: this.parentCards(parentId) },
+      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone, cards: this.parentCards(parentId),
+        coins: this.one<{ coins: number }>('SELECT coins FROM parents WHERE user_id = ?', parentId)!.coins },
       introSeen: !!this.meta(familyId).intro_seen, plan: this.plan(familyId), joinRequests,
       children: kids.map(k => this.summary(k)), requests, feed, familyGoal: this.familyGoal(familyId),
     };
@@ -300,6 +316,23 @@ export class FamilyService {
     }
   }
 
+  /** Страховка ребёнка: раз в месяц с карты родителя, где хватает средств */
+  processInsurance(now = Date.now()) {
+    const month = startOfMonth(now);
+    for (const i of this.q<{ child_id: string; plan: InsurancePlan; price: number }>('SELECT child_id, plan, price FROM insurance WHERE paid_month < ?', month)) {
+      const c = this.childRow(i.child_id);
+      const parentId = this.parentOfFamily(c.family_id);
+      tx(this.db, () => {
+        this.run('UPDATE insurance SET paid_month = ? WHERE child_id = ?', month, i.child_id);
+        const card = this.autoCard(parentId, i.price);
+        if (!card) { this.addFeed(c.family_id, c.user_id, `Недостаточно средств для страховки: ${c.name}`); return; }
+        const used = this.debitParent(parentId, i.price, card);
+        this.addTx(parentId, `Страхование: ${c.name}${used.id === 'main' ? '' : ` · ${used.title}`}`, -i.price, 'Страхование', 'internal');
+      });
+      this.touch(c.family_id);
+    }
+  }
+
   /** Кешбэк недели у партнёров: в понедельник за прошлую неделю, на счёт ребёнка */
   processWeeklyCashback(now = Date.now()) {
     const week = startOfWeek(now);
@@ -310,6 +343,13 @@ export class FamilyService {
       tx(this.db, () => {
         this.run('UPDATE partner_spend SET paid = 1 WHERE child_id = ? AND paid = 0 AND created_at < ?', d.child_id, week);
         if (bonus <= 0) return;
+        // Ребёнку 7–13 — одной понятной наградой, Маничками
+        if (c.grp === 'kid') {
+          const coins = Math.floor(bonus / KID_CASHBACK_KOP_PER_COIN);
+          this.run('UPDATE children SET coins = coins + ? WHERE user_id = ?', coins, d.child_id);
+          this.addFeed(c.family_id, d.child_id, `${c.name}: кешбэк недели у партнёров, +${coins} Маничек`);
+          return;
+        }
         this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', bonus, d.child_id);
         this.addTx(d.child_id, 'Кешбэк недели у партнёров', bonus, 'Бонусы', 'income');
         this.addFeed(c.family_id, d.child_id, `${c.name}: кешбэк недели у партнёров`, bonus);
@@ -432,6 +472,58 @@ export class FamilyService {
       this.addFeed(c.family_id, childId, `Вы перевели: ${c.name}`, amount);
     });
     this.touch(c.family_id);
+  }
+
+  /** Страхование ребёнка: первый месяц списывается сразу, дальше раз в месяц. В «Семья+» скидка 30% */
+  buyInsurance(parentId: string, childId: string, plan: InsurancePlan, cardId = 'main') {
+    const c = this.ownChild(parentId, childId);
+    if (this.one('SELECT 1 FROM insurance WHERE child_id = ?', childId)) throw bad('exists', 'Страховка уже оформлена');
+    const p = INSURANCE_PLANS[plan];
+    const price = this.meta(c.family_id).tariff === 'plus' ? Math.round(p.price * (1 - INSURANCE_PLUS_DISCOUNT)) : p.price;
+    tx(this.db, () => {
+      const card = this.debitParent(parentId, price, cardId);
+      this.run('INSERT INTO insurance VALUES (?,?,?,?,?)', childId, plan, price, nowIso(), startOfMonth());
+      this.addTx(parentId, `Страхование: ${c.name}${card.id === 'main' ? '' : ` · ${card.title}`}`, -price, 'Страхование', 'internal');
+      this.addFeed(c.family_id, childId, `${c.name}: оформлена страховка «${p.title}»`, -price);
+    });
+    this.touch(c.family_id);
+    return this.insurance(childId);
+  }
+  cancelInsurance(parentId: string, childId: string) {
+    const c = this.ownChild(parentId, childId);
+    if (!Number(this.run('DELETE FROM insurance WHERE child_id = ?', childId).changes)) throw notFound('Страховка');
+    this.addFeed(c.family_id, childId, `${c.name}: страховка отключена, действует до конца месяца`);
+    this.touch(c.family_id);
+  }
+
+  /** Вклад на ребёнка от родителя («На вырост»): копить на долгую цель. Ребёнок видит, но снять не может */
+  depositForChild(parentId: string, childId: string, amount: number, cardId = 'main') {
+    const c = this.ownChild(parentId, childId);
+    if (amount < 10 * BYN) throw bad('min', 'Минимальная сумма — 10 BYN');
+    tx(this.db, () => {
+      const card = this.debitParent(parentId, amount, cardId);
+      const dep = this.one('SELECT 1 FROM deposits WHERE child_id = ?', childId);
+      if (dep) this.run('UPDATE deposits SET amount = amount + ? WHERE child_id = ?', amount, childId);
+      else this.run('INSERT INTO deposits VALUES (?,?,?,?)', childId, amount, DEPOSIT_RATE, nowIso());
+      this.addTx(parentId, `Вклад для ребёнка: ${c.name}${card.id === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Вклад', 'internal');
+      this.addFeed(c.family_id, childId, `${dep ? 'Пополнен' : 'Открыт'} вклад для ${c.name}`, amount);
+    });
+    this.touch(c.family_id);
+  }
+
+  /** Оспорить операцию по карте: родитель — свою или ребёнка, ребёнок — свою */
+  openDispute(actor: { id: string; role: 'parent' | 'child' }, txId: string, reason: string) {
+    if (!DISPUTE_REASONS.includes(reason)) throw bad('reason', 'Выберите причину');
+    const t = this.one<{ user_id: string; amount: number; kind: string; title: string }>('SELECT user_id, amount, kind, title FROM transactions WHERE id = ?', txId);
+    if (!t) throw notFound('Операция');
+    const familyId = this.familyOfUser(t.user_id);
+    const own = t.user_id === actor.id;
+    if (!own && !(actor.role === 'parent' && familyId === this.familyOfParent(actor.id) && t.user_id !== actor.id)) throw forbidden();
+    if (t.kind !== 'spend' || t.amount >= 0) throw bad('kind', 'Оспорить можно только оплату или перевод');
+    if (this.one('SELECT 1 FROM disputes WHERE tx_id = ?', txId)) throw bad('exists', 'Операция уже оспаривается');
+    this.run('INSERT INTO disputes VALUES (?,?,?,?,?,?)', newId('dp'), actor.id, txId, reason, 'review', nowIso());
+    this.addFeed(familyId, actor.role === 'child' ? actor.id : null, `Оспаривается операция «${t.title}»: ${reason.toLowerCase()}`, t.amount);
+    this.touch(familyId);
   }
 
   /** Родитель забирает деньги со счёта ребёнка на свою карту. Заработок подростка (ст. 26 ГК РБ) не трогаем: он хранится отдельно */
@@ -648,6 +740,7 @@ export class FamilyService {
             // У остальных детей общее задание исчезает: награду получил этот ребёнок
             for (const id of this.taskCopies(p.taskId)) if (id !== p.taskId) this.run('DELETE FROM tasks WHERE id = ?', id);
             this.addXp(c, 40, 10);
+            this.addParentCoins(this.parentOfFamily(c.family_id), PARENT_COINS.taskApproved);
             break;
           }
           case 'goal': {
@@ -825,6 +918,7 @@ export class FamilyService {
       tx(this.db, () => {
         this.run('UPDATE children SET lessons = ? WHERE user_id = ?', JSON.stringify([...done, lessonId]), childId);
         level = this.addXp(c, LESSON_REWARD.xp, LESSON_REWARD.coins);
+        this.addParentCoins(this.parentOfFamily(c.family_id), PARENT_COINS.childLesson);
         this.addFeed(c.family_id, childId, `${c.name}: пройден урок «${lesson.title}», ${correct} из ${lesson.questions.length}`);
       });
       this.touch(c.family_id);

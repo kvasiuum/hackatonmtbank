@@ -58,7 +58,7 @@ export function buildApp(opts: AppOptions = {}) {
     app.setNotFoundHandler((req, reply) => req.url.startsWith('/api/') ? reply.status(404).send({ error: { code: 'not_found', message: 'Нет такого метода' } }) : reply.sendFile('index.html'));
   }
 
-  const scheduled = () => { api.svc.processAllowances(); api.svc.processWeeklyCashback(); api.svc.processFees(); };
+  const scheduled = () => { api.svc.processAllowances(); api.svc.processWeeklyCashback(); api.svc.processFees(); api.svc.processInsurance(); };
   const timer = setInterval(scheduled, 60_000);
   app.addHook('onClose', async () => { clearInterval(timer); db.close(); });
   scheduled();

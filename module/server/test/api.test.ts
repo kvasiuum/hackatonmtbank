@@ -183,16 +183,19 @@ describe('API модуля «Семья»', () => {
     expect(await balance()).toBe(before - 490);
   });
 
-  it('кешбэк недели у партнёров приходит в понедельник', async () => {
-    const kid = await login('u_misha');
+  it('кешбэк недели: ребёнку 7–13 Маничками, подростку в BYN', async () => {
+    const kid = await login('u_misha'); const teen = await login('u_anya');
     await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' });
     const me = (await call('GET', '/api/child/overview', kid)).body.me;
-    expect(me.cashbackWeek).toEqual({ spent: 420 + 800 + 620, rate: 0.1, expected: 184 });
-    const balance = me.balance;
+    expect(me.cashbackWeek).toEqual({ spent: 420 + 800 + 620, rate: 0.1, expected: 18, unit: 'coins' });
+    const t = (await call('GET', '/api/child/overview', teen)).body.me;
+    expect(t.cashbackWeek).toEqual({ spent: 480 + 1200, rate: 0.1, expected: 168, unit: 'byn' });
     ctx.svc.processWeeklyCashback(Date.now() + 8 * 24 * 3600_000);
     const after = (await call('GET', '/api/child/overview', kid)).body.me;
-    expect(after.balance).toBe(balance + 184);
+    expect(after.balance).toBe(me.balance);
+    expect(after.coins).toBe(me.coins + 18);
     expect(after.cashbackWeek.spent).toBe(0);
+    expect((await call('GET', '/api/child/overview', teen)).body.me.balance).toBe(t.balance + 168);
   });
 
   it('вход по номеру: родитель добавил ребёнка по телефону, подросток просится в семью сам', async () => {
@@ -338,5 +341,49 @@ describe('API модуля «Семья»', () => {
     await call('POST', '/api/cards/c_misha1', kid, { action: 'block' });
     const blocked = await call('POST', '/api/child/pay', kid, { merchantId: 'canteen', method: 'card', cardId: 'c_misha1' });
     expect(blocked.body).toMatchObject({ status: 'declined', title: 'Эта карта не работает' });
+  });
+
+  it('Манички родителя: за переводы детям (×2 в «Семья+»), задания и уроки', async () => {
+    const parent = await login('u_parent'); const kid = await login('u_misha');
+    const coins = async () => (await call('GET', '/api/parent/overview', parent)).body.parent.coins;
+    expect(await coins()).toBe(240);
+    await call('POST', '/api/parent/children/u_misha/topup', parent, { amount: 1000 }); // 10 BYN → 2 × 2
+    expect(await coins()).toBe(244);
+    await call('POST', '/api/child/tasks/k_vacuum/done', kid);
+    const req = (await call('GET', '/api/parent/overview', parent)).body.requests.find((x: any) => x.type === 'task' && x.status === 'pending');
+    await call('POST', '/api/parent/requests/' + req.id, parent, { approve: true }); // 3 BYN → 0, задание +3
+    expect(await coins()).toBe(247);
+    await call('POST', '/api/child/lessons/save', kid, { answers: [1, 0, 1] });
+    expect(await coins()).toBe(249);
+  });
+
+  it('страхование и вклад на ребёнка с карты родителя', async () => {
+    const parent = await login('u_parent'); const kid = await login('u_misha');
+    const ins = await call('POST', '/api/parent/children/u_misha/insurance', parent, { plan: 'sport', cardId: 'pc_halva' });
+    expect(ins.body).toMatchObject({ plan: 'sport', price: 245 }); // −30% в «Семья+»
+    expect((await call('POST', '/api/parent/children/u_misha/insurance', parent, { plan: 'accident' })).status).toBe(400);
+    expect((await call('GET', '/api/child/overview', kid)).body.me.insurance.title).toBe('Спорт и активный отдых');
+    ctx.svc.processInsurance(Date.now() + 40 * 24 * 3600_000);
+    expect((await call('DELETE', '/api/parent/children/u_misha/insurance', parent)).status).toBe(200);
+    expect((await call('POST', '/api/parent/children/u_misha/deposit', parent, { amount: 500 })).body.error.code).toBe('min');
+    expect((await call('POST', '/api/parent/children/u_misha/deposit', parent, { amount: 2000, cardId: 'pc_salary' })).body.error.code).toBe('parent_funds');
+    await call('POST', '/api/parent/children/u_misha/deposit', parent, { amount: 2000, cardId: 'pc_halva' });
+    await call('POST', '/api/parent/children/u_misha/deposit', parent, { amount: 1000 });
+    expect((await call('GET', '/api/child/overview', kid)).body.me.deposit.amount).toBe(3000);
+    const halva = (await call('GET', '/api/parent/overview', parent)).body.parent.cards.find((c: any) => c.id === 'pc_halva').balance;
+    expect(halva).toBe(31200 - 245 - 2000);
+  });
+
+  it('оспорить операцию: свою или ребёнка, только списание и один раз', async () => {
+    const parent = await login('u_parent'); const kid = await login('u_misha'); const teen = await login('u_anya');
+    const op = (await call('GET', '/api/child/overview', kid)).body.me.ops.find((o: any) => o.amount < 0 && o.title === 'Канцтовары');
+    const reason = 'Списали дважды';
+    expect((await call('POST', '/api/disputes', teen, { txId: op.id, reason })).status).toBe(403);
+    expect((await call('POST', '/api/disputes', parent, { txId: op.id, reason: 'просто так' })).status).toBe(400);
+    expect((await call('POST', '/api/disputes', parent, { txId: op.id, reason })).status).toBe(200);
+    expect((await call('POST', '/api/disputes', kid, { txId: op.id, reason })).body.error.code).toBe('exists');
+    expect((await call('GET', '/api/child/overview', kid)).body.me.ops.find((o: any) => o.id === op.id).dispute).toBe('review');
+    const income = (await call('GET', '/api/child/overview', kid)).body.me.ops.find((o: any) => o.amount > 0);
+    expect((await call('POST', '/api/disputes', kid, { txId: income.id, reason })).body.error.code).toBe('kind');
   });
 });

@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL, phone TEXT, pin_hash TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS parents (
-  user_id TEXT PRIMARY KEY REFERENCES users(id), balance INTEGER NOT NULL CHECK (balance >= 0), card_mask TEXT NOT NULL
+  user_id TEXT PRIMARY KEY REFERENCES users(id), balance INTEGER NOT NULL CHECK (balance >= 0), card_mask TEXT NOT NULL,
+  coins INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS families (
   id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES users(id),
@@ -89,6 +90,13 @@ CREATE TABLE IF NOT EXISTS game_plays (
   child_id TEXT NOT NULL REFERENCES users(id), game TEXT NOT NULL, day TEXT NOT NULL, score INTEGER NOT NULL,
   PRIMARY KEY (child_id, game, day)
 );
+CREATE TABLE IF NOT EXISTS insurance (
+  child_id TEXT PRIMARY KEY REFERENCES users(id), plan TEXT NOT NULL, price INTEGER NOT NULL, since TEXT NOT NULL, paid_month TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS disputes (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT NOT NULL UNIQUE, reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'review', created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
 );
@@ -100,6 +108,9 @@ export function initDb(db: DB) {
   // Базы до общих заданий: добавляем колонку группы
   const cols = db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[];
   if (!cols.some(c => c.name === 'grp')) db.exec('ALTER TABLE tasks ADD COLUMN grp TEXT');
+  // Базы до Маничек родителя
+  const parentCols = db.prepare('PRAGMA table_info(parents)').all() as { name: string }[];
+  if (!parentCols.some(c => c.name === 'coins')) db.exec('ALTER TABLE parents ADD COLUMN coins INTEGER NOT NULL DEFAULT 0');
   // Базы до подписей и избранных карт
   const cardCols = db.prepare('PRAGMA table_info(cards)').all() as { name: string }[];
   if (!cardCols.some(c => c.name === 'label')) db.exec('ALTER TABLE cards ADD COLUMN label TEXT; ALTER TABLE cards ADD COLUMN fav INTEGER NOT NULL DEFAULT 0;');
@@ -121,7 +132,7 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
-export const TABLES = ['sessions', 'game_plays', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+export const TABLES = ['sessions', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
   'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
@@ -131,7 +142,7 @@ export function seed(db: DB) {
   tx(db, () => {
     const pin = hashPin(DEMO_PIN);
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
-    ins('INSERT INTO parents VALUES (?,?,?)', 'u_parent', 124050, '4*2110');
+    ins('INSERT INTO parents (user_id,balance,card_mask,coins) VALUES (?,?,?,?)', 'u_parent', 124050, '4*2110', 240);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_salary', 'u_parent', 'Зарплатная', '9*4405', '11/27', 'belkart', 1246, 1);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_personal', 'u_parent', 'Личная', '4*8837', '05/30', 'visa', 5420, 2);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_halva', 'u_parent', 'Халва', '5*7731', '08/28', 'mastercard', 31200, 3);

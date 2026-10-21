@@ -30,7 +30,8 @@ export interface Card { id: string; type: CardType; last4: string; color: string
 /** Карта родителя, с которой можно переводить детям. id «main» — основная карта с балансом на главной */
 export interface ParentCard { id: string; title: string; mask: string; expiry: string; network: 'visa' | 'mastercard' | 'belkart'; balance: number }
 export interface ParentTask extends Task { childId: string; grp: string | null }
-export interface Tx { id: string; title: string; amount: number; category: string; method: string | null; createdAt: string }
+/** dispute — статус оспаривания операции, если её оспорили */
+export interface Tx { id: string; title: string; amount: number; category: string; method: string | null; createdAt: string; dispute: 'review' | null; disputable: boolean }
 /** taken — общее задание уже взял другой ребёнок; shared — задание для всех детей, награда тому, кто выполнит первым */
 export interface Task { id: string; title: string; reward: number; status: 'open' | 'review' | 'paid' | 'taken'; shared: boolean }
 export interface Goal { id: string; title: string; icon: string; target: number; saved: number }
@@ -67,8 +68,10 @@ export interface ChildDetail extends ChildSummary {
   ops: Tx[];
   subscriptions: Subscription[];
   deposit: { amount: number; rate: number } | null;
+  insurance: { plan: 'accident' | 'sport'; title: string; price: number; cover: number; since: string } | null;
   /** Кешбэк недели у партнёров: потрачено, ставка, сколько вернётся в понедельник */
-  cashbackWeek: { spent: number; rate: number; expected: number };
+  /** unit: ребёнку 7–13 кешбэк приходит Маничками (expected — в Маничках), подростку — в BYN (в копейках) */
+  cashbackWeek: { spent: number; rate: number; expected: number; unit: 'byn' | 'coins' };
   phone: string | null;
 }
 
@@ -80,7 +83,7 @@ export interface FamilyPlan { tariff: Tariff; since: string; spendMonth: number;
 export interface JoinRequest { id: string; name: string; age: number; phone: string; createdAt: string }
 
 export interface ParentOverview {
-  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null; cards: ParentCard[] };
+  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null; cards: ParentCard[]; coins: number };
   introSeen: boolean;
   plan: FamilyPlan;
   joinRequests: JoinRequest[];

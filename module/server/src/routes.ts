@@ -163,6 +163,19 @@ export function createApi(db: DB, opts: ApiOptions) {
       const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
       svc.createSharedTask(me(r).userId, b.title, b.reward); return ok;
     } },
+    { method: 'POST', path: '/api/parent/children/:id/insurance', role: 'parent', handler: r => {
+      const b = z.object({ plan: z.enum(['accident', 'sport']), cardId }).parse(r.body);
+      return svc.buyInsurance(me(r).userId, id(r), b.plan, b.cardId);
+    } },
+    { method: 'DELETE', path: '/api/parent/children/:id/insurance', role: 'parent', handler: r => { svc.cancelInsurance(me(r).userId, id(r)); return ok; } },
+    { method: 'POST', path: '/api/parent/children/:id/deposit', role: 'parent', handler: r => {
+      const b = z.object({ amount: money, cardId }).parse(r.body);
+      svc.depositForChild(me(r).userId, id(r), b.amount, b.cardId); return ok;
+    } },
+    { method: 'POST', path: '/api/disputes', role: 'any', handler: r => {
+      const b = z.object({ txId: z.string().max(40), reason: z.string().max(80) }).parse(r.body);
+      svc.openDispute({ id: me(r).userId, role: me(r).role }, b.txId, b.reason); return ok;
+    } },
     { method: 'POST', path: '/api/parent/children/:id/withdraw', role: 'parent', handler: r => {
       const b = z.object({ amount: money, cardId }).parse(r.body);
       svc.withdraw(me(r).userId, id(r), b.amount, b.cardId); return ok;

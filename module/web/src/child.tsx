@@ -5,6 +5,7 @@ import {
   MAX_CARDS, MERCHANTS, PARTNER_OFFERS, SETTING_LABELS, SUBS_MONTHLY_LIMIT, levelOf, nextLevel,
 } from '../../server/src/content';
 import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
+import { Confetti, CountUp, Piggy, PiggyParty } from './fx';
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
@@ -86,16 +87,30 @@ function GoalSheet({ o, goalId, close }: { o: ChildOverview; goalId: string; clo
   const g = o.me.goals.find(x => x.id === goalId)!;
   const [sum, setSum] = useState('2');
   const [busy, wrap] = useBusy();
+  const [party, setParty] = useState<{ added: number } | null>(null);
   const bonus = o.me.settings.parentBonus;
   const amount = toKop(sum);
   const short = amount > o.me.balance;
+  const kid = o.me.group === 'kid';
+  // Ребёнку 7–13 — праздник копилки: монетки падают, свинка радуется
+  if (party) {
+    const saved = g.saved + party.added;
+    return <>
+      <PiggyParty from={g.saved / g.target} to={saved / g.target} amount={fmt(party.added)} />
+      <h2 style={{ textAlign: 'center' }}>{saved >= g.target ? `Ура! Хватает на «${g.title}»` : 'Хрю! Спасибо!'}</h2>
+      <p className="muted" style={{ textAlign: 'center', marginTop: -6 }}>{saved >= g.target ? 'Цель накоплена — покажи родителям' : `В копилке ${fmt(saved)} из ${fmt(g.target)}. Осталось ${fmt(g.target - saved)}`}</p>
+      {saved >= g.target && <Confetti />}
+      <button className="btn" onClick={close}>Готово</button>
+    </>;
+  }
   return <>
     <div className="goal-h"><RowIcon name={g.icon} tone="red" /><div className="tx"><h2>{g.title}</h2><small className="muted">На счёте {fmt(o.me.balance)}{bonus ? ', родители добавят 10%' : ''}</small></div></div>
     <AmountField label="Сколько положить, BYN" value={sum} onChange={setSum} presets={[1, 2, 5, 10]} />
     {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>
       : g.target > g.saved && <small className="muted">До цели осталось {fmt(g.target - g.saved)}</small>}
     <button className="btn" disabled={busy || short || amount <= 0} onClick={() => wrap(async () => {
-      if (await run(() => call<{ added: number }>(`/api/child/goals/${goalId}/deposit`, { amount }), r => `+${fmt(r.added)} в копилку`)) close();
+      const r = await run(() => call<{ added: number }>(`/api/child/goals/${goalId}/deposit`, { amount }), r => (kid ? undefined : `+${fmt(r.added)} в копилку`));
+      if (r) { if (kid) setParty(r); else close(); }
     })}>Положить {fmt(amount)}{bonus && amount > 0 ? `, в копилку упадёт ${fmt(Math.round(amount * 1.1))}` : ''}</button>
     <button className="btn ghost" disabled={busy || amount <= 0} onClick={() => wrap(async () => { if (await run(() => call('/api/child/requests', { type: 'goal', goalId, amount, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) close(); })}>Попросить у родителей {fmt(amount)}</button>
   </>;
@@ -121,8 +136,10 @@ function GoalCard({ o, id }: { o: ChildOverview; id: string }) {
   const { sheet } = useDevice();
   const g = o.me.goals.find(x => x.id === id)!;
   const weeks = o.me.settings.allowance.on ? Math.ceil((g.target - g.saved) / o.me.settings.allowance.amount) : null;
+  const kid = o.me.group === 'kid';
   return <div className="card goal">
-    <div className="goal-h"><RowIcon name={g.icon} tone="red" /><div className="tx"><b>{g.title}</b><small className="muted">{fmt(g.saved)} из {fmt(g.target)}</small></div>
+    <div className="goal-h">{kid ? <Piggy fill={g.saved / g.target} size={62} /> : <RowIcon name={g.icon} tone="red" />}
+      <div className="tx"><b style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{kid && <Icon name={g.icon} size={18} />}{g.title}</b><small className="muted">{fmt(g.saved)} из {fmt(g.target)}</small></div>
       <button className="sbtn" onClick={() => sheet(c => <GoalSheet o={o} goalId={id} close={c} />)}>Положить</button></div>
     <Bar value={g.saved} max={g.target} red />
     {g.saved >= g.target ? <span className="tag" style={{ alignSelf: 'flex-start' }}>Цель достигнута</span>
@@ -207,8 +224,10 @@ function CashbackCard({ o }: { o: ChildOverview }) {
   const cb = o.me.cashbackWeek;
   const pct = Math.round(cb.rate * 100);
   return <div className="cashback"><div className="ic"><Icon name="percent" size={22} /></div>
-    <div className="tx"><b>Кешбэк недели {pct}%</b><small>{cb.spent ? `У партнёров потрачено ${fmt(cb.spent)}. Вернётся в понедельник` : 'Плати у партнёров Moby — часть денег вернётся в понедельник'}</small></div>
-    {cb.expected > 0 && <span className="sum">+{fmt(cb.expected)}</span>}
+    <div className="tx"><b>Кешбэк недели {pct}%</b><small>{cb.unit === 'coins'
+      ? (cb.spent ? `У партнёров потрачено ${fmt(cb.spent)}. В понедельник придут Манички` : 'Плати у партнёров Moby — в понедельник получишь Манички')
+      : (cb.spent ? `У партнёров потрачено ${fmt(cb.spent)}. Вернётся в понедельник` : 'Плати у партнёров Moby — часть денег вернётся в понедельник')}</small></div>
+    {cb.expected > 0 && <span className="sum">{cb.unit === 'coins' ? <>+{cb.expected} <Coin /></> : `+${fmt(cb.expected)}`}</span>}
   </div>;
 }
 
@@ -300,6 +319,8 @@ export function KidGoals() {
     <div className="page tight">
       {o.me.settings.parentBonus && <div className="family-entry"><div className="ic red"><Icon name="gift" size={24} /></div><div className="tx"><b>Родители добавляют 10%</b><small>Положишь 10 BYN, в копилке станет 11 BYN</small></div></div>}
       {o.me.goals.length ? o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />) : <div className="empty">Копилок пока нет</div>}
+      {o.me.deposit && <div className="family-entry"><div className="ic"><Icon name="landmark" size={24} /></div>
+        <div className="tx"><b>Вклад «На вырост»: {fmt(o.me.deposit.amount)}</b><small>Копят родители, {o.me.deposit.rate}% годовых. Через год будет около {fmt(Math.round(o.me.deposit.amount * (1 + o.me.deposit.rate / 100)))}</small></div></div>}
       <CashbackCard o={o} />
       {o.me.settings.roundup && o.me.goals[0] && <div className="legal"><Icon name="coins" size={18} /><span>Сдача с покупок округляется и падает в первую незаполненную копилку.</span></div>}
       <FamilyGoalCard o={o} />
@@ -329,7 +350,8 @@ export function Quiz({ id }: { id: string }) {
   if (!o) return <Loading />;
   const lesson = LESSONS[o.me.group].find(l => l.id === id)!;
   if (result) return <><TopBar title={lesson.title} /><div className="page">
-    <div className="result"><div className="big ok"><Icon name="trophy" size={34} /></div><h2>Урок пройден</h2><p>Верных ответов: {result.correct} из {result.total}</p>
+    <Confetti />
+    <div className="result"><div className="big ok win"><Icon name="trophy" size={34} /></div><h2>Урок пройден</h2><p>Верных ответов: {result.correct} из {result.total}</p>
       <p><b>{result.rewarded ? `+${LESSON_REWARD.xp} опыта, +${LESSON_REWARD.coins} Маничек` : 'Награда за этот урок уже получена'}</b></p>
       {result.level && <p>Новый уровень {result.level}! Родителю отправлено предложение расширить лимиты.</p>}</div>
     <button className="btn" onClick={back}>Готово</button></div></>;
@@ -352,7 +374,8 @@ export function Fraud() {
   const [answers, setAnswers] = useState<boolean[]>([]);
   const [result, setResult] = useState<{ correct: number; total: number; rewarded: boolean; level: number | null } | null>(null);
   if (result) return <><TopBar title="Распознай мошенника" /><div className="page">
-    <div className="result"><div className="big ok"><Icon name="shield-check" size={34} /></div><h2>{result.correct} из {result.total}</h2>
+    {result.correct >= 4 && <Confetti />}
+    <div className="result"><div className="big ok win"><Icon name="shield-check" size={34} /></div><h2>{result.correct} из {result.total}</h2>
       <p>{result.correct >= 5 ? 'Мошенникам будет непросто тебя обмануть.' : 'Перечитай подсказки и попробуй ещё раз.'}</p>
       <p><b>{result.rewarded ? `+${result.correct * FRAUD_REWARD_PER_ANSWER.coins} Маничек, +${result.correct * FRAUD_REWARD_PER_ANSWER.xp} опыта` : 'Награда уже получена, но тренироваться полезно'}</b></p>
       {result.level && <p>Новый уровень {result.level}! Родителю отправлено предложение расширить лимиты.</p>}</div>
@@ -366,7 +389,7 @@ export function Fraud() {
     <small className="muted">Ситуация {i + 1} из {FRAUD_CASES.length} · верно {answers.filter((a, k) => a === FRAUD_CASES[k].fraud).length}</small>
     <div className="msg"><RowIcon name={f.icon} /><div><div className="muted" style={{ fontWeight: 600, fontSize: 12.5 }}>{f.from}</div><div style={{ fontSize: 16, marginTop: 4 }}>{f.text}</div></div></div>
     {picked === undefined ? <div className="btns"><button className="btn" onClick={() => pick(false)}>Безопасно</button><button className="btn solid-red" onClick={() => pick(true)}>Мошенники</button></div> : <>
-      <div className="card" style={{ border: `2px solid ${correct ? 'var(--blue)' : 'var(--red)'}` }}><b>{correct ? 'Верно. ' : 'Не совсем. '}{f.fraud ? 'Это мошенники.' : 'Это безопасно.'}</b><p style={{ marginTop: 6, fontSize: 14.5, color: '#4F5A6E' }}>{f.why}</p></div>
+      <div className={`card ${correct ? 'fx-right' : 'fx-wrong'}`} style={{ border: `2px solid ${correct ? 'var(--blue)' : 'var(--red)'}` }}><b>{correct ? 'Верно. ' : 'Не совсем. '}{f.fraud ? 'Это мошенники.' : 'Это безопасно.'}</b><p style={{ marginTop: 6, fontSize: 14.5, color: '#4F5A6E' }}>{f.why}</p></div>
       <button className="btn" onClick={next}>{i + 1 < FRAUD_CASES.length ? 'Дальше' : 'Завершить'}</button></>}
   </div></>;
 }
@@ -621,8 +644,10 @@ type GameResult = { rewarded: boolean; coins: number; xp: number; level: number 
 function GameDone({ icon, title, text, r, onAgain }: { icon: string; title: string; text: string; r: GameResult; onAgain: () => void }) {
   const { back } = useDevice();
   return <div className="page">
-    <div className="result"><div className="big ok"><Icon name={icon} size={34} /></div><h2>{title}</h2><p>{text}</p>
-      <p><b>{r.rewarded ? `+${r.coins} Маничек, +${r.xp} опыта` : 'Награда за сегодня уже получена. Возвращайся завтра'}</b></p>
+    <Confetti />
+    <div className="result"><div className="big ok win"><Icon name={icon} size={34} /></div><h2>{title}</h2><p>{text}</p>
+      {r.rewarded ? <div className="reward-pop"><Coin /> +<CountUp to={r.coins} /> Маничек · +<CountUp to={r.xp} /> опыта</div>
+        : <p><b>Награда за сегодня уже получена. Возвращайся завтра</b></p>}
       {r.level && <p>Новый уровень {r.level}! Родителю отправлено предложение расширить лимиты.</p>}</div>
     <button className="btn" onClick={back}>Готово</button>
     <button className="btn ghost" onClick={onAgain}>Сыграть ещё</button>
@@ -639,6 +664,7 @@ export function Memory() {
   const [open, setOpen] = useState<number[]>([]);
   const [found, setFound] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
+  const [miss, setMiss] = useState<number[]>([]);
   const [result, setResult] = useState<GameResult | null>(null);
   const again = () => { setDeck(deal()); setOpen([]); setFound([]); setMoves(0); setResult(null); };
   const flip = (i: number) => {
@@ -647,7 +673,7 @@ export function Memory() {
     setOpen(next);
     if (next.length < 2) return;
     setMoves(m => m + 1);
-    if (deck[next[0]].id !== deck[next[1]].id) { setTimeout(() => setOpen([]), 750); return; }
+    if (deck[next[0]].id !== deck[next[1]].id) { setTimeout(() => setMiss(next), 380); setTimeout(() => { setOpen([]); setMiss([]); }, 850); return; }
     const f = [...found, deck[i].id];
     setFound(f); setOpen([]);
     if (f.length === MEMORY_PARTNERS.length) run(() => call<GameResult>('/api/child/games/memory', { score: 1 })).then(r => r && setTimeout(() => setResult(r), 400));
@@ -658,7 +684,7 @@ export function Memory() {
     <small className="muted">Открывай по две карты и находи одинаковых партнёров · ходов {moves} · пар {found.length} из {MEMORY_PARTNERS.length}</small>
     <div className="memgrid">{deck.map((p, i) => {
       const up = open.includes(i) || found.includes(p.id);
-      return <button key={i} className={`mem ${up ? 'up' : ''} ${found.includes(p.id) ? 'found' : ''}`} onClick={() => flip(i)} aria-label={up ? p.title : 'Закрытая карта'}>
+      return <button key={i} className={`mem ${up ? 'up' : ''} ${found.includes(p.id) ? 'found' : ''} ${miss.includes(i) ? 'miss' : ''}`} onClick={() => flip(i)} aria-label={up ? p.title : 'Закрытая карта'}>
         <span className="mem-in"><span className="mem-back">M</span><span className="mem-face"><Icon name={p.icon} size={28} /><small>{p.title}</small></span></span>
       </button>;
     })}</div>
@@ -738,6 +764,11 @@ export function ChildMore() {
   const ask = useAsk();
   if (!o) return <Loading />;
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
+  const ins = o.me.insurance;
+  // Страховку оформляет родитель; ребёнок видит, что он защищён
+  const insurance: [string, string, () => void][] = ins ? [['umbrella', 'Моя страховка', () => sheet(() => <><h2>Ты застрахован(а)</h2>
+    <Row icon="shield-check" title={`«${ins.title}»`} sub={`Покрытие до ${fmt(ins.cover)}. Оформили родители`} />
+    <div className="legal"><Icon name="info" size={18} /><span>Если что-то случилось — травма в школе, на тренировке или дома, — скажи родителям: заявление они подадут в Moby, выплата придёт им на карту.</span></div></>)]] : [];
   const items: [string, string, () => void][] = o.me.group === 'kid' ? [
     ['settings', 'Настройки', () => push('settings')],
     ['credit-card', 'Моя карта', () => sheet(c => <CardsSheet close={c} />)],
@@ -745,6 +776,7 @@ export function ChildMore() {
     ['history', 'Мои покупки', () => sheet(() => <OpsSheet title="Мои покупки" />)],
     ['send', 'Мои запросы', () => sheet(() => <RequestsSheet />)],
     ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ...insurance,
     ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],
   ] : [
@@ -755,6 +787,7 @@ export function ChildMore() {
     ['repeat', 'Подписки', () => (o.me.settings.perms.subs ? push('subs') : ask.perm('perms.subs'))],
     ['briefcase', 'Заработок и задания', () => push('earn')],
     ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ...insurance,
     ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],
   ];
@@ -766,11 +799,10 @@ export function ChildMore() {
 
 export function ChildSettings() {
   const o = useChild();
-  const { toast, logout } = useDevice();
+  const { logout } = useDevice();
   const [hide, setHide] = useHidden();
   const [notify, setNotify] = useState(true);
   if (!o) return <Loading />;
-  const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
   return <>
     <TopBar title="Настройки" />
     <div className="page" style={{ background: '#fff', minHeight: '100%' }}>
@@ -780,8 +812,6 @@ export function ChildSettings() {
       </div>
       <div className="srow">Скрывать баланс на главной <Toggle on={hide} label="Скрывать баланс" onChange={setHide} /></div>
       <div className="srow">Уведомления о тратах <Toggle on={notify} label="Уведомления о тратах" onChange={setNotify} /></div>
-      <button className="srow" onClick={soon}>Изменить смарт-код <Chev /></button>
-      <div className="srow">Тёмная тема <Toggle on={false} label="Тёмная тема" onChange={soon} /></div>
       <div className="srow" style={{ color: 'var(--muted)', fontSize: 14 }}>Лимиты и разрешения настраивает родитель</div>
       <button className="srow" style={{ color: 'var(--red)' }} onClick={logout}>Выйти</button>
     </div>

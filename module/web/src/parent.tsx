@@ -1,12 +1,15 @@
 // Moby родителя: главная и «Продукты» как в приложении, плюс раздел «Семья».
 import { useEffect, useRef, useState } from 'react';
-import { BYN, CARD_COLORS, CARD_TYPES, CAT_KEYS, MAX_CARDS, PERM_KEYS, PRESETS, SETTING_LABELS, TARIFFS, groupOf, levelOf, nextLevel, type PresetKey } from '../../server/src/content';
+import {
+  BYN, CARD_COLORS, CARD_TYPES, CAT_KEYS, FAMILY_OFFERS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, MAX_CARDS, PARENT_COINS, PARENT_TIPS, PERM_KEYS, PRESETS, SETTING_LABELS, TARIFFS,
+  groupOf, levelOf, nextLevel, type InsurancePlan, type PresetKey,
+} from '../../server/src/content';
 import type { AgeGroup, CardType, ChildDetail, ChildRequest, ChildSettings, FamilyPlan, JoinRequest, ParentOverview, ParentTask, SettingPath, Tariff, Task } from '../../server/src/types';
 import { Icon } from './icons';
 import { fmt, fmtPhone, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
   useDragScroll,
-  Act, AmountField, BankCard, BankLocked, Bar, CardCarousel, CardManager, CardStatus, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
+  Act, AmountField, BankCard, BankLocked, Bar, CardCarousel, CardManager, CardStatus, Coin, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
   PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
 } from './ui';
 
@@ -286,9 +289,26 @@ export function PackageScreen() {
   </>;
 }
 
+function CoinsSheet({ o }: { o: ParentOverview }) {
+  const plus = o.plan.tariff === 'plus';
+  return <>
+    <h2>Манички семьи</h2>
+    <p className="muted" style={{ marginTop: -8 }}>У каждого свой счёт Маничек: ваши копятся отдельно от детских.</p>
+    <div className="card" style={{ background: 'var(--mt-cloud)' }}>
+      <Row title={`Вы: ${o.parent.coins}`} sub="Манички родителя" right={<span className="coin big">М</span>} />
+      {o.children.map(c => <Row key={c.id} title={`${c.name}: ${c.coins}`} sub="За уроки, игры, задания и кешбэк у партнёров" right={<Kava c={c} size={32} />} />)}
+    </div>
+    <b>Как вы получаете Манички</b>
+    <Row icon="transfer" title={`${plus ? 2 : 1} за каждые ${fmt(PARENT_COINS.per)}, переведённые ребёнку`} sub={plus ? 'Карманные, награды и переводы: ×2 в «Семья+»' : 'В «Семья+» — вдвое больше'} />
+    <Row icon="list-checks" title={`+${PARENT_COINS.taskApproved} за каждое принятое задание`} sub="Вы вовлекаете ребёнка — банк это ценит" />
+    <Row icon="graduation-cap" title={`+${PARENT_COINS.childLesson} за урок, который прошёл ребёнок`} sub="Растёт финансовая грамотность — растут Манички" />
+    <small className="muted">Манички тратятся у партнёров Moby: развлекательные центры, клиники, кружки.</small>
+  </>;
+}
+
 export function FamilyScreen() {
   const o = useOverview();
-  const { push, sheet, run, call } = useDevice();
+  const { push, sheet, call, toast } = useDevice();
   if (!o) return <><TopBar title="Семья" /><div className="loading">Загрузка…</div></>;
   const pending = o.requests.filter(r => r.status === 'pending');
   const waiting = pending.length + o.joinRequests.length;
@@ -324,6 +344,10 @@ export function FamilyScreen() {
         <button className="tile press" onClick={() => sheet(close => <NewCardSheet o={o} close={close} />)}><RowIcon name="credit-card" />Новая карта</button>
       </div>
       <PlanBar plan={o.plan} onClick={() => push('package')} />
+      <button className="card coins-card press" onClick={() => sheet(() => <CoinsSheet o={o} />)}>
+        <div className="coins-row"><span className="coin big">М</span><div className="tx"><small className="muted">Ваши Манички</small><b>{o.parent.coins}</b></div><Chev /></div>
+        <div className="coins-kids">{o.children.map(c => <span key={c.id}><Kava c={c} size={22} /> {c.name}: <b>{c.coins}</b></span>)}</div>
+      </button>
       <div className="card goal">
         <div className="goal-h"><RowIcon name={g.icon} /><div className="tx"><small className="muted">Семейная цель</small><b>{g.title}</b></div><b>{Math.round(g.saved / g.target * 100)}%</b></div>
         <Bar value={g.saved} max={g.target} />
@@ -333,6 +357,12 @@ export function FamilyScreen() {
             cta="Отложить" okText={a => `+${fmt(a)} в семейную цель`} pay={(cardId, amount) => call('/api/family/goal', { amount, cardId })} />)}>Отложить</button>
         </div>
       </div>
+      <Fold icon="heart" title="Для семьи" sub="Предложения партнёров и советы родителям">
+        <div className="sec" style={{ margin: '12px 0 0' }}>Предложения партнёров</div>
+        {FAMILY_OFFERS.map(f => <Row key={f.title} icon={f.icon} title={f.title} sub={f.sub} onClick={() => toast('Предложение сохранено в Маничках')} />)}
+        <div className="sec" style={{ margin: '12px 0 0' }}>Советы</div>
+        {PARENT_TIPS.map(t => <Row key={t.title} icon={t.icon} title={t.title} onClick={() => sheet(() => <><h2>{t.title}</h2><p style={{ fontSize: 15.5, lineHeight: 1.5 }}>{t.text}</p></>)} />)}
+      </Fold>
       <Fold icon="bell" title="Лента семьи" sub={o.feed[0]?.text ?? 'Покупки и успехи детей'}>
         {o.feed.length ? o.feed.slice(0, 12).map(f => <Row key={f.id} title={<span style={{ fontSize: 14.5, fontWeight: 500 }}>{f.text}</span>} sub={when(f.createdAt)}
           right={f.amount ? <span className={`amt ${f.amount > 0 ? 'plus' : ''}`}>{f.amount > 0 ? '+' : ''}{fmt(f.amount)}</span> : undefined} />) : <div className="empty">Здесь появятся покупки и успехи детей</div>}
@@ -421,12 +451,19 @@ export function ChildScreen({ id }: { id: string }) {
         <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={s.allowance.amount} title="Карманные деньги" sub={c.name}
           cta="Выплатить" okText={`Карманные деньги отправлены: ${fmt(s.allowance.amount)}`} pay={cardId => call(`/api/parent/children/${id}/allowance`, { cardId })} />)}>Выплатить сейчас</button>
       </Fold>
+      <Fold icon="umbrella" title="Страховка и вклад" sub={`${c.insurance ? `Страховка «${c.insurance.title}»` : 'Без страховки'} · ${c.deposit ? `вклад ${fmt(c.deposit.amount)}` : 'вклада нет'}`}>
+        <InsuranceBlock o={o} c={c} />
+        <div className="sec" style={{ margin: '12px 0 0' }}>Вклад «{c.group === 'kid' ? 'На вырост' : 'Мой старт'}»</div>
+        <Row icon="landmark" title={c.deposit ? fmt(c.deposit.amount) : 'Не открыт'} sub={c.deposit ? `${c.deposit.rate}% годовых, ${c.name} видит вклад, но снять не может` : 'Отложите на долгую цель: учёбу, лагерь, первую машину'} />
+        <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={20 * BYN} editable title={c.deposit ? 'Пополнить вклад' : 'Открыть вклад'} sub={`Для ${c.name}, от 10 BYN, ${9}% годовых`}
+          cta={c.deposit ? 'Пополнить' : 'Открыть вклад'} okText={a => `${fmt(a)} на вклад для ${c.name}`} pay={(cardId, amount) => call(`/api/parent/children/${id}/deposit`, { amount, cardId })} />)}>
+          <Icon name="plus" size={20} /> {c.deposit ? 'Пополнить вклад' : 'Открыть вклад'}</button>
+      </Fold>
       <Fold icon="trophy" title="Успехи" sub={`Уровень ${lv.n} «${lv.title}» · уроков ${c.lessons.length} · Маничек ${c.coins}`}>
         <div style={{ margin: '14px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
         <small className="muted">{nx ? `${c.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'}</small>
         {c.goals.map(g => <Row key={g.id} icon={g.icon} title={g.title} sub={`${fmt(g.saved)} из ${fmt(g.target)}`} />)}
         {c.group === 'teen' && <Row icon="briefcase" title={`Заработок: ${fmt(c.income)}`} sub="По ст. 26 ГК РБ подросток сам распоряжается заработком, лимиты на него не действуют" />}
-        {c.deposit && <Row icon="landmark" title={`Вклад: ${fmt(c.deposit.amount)}`} sub={`${c.deposit.rate}% годовых`} />}
       </Fold>
       <Fold icon="history" title="Операции" sub={c.ops[0] ? `${c.ops[0].title}, ${fmt(c.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={c.ops} limit={10} /></Fold>
       <Fold icon="shield" title="Безопасность" sub={s.mobyAccess ? 'Вход в Moby разрешён' : 'Вход в Moby приостановлен'}>
@@ -435,6 +472,32 @@ export function ChildScreen({ id }: { id: string }) {
     </div>
   </>;
 }
+/** Страхование ребёнка: выбор программы, оплата с карты, отключение */
+function InsuranceBlock({ o, c }: { o: ParentOverview; c: ChildDetail }) {
+  const { run, call, sheet } = useDevice();
+  const plus = o.plan.tariff === 'plus';
+  const priceOf = (p: InsurancePlan) => plus ? Math.round(INSURANCE_PLANS[p].price * (1 - INSURANCE_PLUS_DISCOUNT)) : INSURANCE_PLANS[p].price;
+  if (c.insurance) return <>
+    <Row icon="shield-check" title={`«${c.insurance.title}»`} sub={`Покрытие до ${fmt(c.insurance.cover)} · ${fmt(c.insurance.price)} в месяц`} />
+    <button className="btn red" onClick={() => sheet(close => <>
+      <h2>Отключить страховку?</h2>
+      <p className="muted">Полис действует до конца оплаченного месяца, дальше {c.name} останется без страховки.</p>
+      <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/children/${c.id}/insurance`, undefined, 'DELETE'), 'Страховка отключена')) close(); }}>Отключить</button>
+      <button className="btn ghost" onClick={close}>Оставить</button>
+    </>)}>Отключить страховку</button>
+  </>;
+  return <>
+    <small className="muted" style={{ display: 'block', marginTop: 12 }}>Страхование {c.name} от несчастного случая{plus ? ', в «Семья+» −30%' : ''}. Выплата приходит на вашу карту.</small>
+    {(Object.keys(INSURANCE_PLANS) as InsurancePlan[]).map(p => (
+      <Row key={p} icon={p === 'sport' ? 'dumbbell' : 'shield-check'} title={INSURANCE_PLANS[p].title} sub={`${INSURANCE_PLANS[p].sub}. Покрытие до ${fmt(INSURANCE_PLANS[p].cover)}`}
+        right={<span className="ins-price">{plus && <s>{fmt(INSURANCE_PLANS[p].price)}</s>}{fmt(priceOf(p))}<small>в месяц</small></span>}
+        onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={priceOf(p)} title={`Страховка «${INSURANCE_PLANS[p].title}»`}
+          sub={`Для ${c.name}, первый месяц сейчас, дальше раз в месяц`} cta="Оформить" okText={`Страховка оформлена: ${c.name}`}
+          pay={cardId => call(`/api/parent/children/${c.id}/insurance`, { plan: p, cardId })} />)} />
+    ))}
+  </>;
+}
+
 function TaskRow({ t, sub, onClick }: { t: Task; sub?: string; onClick: () => void }) {
   return <button className="row" onClick={onClick} aria-label={`Изменить задание «${t.title}»`}>
     <RowIcon name={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : t.shared ? 'users' : 'list-checks'} />

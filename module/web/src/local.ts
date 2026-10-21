@@ -8,7 +8,7 @@ import { initDb, type DB, type Stmt } from '../../server/src/schema';
 import { createApi } from '../../server/src/routes';
 import { sha256Hex } from './sha256';
 
-const STORE = 'moby-family:db:v5';
+const STORE = 'moby-family:db:v6';
 type Arg = string | number | null;
 
 class SqlJsDb implements DB {
@@ -57,7 +57,7 @@ function load() {
       emit: familyId => setTimeout(() => listeners.forEach(l => l.familyId === familyId && l.onChange()), 0),
       emitReset: () => setTimeout(() => listeners.forEach(l => l.onReset()), 0),
     });
-    const scheduled = () => { api.svc.processAllowances(); api.svc.processWeeklyCashback(); api.svc.processFees(); };
+    const scheduled = () => { api.svc.processAllowances(); api.svc.processWeeklyCashback(); api.svc.processFees(); api.svc.processInsurance(); };
     scheduled();
     setInterval(scheduled, 60_000);
     return { api, db };

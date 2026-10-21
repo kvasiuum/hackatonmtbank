@@ -1,6 +1,6 @@
 // Базовые элементы интерфейса в стиле Moby.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CARD_COLORS, CARD_TYPES, CAT_KEYS, PERM_KEYS, SETTING_LABELS } from '../../server/src/content';
+import { CARD_COLORS, CARD_TYPES, CAT_KEYS, DISPUTE_REASONS, PERM_KEYS, SETTING_LABELS } from '../../server/src/content';
 import type { Card, CardType, ChildSettings, ChildSummary, ParentCard, SettingPath, Tx } from '../../server/src/types';
 import { Icon } from './icons';
 import { fmt, initial, useDevice, when } from './lib';
@@ -194,12 +194,33 @@ export function CardTypePicker({ types, value, onChange }: { types: CardType[]; 
   ))}</>;
 }
 
+/** История операций. Оплату и перевод можно открыть и оспорить */
 export function OpsList({ ops, limit = 6 }: { ops: Tx[]; limit?: number }) {
+  const { sheet } = useDevice();
   if (!ops.length) return <div className="empty">Операций пока нет</div>;
   return <>{ops.slice(0, limit).map(o => (
-    <Row key={o.id} icon={o.amount > 0 ? 'topup' : o.method === 'qr' ? 'qr-code' : 'pay'} title={o.title} sub={`${when(o.createdAt)} · ${o.category}`}
+    <Row key={o.id} icon={o.amount > 0 ? 'topup' : o.method === 'qr' ? 'qr-code' : 'pay'} title={o.title}
+      sub={<>{when(o.createdAt)} · {o.category}{o.dispute && <span className="tag red" style={{ marginLeft: 6 }}>Оспаривается</span>}</>}
+      onClick={o.disputable ? () => sheet(close => <DisputeSheet op={o} close={close} />) : undefined}
       right={<span className={`amt ${o.amount > 0 ? 'plus' : ''}`}>{o.amount > 0 ? '+' : ''}{fmt(o.amount)}</span>} />
   ))}</>;
+}
+
+function DisputeSheet({ op, close }: { op: Tx; close: () => void }) {
+  const { run, call } = useDevice();
+  const [reason, setReason] = useState<string | null>(null);
+  const [busy, wrap] = useBusy();
+  return <>
+    <h2>{op.title}</h2>
+    <div className="bal" style={{ fontSize: 28, color: 'var(--text)', marginTop: -6 }}>{fmt(op.amount)}</div>
+    <small className="muted">{when(op.createdAt)} · {op.category}</small>
+    <b>Что не так с операцией?</b>
+    {DISPUTE_REASONS.map(r => <button key={r} className={`choice ${reason === r ? 'on' : ''}`} onClick={() => setReason(r)}><span>{r}</span></button>)}
+    <div className="legal"><Icon name="info" size={18} /><span>Банк рассмотрит заявку до 10 рабочих дней, деньги вернутся на счёт, если операция ошибочная. Если её совершили не вы — сразу заблокируйте карту.</span></div>
+    <button className="btn" disabled={!reason || busy} onClick={() => wrap(async () => {
+      if (await run(() => call('/api/disputes', { txId: op.id, reason }), 'Заявка отправлена в банк')) close();
+    })}>Оспорить операцию</button>
+  </>;
 }
 
 export const BankLocked = () => <>
