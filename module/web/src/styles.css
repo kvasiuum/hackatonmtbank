@@ -487,18 +487,18 @@ button.chip { color: inherit; }
 /* мега-копилка */
 .pigcard { display: flex; flex-direction: column; gap: 10px; padding: 10px 10px 16px; }
 .pigcard > :not(.pigstage) { margin: 0 6px; }
-.pigstage { position: relative; border-radius: 16px; overflow: hidden; height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0;
-  background: radial-gradient(90% 60% at 50% 88%, #1446B8 0%, #0A1F5C 45%, #050D26 100%); }
-.pigstage::after { content: ""; position: absolute; left: 50%; bottom: 14px; width: 230px; height: 26px; margin-left: -115px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(151, 207, 255, .45), rgba(151, 207, 255, 0)); pointer-events: none; }
-.ps-beam { position: absolute; top: -10px; width: 130px; height: 300px; background: linear-gradient(180deg, rgba(151, 207, 255, .28), rgba(151, 207, 255, 0) 85%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); pointer-events: none; }
+.pigstage { position: relative; border-radius: 16px; overflow: hidden; height: 290px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  background: radial-gradient(85% 70% at 50% 45%, #FFFFFF 0%, #EEF7FF 55%, #D6EAFF 100%); }
+.pigstage::after { content: ""; position: absolute; left: 50%; bottom: 18px; width: 220px; height: 22px; margin-left: -110px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(31, 95, 214, .22), rgba(31, 95, 214, 0)); pointer-events: none; }
+.ps-beam { position: absolute; top: -10px; width: 130px; height: 300px; background: linear-gradient(180deg, rgba(151, 207, 255, .35), rgba(151, 207, 255, 0) 85%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); pointer-events: none; }
 .ps-beam.l { left: 6%; transform: rotate(16deg); transform-origin: top center; }
 .ps-beam.r { right: 6%; transform: rotate(-16deg); transform-origin: top center; }
-.ps-star { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px 2px rgba(255, 255, 255, .8); animation: twinkle 2.2s ease-in-out infinite; }
+.ps-star { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #97CFFF; box-shadow: 0 0 8px 2px rgba(151, 207, 255, .8); animation: twinkle 2.2s ease-in-out infinite; }
 @keyframes twinkle { 50% { opacity: .2; transform: scale(.5); } }
 .ps-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; z-index: 2; }
-.ps-goal { flex: none; display: inline-flex; gap: 6px; align-items: center; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, .2); color: #fff; font-size: 13.5px; font-weight: 600; }
-.ps-goal.on { background: #fff; color: var(--blue); }
+.ps-goal { flex: none; display: inline-flex; gap: 6px; align-items: center; padding: 7px 12px; border-radius: 999px; background: rgba(31, 95, 214, .1); color: var(--blue); font-size: 13.5px; font-weight: 600; }
+.ps-goal.on { background: var(--blue); color: #fff; }
 .ps-pig { position: relative; width: 270px; margin-bottom: -6px; }
 @keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(.3); } 50% { opacity: 1; transform: scale(1.1); } }
 .pig-shake { animation: pigshake 1.5s ease-in-out both; transform-origin: 50% 85%; }
@@ -510,9 +510,9 @@ button.chip { color: inherit; }
 
 /* взрыв копилки */
 .pigburst { position: absolute; inset: 0; pointer-events: none; }
-.pb-flash { position: absolute; left: 50%; top: 55%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, .8) 40%, rgba(255, 255, 255, 0) 70%); animation: pbflash 700ms ease-out forwards; }
+.pb-flash { position: absolute; left: 50%; top: 55%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(151, 207, 255, .9) 35%, rgba(92, 155, 243, 0) 70%); animation: pbflash 700ms ease-out forwards; }
 @keyframes pbflash { 0% { transform: scale(.2); opacity: 1; } 100% { transform: scale(9); opacity: 0; } }
-.pb-ring { position: absolute; left: 50%; top: 55%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 4px solid #fff; animation: pbring 800ms ease-out forwards; }
+.pb-ring { position: absolute; left: 50%; top: 55%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 4px solid var(--blue-light); animation: pbring 800ms ease-out forwards; }
 @keyframes pbring { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(7); opacity: 0; } }
 .pb-shard { position: absolute; left: 50%; top: 55%; width: 90px; height: 90px; margin: -45px; animation: pbshard 1300ms cubic-bezier(.2, .7, .4, 1) forwards; }
 @keyframes pbshard { 0% { transform: translate(0, 0) rotate(0) scale(.6); opacity: 1; } 55% { transform: translate(var(--dx), var(--dy)) rotate(calc(var(--r) * .6)) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 170px)) rotate(var(--r)) scale(.9); opacity: 0; } }
@@ -526,18 +526,42 @@ button.chip { color: inherit; }
 /* неоновая свинка */
 .neonpig { position: relative; width: 100%; aspect-ratio: 1; }
 .np-money, .np-img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.np-money { filter: drop-shadow(0 0 5px rgba(151, 207, 255, .55)); }
-.np-img { pointer-events: none; user-select: none; filter: drop-shadow(0 0 10px rgba(92, 155, 243, .55)); transition: filter 500ms var(--ease-out); }
-.neonpig.happy .np-img { filter: drop-shadow(0 0 18px rgba(151, 207, 255, .95)) brightness(1.25); }
+.np-money { filter: drop-shadow(0 2px 2px rgba(15, 47, 122, .25)); }
+.np-img { pointer-events: none; user-select: none; filter: drop-shadow(0 8px 12px rgba(31, 95, 214, .18)); transition: filter 500ms var(--ease-out); }
+.neonpig.happy .np-img { filter: drop-shadow(0 0 16px rgba(92, 155, 243, .75)) brightness(1.06); }
 .neonpig.full .np-img { animation: neonfull 1.4s ease-in-out infinite; }
-@keyframes neonfull { 0%, 100% { filter: drop-shadow(0 0 14px rgba(151, 207, 255, .8)) brightness(1.1); } 50% { filter: drop-shadow(0 0 32px rgba(255, 255, 255, .95)) brightness(1.4); } }
+@keyframes neonfull { 0%, 100% { filter: drop-shadow(0 0 10px rgba(92, 155, 243, .6)); } 50% { filter: drop-shadow(0 0 28px rgba(31, 95, 214, .85)) brightness(1.08); } }
 .pm-new { animation: pmdrop 700ms cubic-bezier(.5, 0, .9, .6) both; }
 @keyframes pmdrop { 0% { opacity: 0; transform: translateY(var(--fall, -300px)); } 25% { opacity: 1; } 86% { transform: translateY(6px); } 100% { transform: translateY(0); } }
 .pm-surface { animation: pmsurface 1200ms ease-out 500ms both; }
 @keyframes pmsurface { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 .np-spark { position: absolute; width: 14px; height: 14px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-  filter: drop-shadow(0 0 6px #97CFFF); animation: sparkle 1.1s ease-in-out infinite; }
+  background: var(--blue-light); filter: drop-shadow(0 0 6px #97CFFF); animation: sparkle 1.1s ease-in-out infinite; }
 /* маленькая свинка в карточке на главной */
-.np-tile { width: 76px; height: 76px; border-radius: 18px; flex: none; display: grid; place-items: center; overflow: hidden;
-  background: radial-gradient(80% 70% at 50% 80%, #1446B8 0%, #0A1F5C 55%, #050D26 100%); }
-.np-tile .neonpig { width: 84px; }
+.np-tile { width: 72px; height: 72px; border-radius: 18px; flex: none; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(80% 80% at 50% 45%, #FFFFFF 0%, #E7F4FF 100%); }
+.np-tile .neonpig { width: 78px; margin-top: 4px; }
+/* цель под свинкой */
+.goalinfo { display: flex; flex-direction: column; gap: 8px; }
+.gi-head { display: flex; align-items: center; gap: 10px; }
+.gi-head b { flex: 1; font-size: 18px; }
+.gi-ic { width: 36px; height: 36px; border-radius: 11px; background: var(--blue-bg); color: var(--blue); display: grid; place-items: center; flex: none; }
+.gi-pct { background: var(--blue); color: #fff; font-weight: 700; font-size: 13px; border-radius: 999px; padding: 3px 10px; }
+.gi-sum { display: flex; align-items: baseline; gap: 6px; }
+.gi-sum b { font-size: 24px; color: var(--blue-3); }
+.gi-sum span { color: var(--muted); font-size: 14px; }
+.goalinfo .bar { height: 10px; }
+.goalinfo .bar i { background: linear-gradient(90deg, #5C9BF3, #1F5FD6); }
+.pig-add { display: flex; flex-direction: column; gap: 10px; animation: popin 260ms var(--ease-out); }
+.pig-plus { position: absolute; top: 34%; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; color: var(--blue); text-shadow: 0 2px 0 #fff, 0 0 12px #fff;
+  display: flex; flex-direction: column; align-items: center; animation: plusup 2200ms var(--ease-out) both; pointer-events: none; white-space: nowrap; }
+.pig-plus small { font-size: 13px; font-weight: 600; color: var(--blue-3); }
+@keyframes plusup { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 30% { transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -40px); } }
+/* копилка на главной */
+.kidgoal { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; }
+.kidgoal .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.kg-title { display: flex; gap: 6px; align-items: center; font-size: 16px; }
+.kg-sum { font-size: 13.5px; color: var(--muted); }
+.kg-sum b { color: var(--blue-3); font-size: 15px; }
+.kidgoal .bar i { background: linear-gradient(90deg, #5C9BF3, #1F5FD6); }
+.pigcard { scroll-margin-top: 8px; }
