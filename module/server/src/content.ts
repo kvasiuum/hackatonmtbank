@@ -291,14 +291,17 @@ export interface EconInputs {
   plusPaying: number;        // из них платят (не набрали 400 BYN трат), %
   partnerShare: number;      // доля трат детей у партнёров, %
   partnerFee: number;        // комиссия партнёра банку, %
-  bonusRate: number;         // Манички и бонусы за счёт банка, % от трат детей
+  parents: number;           // подключённых родителей в семье (Манички с покупок детей получает каждый)
+  gameCoins: number;         // Манички ребёнку за игры и уроки в месяц
+  cashOut: number;           // доля Маничек, которую банк оплачивает деньгами, % (остальное — купоны партнёров и неиспользованные)
+  perksPlus: number;         // спецусловия «Семья+» (надбавка +1% к вкладу родителя), BYN в месяц на семью в пакете
   opex: number;              // обслуживание семьи (процессинг, поддержка, SMS), BYN в месяц
   devCost: number;           // разработка и запуск, BYN
 }
 export const ECON_DEFAULTS: EconInputs = {
   families: 10000, cac: 25, cardCost: 10, kidsPerFamily: 1.6, kidSpend: 90, parentExtraSpend: 150,
   interchange: 1.2, balances: 300, margin: 8, plusShare: 40, plusPaying: 50, partnerShare: 20, partnerFee: 3,
-  bonusRate: 1, opex: 1, devCost: 150000,
+  parents: 1.5, gameCoins: 40, cashOut: 50, perksPlus: 0.5, opex: 1, devCost: 150000,
 };
 export function economics(i: EconInputs) {
   const kidsSpend = i.kidsPerFamily * i.kidSpend;
@@ -307,15 +310,25 @@ export function economics(i: EconInputs) {
   const tariff = (TARIFFS.plus.price / BYN) * (i.plusShare / 100) * (i.plusPaying / 100);
   const partners = kidsSpend * (i.partnerShare / 100) * (i.partnerFee / 100);
   const revenue = interchange + balances + tariff + partners;
-  // Кешбэк недели оплачивают партнёры из своей комиссии, банк платит только Манички
-  const bonuses = kidsSpend * i.bonusRate / 100;
-  const contribution = revenue - bonuses - i.opex;
+  // Манички в месяц на семью — по тем же правилам, что начисляет модуль (1 Маничка = 1 копейка):
+  // ребёнку 1 за каждый BYN покупок, каждому родителю 1 за 2 BYN покупок детей и 1 за 5 BYN переводов (×2 в «Семья+»), игры и уроки
+  const coins = {
+    kid: kidsSpend * (BYN / PURCHASE_COINS.kidPer),
+    parents: kidsSpend * (BYN / PURCHASE_COINS.parentPer) * i.parents,
+    transfers: kidsSpend * (BYN / PARENT_COINS.per) * (1 + i.plusShare / 100),
+    games: i.kidsPerFamily * i.gameCoins,
+  };
+  const coinsTotal = coins.kid + coins.parents + coins.transfers + coins.games;
+  // Купоны партнёров оплачивают партнёры, часть Маничек не тратится; деньгами банк платит только за обмен
+  const bonuses = coinsTotal / COINS_PER_BYN * (i.cashOut / 100);
+  const perks = i.perksPlus * (i.plusShare / 100);
+  const contribution = revenue - bonuses - perks - i.opex;
   const acquisition = i.cac + i.cardCost * i.kidsPerFamily * 0.6; // 60% детей берут физическую карту
   const devPerFamily = i.devCost / Math.max(1, i.families);
   const payback = contribution > 0 ? (acquisition + devPerFamily) / contribution : Infinity;
   return {
     revenue: { interchange, balances, tariff, partners, total: revenue },
-    bonuses, opex: i.opex, contribution, acquisition, devPerFamily,
+    coins, coinsTotal, bonuses, perks, opex: i.opex, contribution, acquisition, devPerFamily,
     paybackMonths: payback, yearProfit: (contribution * 12 - acquisition - devPerFamily) * i.families,
   };
 }

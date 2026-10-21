@@ -9,7 +9,7 @@ import { Confetti, CountUp, MegaPig, PigBurst, PigStage, RightBurst } from './fx
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
-import { Act, AmountField, BankCard, Bar, CardManager, CardTypePicker, ChildCardCarousel, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
+import { Act, AmountField, BankCard, Bar, CardManager, CardTypePicker, ChildCardCarousel, Chev, Coin, OpsList, PlainTop, Row, RowIcon, SpendPie, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
 export const useChild = () => useData<ChildOverview>('/api/child/overview').data;
 const Loading = () => <div className="loading">Загрузка…</div>;
@@ -596,34 +596,6 @@ export function TeenHome() {
       </div>
     </div>
   </>;
-}
-
-const PIE = ['#1F5FD6', '#E4252F', '#97CFFF', '#2334C8', '#FFB3AD', '#82AED3'];
-/** Траты месяца пирогом: пять крупных категорий и «Другое», в центре — итог */
-function SpendPie({ items, total }: { items: { category: string; amount: number }[]; total: number }) {
-  if (!items.length || !total) return <div className="empty">В этом месяце трат пока нет</div>;
-  const rest = items.slice(5).reduce((s, x) => s + x.amount, 0);
-  const parts = rest ? [...items.slice(0, 5), { category: 'Другое', amount: rest }] : items;
-  const R = 70, L = 2 * Math.PI * R;
-  let acc = 0;
-  return <div className="pie">
-    <div className="pie-chart">
-      <svg viewBox="0 0 180 180" role="img" aria-label="Траты по категориям">
-        <circle cx="90" cy="90" r={R} fill="none" stroke="var(--line)" strokeWidth="26" />
-        {parts.map((p, i) => {
-          const len = (p.amount / total) * L;
-          const seg = <circle key={p.category} className="pie-seg" cx="90" cy="90" r={R} fill="none" stroke={PIE[i % PIE.length]} strokeWidth="26"
-            strokeDasharray={`${parts.length > 1 ? Math.max(0.5, len - 2) : len} ${L}`} strokeDashoffset={-acc} transform="rotate(-90 90 90)" style={{ animationDelay: `${i * 90}ms` }} />;
-          acc += len;
-          return seg;
-        })}
-      </svg>
-      <div className="pie-center"><small>за месяц</small><b>{fmt(total)}</b></div>
-    </div>
-    <div className="pie-legend">{parts.map((p, i) => (
-      <div key={p.category}><i style={{ background: PIE[i % PIE.length] }} /><span>{p.category}</span><small>{Math.round((p.amount / total) * 100)}%</small><b>{fmt(p.amount)}</b></div>
-    ))}</div>
-  </div>;
 }
 
 export function TeenAnalytics() {

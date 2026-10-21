@@ -17,7 +17,10 @@ const FIELDS: [keyof EconInputs, string][] = [
   ['plusPaying', 'Из них платят за пакет, %'],
   ['partnerShare', 'Доля трат детей у партнёров, %'],
   ['partnerFee', 'Комиссия партнёра банку, %'],
-  ['bonusRate', 'Манички за счёт банка, % трат детей'],
+  ['parents', 'Родителей в семье (у каждого свои Манички)'],
+  ['gameCoins', 'Манички ребёнку за игры и уроки в месяц'],
+  ['cashOut', 'Доля Маничек, которую банк оплачивает деньгами, %'],
+  ['perksPlus', 'Спецусловия «Семья+» (+1% к вкладу), BYN/мес'],
   ['opex', 'Обслуживание семьи, BYN/мес'],
   ['devCost', 'Разработка и запуск, BYN'],
 ];
@@ -32,7 +35,8 @@ export function Economics({ onClose }: { onClose: () => void }) {
     ['Процентный доход на остатки', e.revenue.balances],
     [`Плата за «${TARIFFS.plus.title}»`, e.revenue.tariff],
     ['Комиссия партнёров', e.revenue.partners],
-    ['Манички и бонусы', -e.bonuses],
+    [`Манички ребёнка и родителей (${n(e.coinsTotal, 0)} в месяц)`, -e.bonuses],
+    [`Спецусловия «${TARIFFS.plus.title}»`, -e.perks],
     ['Обслуживание', -e.opex],
   ];
   return (
@@ -50,7 +54,7 @@ export function Economics({ onClose }: { onClose: () => void }) {
             {rows.map(([t, v]) => <tr key={t}><td>{t}</td><td style={{ color: v < 0 ? 'var(--mt-red)' : undefined }}>{v < 0 ? '−' : '+'}{n(Math.abs(v))}</td></tr>)}
             <tr><td><b>Итого с семьи в месяц, BYN</b></td><td>{n(e.contribution)}</td></tr>
           </tbody></table>
-          <small className="muted">Кешбэк недели у партнёров платит партнёр из маркетингового бюджета, банк получает комиссию. Пакет «{TARIFFS.plus.title}» бесплатен при тратах семьи от 400 BYN, поэтому плата — стимул перенести траты в МТБанк, а не основной доход.</small>
+          <small className="muted">Кешбэк недели, купоны за Манички и скидку «Трать меньше» оплачивают партнёры из маркетингового бюджета, банк получает комиссию. Банк платит только за Манички, которые обменивают на деньги (100 = 1 BYN). Пакет «{TARIFFS.plus.title}» бесплатен при тратах семьи от 400 BYN, поэтому плата — стимул перенести траты в МТБанк, а не основной доход.</small>
           {FIELDS.map(([k, label]) => (
             <label key={k}>{label}<input type="number" inputMode="decimal" value={i[k]} onChange={ev => setI({ ...i, [k]: Number(ev.target.value) || 0 })} /></label>
           ))}

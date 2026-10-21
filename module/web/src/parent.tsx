@@ -11,7 +11,7 @@ import { fmt, fmtPhone, plural, toKop, useData, useDevice, when, years, initial 
 import {
   useDragScroll,
   Act, AmountField, BankCard, BankLocked, Bar, CardCarousel, CardManager, CardStatus, Coin, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
-  PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
+  PlainTop, Row, RowIcon, SetRow, SpendPie, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
 } from './ui';
 
 const useOverview = () => useData<ParentOverview>('/api/parent/overview').data;
@@ -484,6 +484,9 @@ export function ChildScreen({ id }: { id: string }) {
               <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')) close(); }}>Закрыть и перевыпустить</button>
               <button className="btn ghost" onClick={close}>Отмена</button>
             </>)} />}
+        </Fold>
+        <Fold icon="chart-column" title="Аналитика трат" sub={`${fmt(c.spentMonth)} за месяц · лимит ${fmt(s.limits.month)}`}>
+          <SpendPie items={c.spendByCategory} total={c.spentMonth} />
         </Fold>
         <Fold icon="piggy-bank" title="Карманные деньги и копилки" sub={s.allowance.on ? `${fmt(s.allowance.amount)} каждый понедельник` : 'Автоперевод выключен'}>
           <SetRow title="Каждый понедельник" sub={`Автоперевод с вашей карты ${o.parent.cardMask}`}><Toggle on={s.allowance.on} label="Карманные деньги" onChange={v => patch({ allowance: { on: v } })} /></SetRow>
