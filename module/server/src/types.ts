@@ -25,7 +25,8 @@ export interface ChildSettings {
   mobyAccess: boolean;
 }
 
-export interface Card { id: string; type: CardType; last4: string; color: string; status: CardStatus }
+/** label — своя подпись на карте (вместо «Moby Семья»), favorite — избранная: ею платим по умолчанию */
+export interface Card { id: string; type: CardType; last4: string; color: string; status: CardStatus; label: string | null; favorite: boolean }
 /** Карта родителя, с которой можно переводить детям. id «main» — основная карта с балансом на главной */
 export interface ParentCard { id: string; title: string; mask: string; expiry: string; network: 'visa' | 'mastercard' | 'belkart'; balance: number }
 export interface ParentTask extends Task { childId: string; grp: string | null }

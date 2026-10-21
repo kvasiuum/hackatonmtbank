@@ -185,6 +185,10 @@ export function createApi(db: DB, opts: ApiOptions) {
     } },
 
     // ---------- общее ----------
+    { method: 'PATCH', path: '/api/cards/:id', role: 'any', handler: r => {
+      const b = z.object({ label: z.string().max(20).nullable().optional(), color: cardColor.optional(), favorite: z.boolean().optional() }).strict().parse(r.body);
+      return svc.updateCard({ id: me(r).userId, role: me(r).role }, id(r), b);
+    } },
     { method: 'POST', path: '/api/cards/:id', role: 'any', handler: r => {
       svc.cardAction({ id: me(r).userId, role: me(r).role }, id(r), z.object({ action: z.enum(['block', 'unblock', 'activate', 'close']) }).parse(r.body).action); return ok;
     } },
@@ -208,8 +212,8 @@ export function createApi(db: DB, opts: ApiOptions) {
       return { id: svc.createRequest(me(r).userId, type, payload, why?.trim() || null) };
     } },
     { method: 'POST', path: '/api/child/pay', role: 'child', handler: r => {
-      const b = z.object({ merchantId: z.string(), method: z.enum(['card', 'qr']) }).parse(r.body);
-      return svc.payMerchant(me(r).userId, b.merchantId, b.method);
+      const b = z.object({ merchantId: z.string(), method: z.enum(['card', 'qr']), cardId: z.string().max(40).optional() }).parse(r.body);
+      return svc.payMerchant(me(r).userId, b.merchantId, b.method, b.cardId);
     } },
     { method: 'POST', path: '/api/child/erip', role: 'child', handler: r => { const b = z.object({ serviceId: z.string(), amount: money }).parse(r.body); return svc.payErip(me(r).userId, b.serviceId, b.amount); } },
     { method: 'POST', path: '/api/child/transfer', role: 'child', handler: r => {

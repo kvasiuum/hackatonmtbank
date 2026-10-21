@@ -12,7 +12,7 @@ export interface AuthState {
   spentMonth: number;
   cards: Card[];
 }
-export interface PayInput { title: string; amount: number; category: Category; method: PayMethod; partner?: boolean }
+export interface PayInput { title: string; amount: number; category: Category; method: PayMethod; partner?: boolean; cardId?: string }
 export interface AuthOptions {
   /** Родитель уже одобрил эту операцию: пропускаем подтверждение и лимиты */
   parentApproved?: boolean;
@@ -20,9 +20,10 @@ export interface AuthOptions {
 
 const usable = (c: Card) => c.status === 'active';
 
-/** Карта, которой пройдёт оплата: сначала физическая, потом виртуальная */
-export function payingCard(cards: Card[]): Card | null {
-  return cards.find(c => usable(c) && CARD_TYPES[c.type].physical) ?? cards.find(usable) ?? null;
+/** Карта, которой пройдёт оплата: выбранная; иначе избранная, физическая, виртуальная */
+export function payingCard(cards: Card[], cardId?: string): Card | null {
+  if (cardId) { const c = cards.find(x => x.id === cardId); return c && usable(c) ? c : null; }
+  return cards.find(c => usable(c) && c.favorite) ?? cards.find(c => usable(c) && CARD_TYPES[c.type].physical) ?? cards.find(usable) ?? null;
 }
 
 export function authorize(s: AuthState, p: PayInput, opts: AuthOptions = {}): PayDecision {
@@ -38,8 +39,10 @@ export function authorize(s: AuthState, p: PayInput, opts: AuthOptions = {}): Pa
   if (qr && p.category === 'cash') {
     return { status: 'declined', reason: 'qr_cash', title: 'По QR наличные не выдаются', text: 'КРОК — это оплата покупок по QR. Для банкомата нужна карта.' };
   }
-  if (needsCard && !payingCard(s.cards)) {
-    return { status: 'declined', reason: 'no_card', title: 'Нет активных карт', text: 'Все карты заблокированы или ещё в доставке. Разблокировать карту может родитель.' };
+  if (needsCard && !payingCard(s.cards, p.cardId)) {
+    return p.cardId && payingCard(s.cards)
+      ? { status: 'declined', reason: 'no_card', title: 'Эта карта не работает', text: 'Карта заблокирована или ещё в доставке. Выбери другую карту.' }
+      : { status: 'declined', reason: 'no_card', title: 'Нет активных карт', text: 'Все карты заблокированы или ещё в доставке. Разблокировать карту может родитель.' };
   }
   if (BANK_BLOCKED.includes(p.category)) {
     return {

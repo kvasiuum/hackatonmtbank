@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS consents (
 );
 CREATE TABLE IF NOT EXISTS cards (
   id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), type TEXT NOT NULL,
-  last4 TEXT NOT NULL, color TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL
+  last4 TEXT NOT NULL, color TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, label TEXT, fav INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS requests (
   id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), type TEXT NOT NULL,
@@ -100,6 +100,9 @@ export function initDb(db: DB) {
   // Базы до общих заданий: добавляем колонку группы
   const cols = db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[];
   if (!cols.some(c => c.name === 'grp')) db.exec('ALTER TABLE tasks ADD COLUMN grp TEXT');
+  // Базы до подписей и избранных карт
+  const cardCols = db.prepare('PRAGMA table_info(cards)').all() as { name: string }[];
+  if (!cardCols.some(c => c.name === 'label')) db.exec('ALTER TABLE cards ADD COLUMN label TEXT; ALTER TABLE cards ADD COLUMN fav INTEGER NOT NULL DEFAULT 0;');
   const row = db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number };
   if (Number(row.n) === 0) seed(db);
 }
@@ -144,8 +147,8 @@ export function seed(db: DB) {
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_misha', 'child', 'Ребёнок 2', null, pin, ago(60 * 24 * 90));
     ins(`INSERT INTO children (user_id,family_id,age,grp,color,balance,income,xp,coins,settings,lessons,allowance_paid_at,invite_code,joined)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_misha', 'f_demo', 9, 'kid', '#E4252F', 2340, 0, 140, 85, JSON.stringify(kidSettings), '["money"]', nowIso(), null);
-    ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_misha1', 'u_misha', 'sticker', '4417', '#E4252F', 'active', ago(60 * 24 * 80));
-    ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_misha2', 'u_misha', 'virtual', '9921', '#1F5FD6', 'active', ago(60 * 24 * 80));
+    ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_misha1', 'u_misha', 'sticker', '4417', '#E4252F', 'active', ago(60 * 24 * 80));
+    ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_misha2', 'u_misha', 'virtual', '9921', '#1F5FD6', 'active', ago(60 * 24 * 80));
     const kOps: [string, number, string, 'spend' | 'income', number][] = [
       ['Школьная столовая', -350, 'Еда', 'spend', 90], ['Карманные деньги', 1000, 'Пополнение', 'income', 60 * 30],
       ['Канцтовары', -420, 'Покупки', 'spend', 60 * 50], ['Награда: вынести мусор', 400, 'Награда', 'income', 60 * 70],
@@ -161,8 +164,8 @@ export function seed(db: DB) {
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_anya', 'child', 'Ребёнок 1', '+375297654321', pin, ago(60 * 24 * 200));
     ins(`INSERT INTO children (user_id,family_id,age,grp,color,balance,income,xp,coins,settings,lessons,allowance_paid_at,invite_code,joined)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_anya', 'f_demo', 15, 'teen', '#1F5FD6', 8670, 6500, 470, 310, JSON.stringify(teenSettings), '["budget"]', nowIso(), null);
-    ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_anya1', 'u_anya', 'plastic', '9032', '#0F2F7A', 'active', ago(60 * 24 * 190));
-    ins('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', 'c_anya2', 'u_anya', 'virtual', '3310', '#1F5FD6', 'active', ago(60 * 24 * 190));
+    ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_anya1', 'u_anya', 'plastic', '9032', '#0F2F7A', 'active', ago(60 * 24 * 190));
+    ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_anya2', 'u_anya', 'virtual', '3310', '#1F5FD6', 'active', ago(60 * 24 * 190));
     const tOps: [string, number, string, 'spend' | 'income', number][] = [
       ['Кофейня', -480, 'Кафе', 'spend', 60 * 20], ['ЕРИП: мобильная связь', -1000, 'Платежи', 'spend', 60 * 26],
       ['Карманные деньги', 2500, 'Пополнение', 'income', 60 * 30], ['Маркетплейс', -2750, 'Онлайн', 'spend', 60 * 48],

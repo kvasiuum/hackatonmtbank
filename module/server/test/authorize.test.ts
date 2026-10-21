@@ -3,8 +3,8 @@ import { authorize, payingCard, type AuthState } from '../src/domain/authorize';
 import { defaultSettings } from '../src/content';
 import type { Card } from '../src/types';
 
-const sticker: Card = { id: 'c1', type: 'sticker', last4: '4417', color: '#E4252F', status: 'active' };
-const virtual: Card = { id: 'c2', type: 'virtual', last4: '9921', color: '#1F5FD6', status: 'active' };
+const sticker: Card = { id: 'c1', type: 'sticker', last4: '4417', color: '#E4252F', status: 'active', label: null, favorite: false };
+const virtual: Card = { id: 'c2', type: 'virtual', last4: '9921', color: '#1F5FD6', status: 'active', label: null, favorite: false };
 const kid = (over: Partial<AuthState> = {}): AuthState => ({ settings: defaultSettings('kid'), balance: 5000, spentToday: 0, spentMonth: 0, cards: [sticker, virtual], ...over });
 const buy = (amount: number, category: any = 'shop', method: any = 'card') => ({ title: 'Покупка', amount, category, method });
 

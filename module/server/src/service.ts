@@ -42,7 +42,7 @@ interface ChildRow {
   user_id: string; family_id: string; age: number; grp: AgeGroup; color: string; balance: number; income: number;
   xp: number; coins: number; settings: string; lessons: string; allowance_paid_at: string | null; invite_code: string | null; joined: number; name: string;
 }
-interface CardRow { id: string; child_id: string; type: CardType; last4: string; color: string; status: Card['status']; created_at: string }
+interface CardRow { id: string; child_id: string; type: CardType; last4: string; color: string; status: Card['status']; created_at: string; label: string | null; fav: number }
 interface MetaRow { family_id: string; tariff: Tariff; since: string; fee_month: string | null; intro_seen: number }
 interface ReqRow { id: string; child_id: string; type: RequestType; payload: string; reason: string | null; status: ChildRequest['status']; created_at: string }
 
@@ -105,8 +105,8 @@ export class FamilyService {
   private settings(c: ChildRow): ChildSettings { return JSON.parse(c.settings); }
   private saveSettings(childId: string, s: ChildSettings) { this.run('UPDATE children SET settings = ? WHERE user_id = ?', JSON.stringify(s), childId); }
   private cards(childId: string): Card[] {
-    return this.q<CardRow>("SELECT * FROM cards WHERE child_id = ? AND status != 'closed' ORDER BY created_at", childId)
-      .map(r => ({ id: r.id, type: r.type, last4: r.last4, color: r.color, status: r.status }));
+    return this.q<CardRow>("SELECT * FROM cards WHERE child_id = ? AND status != 'closed' ORDER BY fav DESC, created_at", childId)
+      .map(r => ({ id: r.id, type: r.type, last4: r.last4, color: r.color, status: r.status, label: r.label, favorite: !!r.fav }));
   }
   private spent(userId: string, since: string) {
     const r = this.one<{ s: number | null }>("SELECT -SUM(amount) AS s FROM transactions WHERE user_id = ? AND kind = 'spend' AND amount < 0 AND created_at >= ?", userId, since);
@@ -488,7 +488,7 @@ export class FamilyService {
   private insertCard(childId: string, type: CardType, color: string) {
     const status = CARD_TYPES[type].physical ? 'delivery' : 'active';
     const id = newId('c');
-    this.run('INSERT INTO cards VALUES (?,?,?,?,?,?,?)', id, childId, type, String(1000 + Math.floor(Math.random() * 9000)), color, status, nowIso());
+    this.run('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', id, childId, type, String(1000 + Math.floor(Math.random() * 9000)), color, status, nowIso());
     return id;
   }
 
@@ -524,6 +524,25 @@ export class FamilyService {
     const verb = { block: 'заблокирована', unblock: 'разблокирована', activate: 'получена и активирована', close: 'закрыта' }[action];
     this.addFeed(c.family_id, c.user_id, `${c.name}: ${label.toLowerCase()} •• ${card.last4} ${verb}`);
     this.touch(c.family_id);
+  }
+
+  /** Подпись, цвет и избранная карта. Меняют и ребёнок (свои карты), и родитель */
+  updateCard(actor: { id: string; role: 'parent' | 'child' }, cardId: string, patch: { label?: string | null; color?: string; favorite?: boolean }) {
+    const card = this.one<CardRow>("SELECT * FROM cards WHERE id = ? AND status != 'closed'", cardId);
+    if (!card) throw notFound('Карта');
+    const c = actor.role === 'parent' ? this.ownChild(actor.id, card.child_id) : this.childRow(card.child_id);
+    if (actor.role === 'child' && actor.id !== card.child_id) throw forbidden();
+    tx(this.db, () => {
+      if (patch.label !== undefined) this.run('UPDATE cards SET label = ? WHERE id = ?', patch.label?.trim() || null, cardId);
+      if (patch.color) this.run('UPDATE cards SET color = ? WHERE id = ?', patch.color, cardId);
+      if (patch.favorite !== undefined) {
+        // Избранная у ребёнка только одна
+        if (patch.favorite) this.run('UPDATE cards SET fav = 0 WHERE child_id = ?', card.child_id);
+        this.run('UPDATE cards SET fav = ? WHERE id = ?', patch.favorite ? 1 : 0, cardId);
+      }
+    });
+    this.touch(c.family_id);
+    return this.cards(card.child_id).find(x => x.id === cardId)!;
   }
 
   reissue(parentId: string, childId: string) {
@@ -699,7 +718,7 @@ export class FamilyService {
       return d;
     }
     if (d.status === 'declined') return d;
-    const card = p.method === 'card' ? payingCard(cards) : null;
+    const card = p.method === 'card' ? payingCard(cards, p.cardId) : null;
     const title = p.method === 'qr' ? `${p.title} · QR КРОК` : p.title;
     this.debitChild(c.user_id, p.amount);
     this.run('UPDATE children SET coins = coins + ? WHERE user_id = ?', Math.floor(p.amount / (5 * BYN)), c.user_id);
@@ -727,11 +746,11 @@ export class FamilyService {
     this.touch(c.family_id);
     return d;
   }
-  payMerchant(childId: string, merchantId: string, method: PayMethod) {
+  payMerchant(childId: string, merchantId: string, method: PayMethod, cardId?: string) {
     const c = this.childRow(childId);
     const m = MERCHANTS[c.grp].find(x => x.id === merchantId);
     if (!m) throw notFound('Магазин');
-    return this.pay(childId, { title: m.title, amount: m.amount, category: m.category, method, partner: m.partner });
+    return this.pay(childId, { title: m.title, amount: m.amount, category: m.category, method, partner: m.partner, ...(method === 'card' && cardId ? { cardId } : {}) });
   }
   payErip(childId: string, serviceId: string, amount: number) {
     const svc = ERIP_SERVICES.find(x => x.id === serviceId);

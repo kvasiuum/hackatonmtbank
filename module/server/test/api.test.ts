@@ -322,4 +322,21 @@ describe('API модуля «Семья»', () => {
     expect((await call('GET', '/api/child/overview', kid)).body.me.coins).toBe(coins + 22);
     expect((await call('POST', '/api/child/games/price', kid, { score: 99 })).status).toBe(400);
   });
+
+  it('подпись, цвет и избранная карта; оплата выбранной картой', async () => {
+    const kid = await login('u_misha'); const teen = await login('u_anya');
+    const r = await call('PATCH', '/api/cards/c_misha2', kid, { label: 'Для школы', color: '#E4252F', favorite: true });
+    expect(r.body).toMatchObject({ id: 'c_misha2', label: 'Для школы', color: '#E4252F', favorite: true });
+    expect((await call('PATCH', '/api/cards/c_misha2', teen, { label: 'Чужая' })).status).toBe(403);
+    expect((await call('PATCH', '/api/cards/c_misha2', kid, { color: '#123456' })).status).toBe(400);
+    const me = (await call('GET', '/api/child/overview', kid)).body.me;
+    expect(me.cards[0].id).toBe('c_misha2'); // избранная первой
+    const paid = await call('POST', '/api/child/pay', kid, { merchantId: 'canteen', method: 'card' });
+    expect(paid.body.text).toContain('•• 9921');
+    const byPhys = await call('POST', '/api/child/pay', kid, { merchantId: 'canteen', method: 'card', cardId: 'c_misha1' });
+    expect(byPhys.body.text).toContain('•• 4417');
+    await call('POST', '/api/cards/c_misha1', kid, { action: 'block' });
+    const blocked = await call('POST', '/api/child/pay', kid, { merchantId: 'canteen', method: 'card', cardId: 'c_misha1' });
+    expect(blocked.body).toMatchObject({ status: 'declined', title: 'Эта карта не работает' });
+  });
 });

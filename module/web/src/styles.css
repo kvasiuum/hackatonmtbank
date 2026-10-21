@@ -429,3 +429,17 @@ button.chip { color: inherit; }
 .mem-face { background: #fff; color: var(--mt-blue); border: 2px solid var(--line); transform: rotateY(180deg); padding: 6px; text-align: center; }
 .mem-face small { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.2; }
 .mem.found .mem-face { border-color: var(--mt-sky); background: var(--mt-cloud); }
+
+.bc-label { display: flex; gap: 6px; align-items: center; }
+.cm-main { position: relative; display: block; width: 100%; text-align: left; }
+.cm-edit { position: absolute; right: 12px; bottom: 44px; background: rgba(255, 255, 255, .22); color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 600; display: flex; gap: 4px; align-items: center; }
+.cm-row { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; text-align: left; }
+.cm-confirm { display: flex; flex-direction: column; gap: 14px; }
+.cm-confirm h3 { font-size: 18px; }
+.tag.fav { background: #FFF4D6; color: #9A6A00; display: inline-flex; gap: 3px; align-items: center; }
+.paycards { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+.paycard { flex: none; display: flex; gap: 8px; align-items: center; border-radius: var(--r-md); padding: 8px 12px 8px 8px; background: #fff; border: 2px solid transparent; font-size: 13.5px; text-align: left; }
+.paycard.on { border-color: var(--blue); }
+.paycard i { width: 34px; height: 24px; border-radius: 5px; display: grid; place-items: center; color: #fff; }
+.paycard b { display: flex; gap: 4px; align-items: center; font-weight: 600; }
+.paycard small { color: var(--muted); }

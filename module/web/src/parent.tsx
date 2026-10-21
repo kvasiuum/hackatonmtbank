@@ -6,7 +6,7 @@ import { Icon } from './icons';
 import { fmt, fmtPhone, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
   useDragScroll,
-  Act, AmountField, BankCard, BankLocked, Bar, CardCarousel, CardStatus, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
+  Act, AmountField, BankCard, BankLocked, Bar, CardCarousel, CardManager, CardStatus, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
   PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
 } from './ui';
 
@@ -391,18 +391,15 @@ export function ChildScreen({ id }: { id: string }) {
       </div>
       <div className="sec">Настройки</div>
       <Fold icon="credit-card" title="Карты" sub={`${c.cards.length} из ${MAX_CARDS}${main ? ` · ${CARD_TYPES[main.type].label.toLowerCase()} •• ${main.last4}` : ''}`}>
-        {c.cards.map(card => (
-          <div className="row" key={card.id}>
-            <div className="ic" style={{ background: card.color, color: '#fff' }}><Icon name={cardIcon(card.type)} size={22} /></div>
-            <div className="tx"><b>{CARD_TYPES[card.type].label}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>•• {card.last4} <CardStatus c={card} /></small></div>
-            {card.status === 'delivery' ? <button className="sbtn" onClick={() => cardAct(card.id, 'activate', 'Карта получена и активирована')}>Получена</button>
-              : card.status === 'blocked' ? <button className="sbtn" onClick={() => cardAct(card.id, 'unblock', 'Карта снова работает')}>Разблок.</button>
-                : <button className="sbtn red" onClick={() => cardAct(card.id, 'block', 'Карта заблокирована')}>Блок</button>}
-          </div>
-        ))}
+        <CardManager name={c.name} cards={c.cards} who="parent" />
         {c.cards.length < MAX_CARDS && <Row icon="plus" tone="dash" title="Выпустить карту" sub="Виртуальная сразу, физическая за 3–5 дней" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />}
         {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
-          onClick={() => run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')} />}
+          onClick={() => sheet(close => <>
+            <h2>Закрыть и перевыпустить?</h2>
+            <p className="muted">Потерянная карта закроется навсегда, новая с тем же дизайном придёт через 3–5 дней. Виртуальная карта и QR КРОК работают всё это время.</p>
+            <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')) close(); }}>Закрыть и перевыпустить</button>
+            <button className="btn ghost" onClick={close}>Отмена</button>
+          </>)} />}
       </Fold>
       <Fold icon="shield-check" title="Что можно покупать" sub={cats.length ? `Можно: ${cats.map(p => SETTING_LABELS[p].title.toLowerCase()).join(', ')}` : 'Только обычные покупки в магазинах'}>
         <PermissionToggles s={s} group={c.group} keys="cats" onChange={setPath} /><BankLocked />

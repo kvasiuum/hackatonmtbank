@@ -63,11 +63,11 @@ export const Kava = ({ c, size }: { c: Pick<ChildSummary, 'name' | 'color'>; siz
 export const GroupTag = ({ g }: { g: 'kid' | 'teen' }) => <span className={`tag ${g === 'kid' ? 'red' : ''}`}>{g === 'kid' ? '7–13' : '14–17'}</span>;
 export const Coin = () => <span className="coin">М</span>;
 
-export function BankCard({ name, card }: { name: string; card: Pick<Card, 'type' | 'color' | 'status' | 'last4'> }) {
+export function BankCard({ name, card }: { name: string; card: Pick<Card, 'type' | 'color' | 'status' | 'last4'> & Partial<Pick<Card, 'label' | 'favorite'>> }) {
   const t = CARD_TYPES[card.type];
   return (
     <div className="bankcard" style={{ background: card.color }}>
-      <div className="top"><span>Moby Семья</span><span><Icon name={t.physical ? (card.type === 'bracelet' ? 'watch' : card.type === 'sticker' ? 'sticker' : 'credit-card') : 'smartphone'} size={16} />{t.label}</span></div>
+      <div className="top"><span className="bc-label">{card.favorite && <Icon name="star" size={15} sw={2.2} />}{card.label || 'Moby Семья'}</span><span><Icon name={t.physical ? (card.type === 'bracelet' ? 'watch' : card.type === 'sticker' ? 'sticker' : 'credit-card') : 'smartphone'} size={16} />{t.label}</span></div>
       {card.type === 'virtual' ? <div /> : <div className="chipm" />}
       <div className="bot"><span>{(name || 'ИМЯ РЕБЁНКА').toUpperCase()}</span><span className="num">•• {card.last4}</span></div>
       {card.status === 'blocked' && <div className="veil">Заблокирована</div>}
@@ -76,7 +76,8 @@ export function BankCard({ name, card }: { name: string; card: Pick<Card, 'type'
   );
 }
 export const cardIcon = (t: CardType) => (t === 'bracelet' ? 'watch' : t === 'sticker' ? 'sticker' : t === 'plastic' ? 'credit-card' : 'smartphone');
-export const mainCard = (cards: Card[]) => cards.find(c => CARD_TYPES[c.type].physical) ?? cards[0];
+/** Карта «по умолчанию»: избранная, иначе физическая, иначе первая */
+export const mainCard = (cards: Card[]) => cards.find(c => c.favorite) ?? cards.find(c => CARD_TYPES[c.type].physical) ?? cards[0];
 
 const NetworkLogo = ({ n }: { n: ParentCard['network'] }) => n === 'visa' ? <b className="mc-visa">VISA</b>
   : n === 'mastercard' ? <svg width="34" height="22" viewBox="0 0 34 22" aria-label="Mastercard"><circle cx="12" cy="11" r="10" fill="#E42C26" /><circle cx="22" cy="11" r="10" fill="#FF5912" fillOpacity=".85" /></svg>
@@ -105,6 +106,66 @@ export function CardCarousel({ cards, value, onChange }: { cards: ParentCard[]; 
     </div>
     {cards.length > 1 && <div className="mcdots">{cards.map((c, i) => <button key={c.id} className={c.id === value ? 'on' : ''} onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${i + 1}`} />)}</div>}
   </>;
+}
+
+/** Управление картами ребёнка: подпись, цвет, избранная, блокировка с подтверждением. Общее для ребёнка и родителя */
+export function CardManager({ name, cards, who, children }: { name: string; cards: Card[]; who: 'kid' | 'teen' | 'parent'; children?: ReactNode }) {
+  const { run, call } = useDevice();
+  const [mode, setMode] = useState<{ kind: 'edit' | 'block' | 'lost'; id: string } | null>(null);
+  const main = mainCard(cards);
+  // «Я потерял карту» — про физическую карту, даже если избранная виртуальная
+  const physical = cards.find(c => c.status === 'active' && CARD_TYPES[c.type].physical);
+  const card = mode && cards.find(c => c.id === mode.id);
+  const act = (id: string, action: string, ok: string) => run(() => call(`/api/cards/${id}`, { action }), ok);
+  if (mode && card) {
+    if (mode.kind === 'edit') return <CardEdit name={name} card={card} done={() => setMode(null)} />;
+    return <div className="cm-confirm">
+      <h3>{mode.kind === 'lost' ? 'Карта потерялась?' : 'Заблокировать карту?'}</h3>
+      <BankCard name={name} card={card} />
+      <p className="muted">{CARD_TYPES[card.type].label} •• {card.last4} перестанет работать сразу.
+        {who === 'kid' ? ' Разблокировать её сможет только родитель.' : ' Разблокировать можно здесь же.'}{who !== 'parent' ? ' Родители получат уведомление.' : ''}
+        {mode.kind === 'lost' && cards.some(c => c.id !== card.id && c.status === 'active') ? ' Пока плати другой картой или по QR КРОК.' : ''}</p>
+      <button className="btn solid-red" onClick={async () => { if (await act(card.id, 'block', 'Карта заблокирована')) setMode(null); }}><Icon name="lock" size={20} /> Заблокировать</button>
+      <button className="btn ghost" onClick={() => setMode(null)}>Отмена</button>
+    </div>;
+  }
+  return <>
+    {main && <button className="cm-main press" onClick={() => setMode({ kind: 'edit', id: main.id })} aria-label="Изменить карту"><BankCard name={name} card={main} /><span className="cm-edit"><Icon name="pencil" size={16} /> Изменить</span></button>}
+    {who !== 'parent' && physical && <button className="btn red" onClick={() => setMode({ kind: 'lost', id: physical.id })}><Icon name="lock" size={20} /> Я потерял карту</button>}
+    <div>{cards.map(c => (
+      <div className="row" key={c.id}>
+        <button className="cm-row" onClick={() => setMode({ kind: 'edit', id: c.id })} aria-label={`Изменить карту •• ${c.last4}`}>
+          <div className="ic" style={{ background: c.color, color: '#fff' }}><Icon name={cardIcon(c.type)} size={22} /></div>
+          <div className="tx"><b>{c.label || CARD_TYPES[c.type].label}</b>
+            <small style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>•• {c.last4} <CardStatus c={c} />{c.favorite && <span className="tag fav"><Icon name="star" size={12} sw={2.4} /> Избранная</span>}</small></div>
+        </button>
+        {c.status === 'delivery' && who === 'parent' ? <button className="sbtn" onClick={() => act(c.id, 'activate', 'Карта получена и активирована')}>Получена</button>
+          : c.status === 'blocked' ? (who !== 'kid' && <button className="sbtn" onClick={() => act(c.id, 'unblock', 'Карта снова работает')}>Разблок.</button>)
+            : c.status === 'active' && <button className="sbtn red" onClick={() => setMode({ kind: 'block', id: c.id })}>Блок</button>}
+      </div>
+    ))}</div>
+    {children}
+  </>;
+}
+
+function CardEdit({ name, card, done }: { name: string; card: Card; done: () => void }) {
+  const { run, call } = useDevice();
+  const [label, setLabel] = useState(card.label ?? '');
+  const [color, setColor] = useState(card.color);
+  const [fav, setFav] = useState(card.favorite);
+  const [busy, wrap] = useBusy();
+  return <div className="cm-confirm">
+    <h3>{CARD_TYPES[card.type].label} •• {card.last4}</h3>
+    <BankCard name={name} card={{ ...card, color, label: label.trim() || null, favorite: fav }} />
+    <div className="field"><label>Подпись на карте</label><input maxLength={20} placeholder="Moby Семья" value={label} onChange={e => setLabel(e.target.value)} /></div>
+    <div className="pills">{['Для школы', 'На кино', 'Для спорта', 'Подписки'].map(t => <button key={t} className="pill" onClick={() => setLabel(t)}>{t}</button>)}</div>
+    <Swatches value={color} onChange={setColor} />
+    <SetRow title="Избранная карта" sub="Ею платим по умолчанию, при оплате она первая"><Toggle on={fav} label="Избранная карта" onChange={setFav} /></SetRow>
+    <button className="btn" disabled={busy} onClick={() => wrap(async () => {
+      if (await run(() => call(`/api/cards/${card.id}`, { label: label.trim() || null, color, favorite: fav }, 'PATCH'), 'Карта сохранена')) done();
+    })}>Сохранить</button>
+    <button className="btn ghost" onClick={done}>Отмена</button>
+  </div>;
 }
 
 export function CardStatus({ c }: { c: Card }) {

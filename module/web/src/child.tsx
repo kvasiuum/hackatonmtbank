@@ -8,7 +8,7 @@ import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } fro
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
-import { Act, AmountField, BankCard, Bar, CardStatus, CardTypePicker, Chev, Coin, Fold, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
+import { Act, AmountField, BankCard, Bar, CardManager, CardTypePicker, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
 export const useChild = () => useData<ChildOverview>('/api/child/overview').data;
 const Loading = () => <div className="loading">Загрузка…</div>;
@@ -175,26 +175,17 @@ function MyRequests({ o }: { o: ChildOverview }) {
 }
 
 /** Карты ребёнка в шторке: данные берём свежие, чтобы блокировка сразу отражалась */
+/** Карты ребёнка в шторке: данные берём свежие, чтобы блокировка сразу отражалась */
 function CardsSheet({ close }: { close: () => void }) {
   const o = useChild();
-  const { run, call, sheet } = useDevice();
+  const { sheet } = useDevice();
   if (!o) return <Loading />;
-  const kid = o.me.group === 'kid';
-  const main = mainCard(o.me.cards);
   return <>
-    <h2>Мои карты</h2>
-    {main && <BankCard name={o.me.name} card={main} />}
-    {main?.status === 'active' && CARD_TYPES[main.type].physical && <button className="btn red" onClick={() => run(() => call(`/api/cards/${main.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}><Icon name="lock" size={20} /> Я потерял карту</button>}
-    <div>{o.me.cards.map(c => (
-      <div className="row" key={c.id}>
-        <div className="ic" style={{ background: c.color, color: '#fff' }}><Icon name={cardIcon(c.type)} size={22} /></div>
-        <div className="tx"><b>{CARD_TYPES[c.type].label}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>•• {c.last4} <CardStatus c={c} /></small></div>
-        {c.status === 'active' && <button className="sbtn red" onClick={() => run(() => call(`/api/cards/${c.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}>Блок</button>}
-        {c.status === 'blocked' && !kid && <button className="sbtn" onClick={() => run(() => call(`/api/cards/${c.id}`, { action: 'unblock' }), 'Карта снова работает')}>Разблок.</button>}
-      </div>
-    ))}</div>
-    {o.me.cards.length < MAX_CARDS && <button className="btn ghost" onClick={() => { close(); sheet(c => <CardRequestSheet o={o} close={c} />); }}>
-      <Icon name={o.me.settings.perms.newCards ? 'plus' : 'send'} size={20} /> {o.me.settings.perms.newCards ? 'Выпустить виртуальную карту' : 'Попросить новую карту'}</button>}
+    <h2>{o.me.cards.length > 1 ? 'Мои карты' : 'Моя карта'}</h2>
+    <CardManager name={o.me.name} cards={o.me.cards} who={o.me.group}>
+      {o.me.cards.length < MAX_CARDS && <button className="btn ghost" onClick={() => { close(); sheet(c => <CardRequestSheet o={o} close={c} />); }}>
+        <Icon name={o.me.settings.perms.newCards ? 'plus' : 'send'} size={20} /> {o.me.settings.perms.newCards ? 'Выпустить виртуальную карту' : 'Попросить новую карту'}</button>}
+    </CardManager>
   </>;
 }
 
@@ -381,19 +372,27 @@ export function Pay({ method: initial }: { method?: PayMethod }) {
   const o = useChild();
   const { call, sheet, run } = useDevice();
   const [method, setMethod] = useState<PayMethod>(initial ?? 'card');
+  const [picked, setPicked] = useState<string | null>(null);
   if (!o) return <Loading />;
   const qr = method === 'qr';
+  // Избранная карта первой; выбрать можно только работающую
+  const active = o.me.cards.filter(c => c.status === 'active');
+  const card = active.find(c => c.id === picked) ?? active.find(c => c.favorite) ?? active.find(c => CARD_TYPES[c.type].physical) ?? active[0];
   const pay = async (merchantId: string) => {
-    const d = await run(() => call<PayDecision>('/api/child/pay', { merchantId, method }));
+    const d = await run(() => call<PayDecision>('/api/child/pay', { merchantId, method, ...(qr || !card ? {} : { cardId: card.id }) }));
     if (d) sheet(c => <PayResult d={d} close={c} />);
   };
-  const card = o.me.cards.find(c => c.status === 'active' && CARD_TYPES[c.type].physical) ?? o.me.cards.find(c => c.status === 'active');
   return <><TopBar title="Оплатить" /><div className="page">
     <div className="seg"><button className={qr ? '' : 'on'} onClick={() => setMethod('card')}>Картой</button><button className={qr ? 'on' : ''} onClick={() => setMethod('qr')}>По QR КРОК</button></div>
     <div className="legal"><Icon name={qr ? 'qr-code' : 'info'} size={18} /><span>{qr
       ? `КРОК — национальный сервис QR-платежей (Нацбанк, ЕРИП). Сканируешь QR на кассе в Moby, деньги списываются со счёта мгновенно, карта не нужна. Лимиты и запреты родителя действуют так же.${o.me.settings.perms.qr ? '' : ' Сейчас QR-оплата выключена родителем.'}`
       : 'Выбери, где прикладываешь карту. Решение принимается по настройкам родителя и защите банка.'}</span></div>
-    <small className="muted">{qr ? 'Платим по QR со счёта' : card ? `Платим: ${CARD_TYPES[card.type].label.toLowerCase()} •• ${card.last4}` : 'Нет активной карты'} · сегодня {fmt(o.me.spentToday)} из {fmt(o.me.settings.limits.day)} · подтверждение от {fmt(o.me.settings.confirmAbove)}</small>
+    {!qr && active.length > 1 && <div className="paycards" role="radiogroup" aria-label="Карта для оплаты">{active.map(c => (
+      <button key={c.id} className={`paycard ${c.id === card?.id ? 'on' : ''}`} role="radio" aria-checked={c.id === card?.id} onClick={() => setPicked(c.id)}>
+        <i style={{ background: c.color }}><Icon name={cardIcon(c.type)} size={14} /></i>
+        <span><b>{c.favorite && <Icon name="star" size={12} sw={2.4} />}{c.label || CARD_TYPES[c.type].label}</b><small>•• {c.last4}</small></span>
+      </button>))}</div>}
+    <small className="muted">{qr ? 'Платим по QR со счёта' : card ? `Платим: ${(card.label || CARD_TYPES[card.type].label).toLowerCase()} •• ${card.last4}` : 'Нет активной карты'} · сегодня {fmt(o.me.spentToday)} из {fmt(o.me.settings.limits.day)} · подтверждение от {fmt(o.me.settings.confirmAbove)}</small>
     {MERCHANTS[o.me.group].map(m => (
       <button key={m.id} className="merchant press" onClick={() => pay(m.id)}>
         <RowIcon name={m.icon} tone={m.category === 'gambling' || m.category === 'adult' ? 'red' : undefined} />
