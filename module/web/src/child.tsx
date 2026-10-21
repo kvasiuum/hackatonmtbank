@@ -9,7 +9,7 @@ import { Confetti, CountUp, Piggy, PiggyParty } from './fx';
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
-import { Act, AmountField, BankCard, Bar, CardManager, CardTypePicker, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
+import { Act, AmountField, BankCard, Bar, CardManager, CardTypePicker, ChildCardCarousel, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
 export const useChild = () => useData<ChildOverview>('/api/child/overview').data;
 const Loading = () => <div className="loading">Загрузка…</div>;
@@ -413,11 +413,8 @@ export function Pay({ method: initial }: { method?: PayMethod }) {
     <div className="legal"><Icon name={qr ? 'qr-code' : 'info'} size={18} /><span>{qr
       ? `КРОК — национальный сервис QR-платежей (Нацбанк, ЕРИП). Сканируешь QR на кассе в Moby, деньги списываются со счёта мгновенно, карта не нужна. Лимиты и запреты родителя действуют так же.${o.me.settings.perms.qr ? '' : ' Сейчас QR-оплата выключена родителем.'}`
       : 'Выбери, где прикладываешь карту. Решение принимается по настройкам родителя и защите банка.'}</span></div>
-    {!qr && active.length > 1 && <div className="paycards" role="radiogroup" aria-label="Карта для оплаты">{active.map(c => (
-      <button key={c.id} className={`paycard ${c.id === card?.id ? 'on' : ''}`} role="radio" aria-checked={c.id === card?.id} onClick={() => setPicked(c.id)}>
-        <i style={{ background: c.color }}><Icon name={cardIcon(c.type)} size={14} /></i>
-        <span><b>{c.favorite && <Icon name="star" size={12} sw={2.4} />}{c.label || CARD_TYPES[c.type].label}</b><small>•• {c.last4}</small></span>
-      </button>))}</div>}
+    {!qr && card && <ChildCardCarousel name={o.me.name} cards={active} value={card.id} onChange={setPicked} />}
+    {!qr && o.me.cards.length > active.length && <small className="muted">Заблокированные карты и карты в доставке здесь не показываем</small>}
     <small className="muted">{qr ? 'Платим по QR со счёта' : card ? `Платим: ${(card.label || CARD_TYPES[card.type].label).toLowerCase()} •• ${card.last4}` : 'Нет активной карты'} · сегодня {fmt(o.me.spentToday)} из {fmt(o.me.settings.limits.day)} · подтверждение от {fmt(o.me.settings.confirmAbove)}</small>
     {MERCHANTS[o.me.group].map(m => (
       <button key={m.id} className="merchant press" onClick={() => pay(m.id)}>
@@ -760,7 +757,7 @@ function RequestsSheet() {
 /** «Ещё»: как у взрослого Moby, но только то, что нужно ребёнку 7–13 или подростку 14–17 */
 export function ChildMore() {
   const o = useChild();
-  const { push, sheet, toast, logout } = useDevice();
+  const { push, tab, sheet, toast, logout } = useDevice();
   const ask = useAsk();
   if (!o) return <Loading />;
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
@@ -775,7 +772,7 @@ export function ChildMore() {
     ['list-checks', 'Задания', () => push('tasks')],
     ['history', 'Мои покупки', () => sheet(() => <OpsSheet title="Мои покупки" />)],
     ['send', 'Мои запросы', () => sheet(() => <RequestsSheet />)],
-    ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ['coins', `Манички: ${o.me.coins}`, () => tab('play')],
     ...insurance,
     ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],
@@ -786,7 +783,7 @@ export function ChildMore() {
     ['chart-column', 'Аналитика трат', () => push('analytics')],
     ['repeat', 'Подписки', () => (o.me.settings.perms.subs ? push('subs') : ask.perm('perms.subs'))],
     ['briefcase', 'Заработок и задания', () => push('earn')],
-    ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ['coins', `Манички: ${o.me.coins}`, () => tab('play')],
     ...insurance,
     ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],

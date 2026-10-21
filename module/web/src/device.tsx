@@ -223,10 +223,12 @@ function Shell({ info, token, onLogout }: { info: DeviceInfo; token: string; onL
   return <DeviceProvider token={token} userId={info.userId} onLogout={onLogout} root="home">
     {({ route, depth, sheet, toast, closeSheet }) => {
       const light = (depth === 1 && route.name === 'home') || route.name === 'child';
+      const showTabs = depth === 1 || TABS[kind].some(([name]) => name === route.name);
       return <>
         <div className={`statusbar ${light ? 'light' : ''}`}><span>13:08</span><span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><Icon name="wifi" size={16} /><span style={{ border: '1.5px solid currentColor', borderRadius: 4, padding: '0 4px', fontSize: 11 }}>71</span></span></div>
-        <div className={`scroll ${depth === 1 ? 'tabs' : ''}`} key={`${route.name}-${depth}`}>{(screens[route.name] ?? screens.home)(route)}</div>
-        {depth === 1 && <TabBar kind={kind} current={route.name} />}
+        <div className={`scroll ${showTabs ? 'tabs' : ''}`} key={`${route.name}-${depth}`}>{(screens[route.name] ?? screens.home)(route)}</div>
+        {/* Панель вкладок на корневых экранах; вкладку, открытую поверх стека, тоже показываем с панелью, чтобы не было тупика */}
+        {showTabs && <TabBar kind={kind} current={route.name} />}
         {sheet && <Sheet onClose={closeSheet}>{sheet.render(closeSheet)}</Sheet>}
         {toast && <div className={`toast ${toast.err ? 'err' : ''}`} role="status">{toast.text}</div>}
       </>;
@@ -239,7 +241,6 @@ function TabBar({ kind, current }: { kind: 'parent' | 'kid' | 'teen'; current: s
   return <nav className={`tabbar ${TABS[kind].length > 4 ? 'five' : ''}`}>{TABS[kind].map(([name, label, ic]) => (
     <button key={name} className={`tab ${current === name ? 'on' : ''}`} onClick={() => tab(name)}>
       {ic === 'moby' ? <MobyLogo active={current === name} /> : <Icon name={ic} size={28} sw={1.5} />}{label}
-      {kind === 'parent' && name === 'more' && <span className="badge">10</span>}
     </button>
   ))}</nav>;
 }

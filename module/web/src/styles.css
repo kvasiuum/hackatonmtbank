@@ -486,3 +486,7 @@ button.chip { color: inherit; }
 .opt.right, .fx-right { animation: rightpulse 520ms var(--ease-out); }
 @keyframes rightpulse { 0% { transform: scale(1); } 40% { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(31, 95, 214, .18); } 100% { transform: scale(1); } }
 .opt.wrong, .fx-wrong { animation: shake 380ms ease-in-out; }
+.cc-item { border-radius: 19px; padding: 3px; border: 2px solid transparent; transition: border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.cc-item.on { border-color: var(--blue); }
+.cc-item:not(.on) { transform: scale(.96); }
+.cc-item .bankcard { height: 150px; }

@@ -92,21 +92,32 @@ export function MiniCard({ c, on }: { c: ParentCard; on?: boolean }) {
   </div>;
 }
 
-/** Карусель карт: листается пальцем, выбранной считается карта, на которой остановилась лента */
-export function CardCarousel({ cards, value, onChange }: { cards: ParentCard[]; value: string; onChange: (id: string) => void }) {
+/** Карусель: листается пальцем, выбранным считается элемент, на котором остановилась лента */
+export function Carousel<T extends { id: string }>({ items, value, onChange, render, label }: {
+  items: T[]; value: string; onChange: (id: string) => void; render: (item: T, on: boolean) => ReactNode; label: (item: T) => string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const step = () => { const el = ref.current!; const first = el.firstElementChild as HTMLElement | null; return (first?.offsetWidth ?? 1) + 12; };
-  const onScroll = () => { const i = Math.round(ref.current!.scrollLeft / step()); if (cards[i] && cards[i].id !== value) onChange(cards[i].id); };
+  const onScroll = () => { const i = Math.round(ref.current!.scrollLeft / step()); if (items[i] && items[i].id !== value) onChange(items[i].id); };
   const go = (i: number, behavior: ScrollBehavior = 'smooth') => ref.current?.scrollTo({ left: i * step(), behavior });
-  // Открываемся сразу на выбранной карте
-  useEffect(() => { const i = cards.findIndex(c => c.id === value); if (i > 0) go(i, 'instant' as ScrollBehavior); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Открываемся сразу на выбранном элементе
+  useEffect(() => { const i = items.findIndex(c => c.id === value); if (i > 0) go(i, 'instant' as ScrollBehavior); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <>
     <div className="mccar" ref={ref} onScroll={onScroll}>
-      {cards.map((c, i) => <button key={c.id} className="mcitem" onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${c.title} ${c.mask}`}><MiniCard c={c} on={c.id === value} /></button>)}
+      {items.map((c, i) => <button key={c.id} className="mcitem" onClick={() => { go(i); onChange(c.id); }} aria-label={label(c)} aria-pressed={c.id === value}>{render(c, c.id === value)}</button>)}
     </div>
-    {cards.length > 1 && <div className="mcdots">{cards.map((c, i) => <button key={c.id} className={c.id === value ? 'on' : ''} onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${i + 1}`} />)}</div>}
+    {items.length > 1 && <div className="mcdots">{items.map((c, i) => <button key={c.id} className={c.id === value ? 'on' : ''} onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${i + 1}`} />)}</div>}
   </>;
 }
+
+/** Карусель карт родителя */
+export const CardCarousel = ({ cards, value, onChange }: { cards: ParentCard[]; value: string; onChange: (id: string) => void }) =>
+  <Carousel items={cards} value={value} onChange={onChange} render={(c, on) => <MiniCard c={c} on={on} />} label={c => `Карта ${c.title} ${c.mask}`} />;
+
+/** Карусель карт ребёнка для оплаты: те же карты, что он видит в «Мои карты» */
+export const ChildCardCarousel = ({ name, cards, value, onChange }: { name: string; cards: Card[]; value: string; onChange: (id: string) => void }) =>
+  <Carousel items={cards} value={value} onChange={onChange} render={(c, on) => <div className={`cc-item ${on ? 'on' : ''}`}><BankCard name={name} card={c} /></div>}
+    label={c => `${c.label || CARD_TYPES[c.type].label} •• ${c.last4}`} />;
 
 /** Управление картами ребёнка: подпись, цвет, избранная, блокировка с подтверждением. Общее для ребёнка и родителя */
 export function CardManager({ name, cards, who, children }: { name: string; cards: Card[]; who: 'kid' | 'teen' | 'parent'; children?: ReactNode }) {
