@@ -77,10 +77,11 @@ export function ParentProducts() {
   const { push, sheet, toast } = useDevice();
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
   const family = () => (o?.children.length ? push('family') : push('onboard'));
+  const addChild = useAddChild();
   return <>
     <div className="page" style={{ paddingTop: 56, paddingBottom: 120 }}>
       <div className="promo"><div style={{ flex: 1 }}><h2>Семья в Moby</h2><p>Карта ребёнку с 7 лет, свой вход в Moby, лимиты и копилки. Пакет «Старт» — 0 BYN.</p>
-        <button className="btn white" style={{ width: 'auto', padding: '10px 18px', minHeight: 0 }} onClick={() => push('onboard')}>Оформить</button></div>
+        <button className="btn white" style={{ width: 'auto', padding: '10px 18px', minHeight: 0 }} onClick={addChild}>Оформить</button></div>
         <div className="mini"><span>Moby</span><i /></div></div>
       <div className="dots"><i className="on" />{Array.from({ length: 12 }, (_, i) => <i key={i} />)}</div>
       <button className="prod" onClick={soon}><Icon name="products" size={34} /><div><b>Карты и счета</b><small>Ваши карты и счета</small></div></button>
@@ -92,7 +93,7 @@ export function ParentProducts() {
     </div>
     <button className="fab press" onClick={() => sheet(close => <>
       <h2>Оформить</h2>
-      <Row icon="users" title="Карту ребёнку" sub="Пакет «Семья»: карта с 7 лет и вход в Moby" onClick={() => { close(); push('onboard'); }} />
+      <Row icon="users" title="Карту ребёнку" sub="Пакет «Семья»: карта с 7 лет и вход в Moby" onClick={() => { close(); addChild(); }} />
       <Row icon="credit-card" title="Карту" sub="МТкарта, Халва и другие" onClick={soon} />
       <Row icon="pay" title="Кредит" sub="Онлайн-заявка" onClick={soon} />
       <Row icon="piggy-bank" title="Вклад" sub="Сбережения в BYN и валюте" onClick={soon} />
@@ -263,6 +264,36 @@ function TariffCard({ t, on, onPick, disabled }: { t: Tariff; on: boolean; onPic
   </div>;
 }
 
+/** «Добавить ребёнка»: в «Семья Старт» один ребёнок, второго — только после подключения «Семья+» */
+function useAddChild() {
+  const o = useOverview();
+  const { push, sheet, toast } = useDevice();
+  return () => {
+    if (!o) return;
+    const t = TARIFFS[o.plan.tariff];
+    if (o.children.length < t.maxKids) return push('onboard');
+    if (o.plan.tariff === 'plus') return toast(`В «${t.title}» можно подключить до ${t.maxKids} детей`);
+    sheet(close => <UpgradeSheet close={close} onDone={() => push('onboard')} />);
+  };
+}
+
+function UpgradeSheet({ close, onDone }: { close: () => void; onDone: () => void }) {
+  const { run, call } = useDevice();
+  const [busy, wrap] = useBusy();
+  const t = TARIFFS.plus;
+  return <>
+    <div className="upsell-ic"><Icon name="users" size={30} /></div>
+    <h2>Сначала оформите «{t.title}»</h2>
+    <p className="muted" style={{ marginTop: -8 }}>В «{TARIFFS.start.title}» можно подключить одного ребёнка. С «{t.title}» — до {t.maxKids} детей и больше выгоды для всей семьи:</p>
+    <ul className="upsell-list">{t.perks.map(x => <li key={x}><Icon name="check" size={16} sw={2.4} /><span>{x}</span></li>)}</ul>
+    <div className="legal"><Icon name="info" size={18} /><span>{fmt(t.price)} в месяц. Первый месяц бесплатно, дальше — бесплатно, если семья тратит от {fmt(t.waiverSpend)} в месяц.</span></div>
+    <button className="btn" disabled={busy} onClick={() => wrap(async () => {
+      if (await run(() => call('/api/parent/plan', { tariff: 'plus' }), `Подключён «${t.title}»`)) { close(); onDone(); }
+    })}>Оформить «{t.title}»</button>
+    <button className="btn ghost" onClick={close}>Не сейчас</button>
+  </>;
+}
+
 const PARTNERS = [
   { icon: 'pencil', title: 'Канцтовары', sub: 'Школьные товары' },
   { icon: 'clapperboard', title: 'Кинотеатр', sub: 'Билеты и попкорн' },
@@ -312,6 +343,7 @@ function CoinsSheet({ o }: { o: ParentOverview }) {
 export function FamilyScreen() {
   const o = useOverview();
   const { push, sheet, call, toast } = useDevice();
+  const addChild = useAddChild();
   if (!o) return <><TopBar title="Семья" /><div className="loading">Загрузка…</div></>;
   const pending = o.requests.filter(r => r.status === 'pending');
   const waiting = pending.length + o.joinRequests.length;
@@ -340,7 +372,7 @@ export function FamilyScreen() {
           </div>
         </button>
       ))}
-      <button className="btn ghost" onClick={() => push('onboard')}><Icon name="plus" size={20} /> Добавить ребёнка</button>
+      <button className="btn ghost" onClick={addChild}><Icon name="plus" size={20} /> Добавить ребёнка</button>
       <div className="grid3">
         <button className="tile press" onClick={() => sheet(close => <TopupSheet o={o} close={close} />)}><RowIcon name="transfer" />Перевести</button>
         <button className="tile press" onClick={() => push('tasks')}><RowIcon name="list-checks" />Задания</button>

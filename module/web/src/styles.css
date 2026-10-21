@@ -617,3 +617,12 @@ button.chip { color: inherit; }
 .sect-body { display: flex; flex-direction: column; gap: 12px; animation: popin 240ms var(--ease-out); }
 .sect-card { display: flex; flex-direction: column; gap: 4px; }
 .sections { scroll-margin-top: 10px; }
+
+/* шторка «Сначала оформите Семья+» */
+.upsell-ic { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; margin: 4px auto 10px; color: #fff; background: linear-gradient(135deg, var(--blue, #1F5FD6), #2334C8); }
+.sheet .upsell-ic + h2 { text-align: center; }
+.upsell-list { list-style: none; margin: 0 0 12px; padding: 12px 14px; display: grid; gap: 9px; background: var(--mt-cloud); border-radius: 16px; }
+.upsell-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.35; }
+.upsell-list svg { flex: none; margin-top: 2px; color: var(--blue, #1F5FD6); }
+.sheet .upsell-list + .legal { margin-bottom: 12px; }
+.sheet .upsell-list ~ .btn.ghost { margin-top: 8px; }
