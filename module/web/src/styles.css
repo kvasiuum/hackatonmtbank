@@ -396,7 +396,7 @@ svg { display: block; flex: none; }
 .side .econ-btn { background: var(--mt-blue); color: #fff; border-radius: var(--r-sm); padding: 11px; font-weight: 600; font-size: 14px; display: flex; gap: 8px; justify-content: center; align-items: center; }
 
 /* миниатюры карт родителя и карусель выбора карты */
-.mccar { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -18px; padding: 4px 18px 6px; scroll-padding: 0 18px; overscroll-behavior-x: contain; }
+.mccar { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px 6px; scroll-padding: 0 16px; overscroll-behavior-x: contain; }
 .mccar::-webkit-scrollbar { display: none; }
 .mcitem { flex: 0 0 84%; scroll-snap-align: start; text-align: left; }
 .minicard { background: #F0F4FA; border: 1px solid #DCE3EE; border-radius: 18px; height: 150px; display: flex; flex-direction: column; box-shadow: 0 2px 6px rgba(20, 40, 90, .06); transition: border-color 160ms var(--ease-out); }
@@ -626,3 +626,58 @@ button.chip { color: inherit; }
 .upsell-list svg { flex: none; margin-top: 2px; color: var(--blue, #1F5FD6); }
 .sheet .upsell-list + .legal { margin-bottom: 12px; }
 .sheet .upsell-list ~ .btn.ghost { margin-top: 8px; }
+
+/* аналитика пирогом */
+.pie { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 10px; }
+.pie-chart { position: relative; width: 200px; height: 200px; }
+.pie-chart svg { width: 100%; height: 100%; }
+.pie-seg { animation: piein 800ms var(--ease-out) both; }
+@keyframes piein { from { stroke-dasharray: 0 440; } }
+.pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pie-center small { color: var(--muted, #7A8699); font-size: 13px; }
+.pie-center b { font-size: 21px; font-weight: 700; }
+.pie-legend { width: 100%; display: grid; gap: 10px; }
+.pie-legend div { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 10px; align-items: center; font-size: 15px; }
+.pie-legend i { width: 12px; height: 12px; border-radius: 4px; }
+.pie-legend small { color: var(--muted, #7A8699); font-size: 13px; }
+.pie-legend b { font-weight: 600; min-width: 84px; text-align: right; }
+
+/* Манички и предложения партнёров */
+.coins-hero { display: flex; gap: 14px; align-items: center; background: linear-gradient(135deg, var(--mt-blue), var(--blue)); color: #fff; }
+.coins-hero .coin.big { width: 56px; height: 56px; font-size: 26px; background: #fff; color: var(--mt-blue); flex: none; }
+.coins-hero .bal { font-size: 32px; color: #fff; }
+.coins-hero small { opacity: .9; font-size: 13.5px; line-height: 1.35; display: block; }
+.tag.off { opacity: .5; }
+.offer-h { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.offer-h h2 { margin: 0; font-size: 20px; }
+.offer-coupon { display: flex; gap: 12px; align-items: center; color: var(--blue); }
+.offer-coupon .tx { flex: 1; color: var(--text); display: flex; flex-direction: column; }
+.coupon-code { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; margin-bottom: 10px; border: 2px dashed var(--blue); border-radius: 16px; background: var(--blue-bg); animation: popin 450ms var(--ease-out) both; }
+.coupon-code b { font-size: 24px; letter-spacing: 2px; color: var(--blue); }
+.coupon-code small, .coupon-code span { font-size: 13px; color: #4F5A6E; }
+
+/* таймер «Карт по памяти»: полоса с бегущим градиентом */
+.memtimer { display: flex; align-items: center; gap: 10px; }
+.memtimer b { font-variant-numeric: tabular-nums; font-size: 15px; min-width: 38px; text-align: right; color: var(--blue); }
+.mt-track { flex: 1; height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.mt-track i { display: block; height: 100%; border-radius: inherit; transition: width 1s linear;
+  background: linear-gradient(90deg, #1F5FD6, #97CFFF, #2334C8, #5C9BF3, #1F5FD6); background-size: 200% 100%; animation: mtflow 1.4s linear infinite; }
+.memtimer.low b { color: var(--red); }
+.memtimer.low .mt-track i { background-image: linear-gradient(90deg, #E4252F, #FFB3AD, #E42C26, #FF8E87, #E4252F); animation-duration: .7s; }
+.memtimer.stop .mt-track i { animation-play-state: paused; }
+@keyframes mtflow { from { background-position: 0 0; } to { background-position: -200% 0; } }
+
+/* вспышка за верный ответ */
+.msg, .quiz-q { position: relative; }
+.rightburst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.rightburst i { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; animation: rbfly 850ms var(--ease-out) both; }
+.rightburst .rb-star { border-radius: 3px; }
+.rightburst .rb-coin { left: -8px; top: -8px; width: 16px; height: 16px; border-radius: 50%; background: var(--blue); box-shadow: inset 0 0 0 2.5px var(--mt-sky); }
+.rightburst .rb-ring { left: -40px; top: -40px; width: 80px; height: 80px; border-radius: 50%; border: 4px solid var(--blue); animation: rbring 650ms var(--ease-out) forwards; }
+.rb-text { position: absolute; left: 0; top: 0; white-space: nowrap; background: var(--blue); color: #fff; font-weight: 800; font-size: 20px; padding: 8px 18px; border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(31, 95, 214, .35); animation: rbtext 1400ms var(--ease-out) forwards; }
+@keyframes rbring { from { transform: scale(.2); opacity: .9; } to { transform: scale(2.6); opacity: 0; } }
+@keyframes rbfly { 0% { transform: translate(0, 0) scale(.3) rotate(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(220deg); opacity: 0; } }
+@keyframes rbtext { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } 30% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -50%); } 100% { transform: translate(-50%, -120%) scale(.95); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rightburst i { display: none; } }
+.exch { display: grid; gap: 8px; }

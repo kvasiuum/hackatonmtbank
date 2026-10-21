@@ -415,6 +415,26 @@ describe('API модуля «Семья»', () => {
     expect((await call('GET', '/api/parent/overview', p2)).body.parent.balance).toBe(before - 700);
   });
 
+  it('Манички: купон партнёра и обмен на деньги, аналитика сходится с итогом месяца', async () => {
+    const kid = await login('u_misha');
+    const me = async () => (await call('GET', '/api/child/overview', kid)).body.me;
+    const a = await me();
+    expect(a.spendByCategory.reduce((s: number, x: any) => s + x.amount, 0)).toBe(a.spentMonth);
+    const c = await call('POST', '/api/child/coins/redeem', kid, { offerId: 'books' });
+    expect(c.status).toBe(200);
+    expect(c.body.code).toMatch(/^MOBY-/);
+    const b = await me();
+    expect(b.coins).toBe(a.coins - 150);
+    expect(b.coupons[0].title).toBe('Скидка 20% на любую книгу');
+    expect((await call('POST', '/api/child/coins/exchange', kid, { coins: 150 })).status).toBe(400); // только по 100
+    expect((await call('POST', '/api/child/coins/exchange', kid, { coins: 100 })).status).toBe(200);
+    const d = await me();
+    expect(d.coins).toBe(b.coins - 100);
+    expect(d.balance).toBe(b.balance + 100);
+    expect(d.spentMonth).toBe(b.spentMonth); // обмен — не трата
+    expect((await call('POST', '/api/child/coins/exchange', kid, { coins: 100000 })).status).toBe(400);
+  });
+
   it('баллы с каждой покупки: ребёнку и каждому родителю отдельно', async () => {
     const p1 = await login('u_parent'); const p2 = await login('u_parent2'); const kid = await login('u_misha');
     const coins = async () => ({

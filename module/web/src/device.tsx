@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Device as DeviceInfo } from '../../server/src/types';
 import {
   Fraud, KidGoals, KidHome, KidTasks, Memory, MobyPlay, PathScreen, Pay, PriceGame, Quiz,
-  ChildMore, ChildSettings, TeenAnalytics, TeenEarn, TeenHome, TeenPayments, TeenSavings, TeenSubs,
+  ChildMore, ChildSettings, CoinsScreen, TeenAnalytics, TeenEarn, TeenHome, TeenPayments, TeenSavings, TeenSubs,
 } from './child';
 import { Icon, MobyLogo } from './icons';
 import { api, ApiError, DeviceProvider, useDevice, type Route } from './lib';
@@ -202,14 +202,14 @@ const PARENT: Record<string, Screen> = {
 };
 const KID: Record<string, Screen> = {
   home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, play: () => <MobyPlay />, memory: () => <Memory />, price: () => <PriceGame />,
-  more: () => <ChildMore />, settings: () => <ChildSettings />,
+  more: () => <ChildMore />, settings: () => <ChildSettings />, coins: () => <CoinsScreen />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
 };
 const TEEN: Record<string, Screen> = {
   home: () => <TeenHome />, savings: () => <TeenSavings />, play: () => <MobyPlay />, more: () => <ChildMore />,
   payments: () => <TeenPayments />, path: () => <PathScreen />, settings: () => <ChildSettings />, memory: () => <Memory />, price: () => <PriceGame />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
-  subs: () => <TeenSubs />, earn: () => <TeenEarn />, analytics: () => <TeenAnalytics />,
+  subs: () => <TeenSubs />, earn: () => <TeenEarn />, analytics: () => <TeenAnalytics />, coins: () => <CoinsScreen />,
 };
 const TABS: Record<'parent' | 'kid' | 'teen', [string, string, string][]> = {
   parent: [['home', 'Главная', 'moby'], ['products', 'Продукты', 'products'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],

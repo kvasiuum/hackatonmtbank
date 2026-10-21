@@ -1,11 +1,11 @@
 // Moby ребёнка (7–13) и подростка (14–17).
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BYN, CARD_COLORS, CARD_TYPES, CATEGORY_NAMES, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER, GAME_REWARD, LESSONS, LESSON_REWARD, LEVELS, MEMORY_PARTNERS, PRICE_GAME,
-  MAX_CARDS, MERCHANTS, PARTNER_OFFERS, SETTING_LABELS, SUBS_MONTHLY_LIMIT, levelOf, nextLevel,
+  COINS_PER_BYN, MAX_CARDS, MERCHANTS, PARTNER_OFFERS, PURCHASE_COINS, SETTING_LABELS, SUBS_MONTHLY_LIMIT, levelOf, nextLevel,
 } from '../../server/src/content';
-import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
-import { Confetti, CountUp, MegaPig, PigBurst, PigStage } from './fx';
+import type { CardType, ChildOverview, Coupon, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
+import { Confetti, CountUp, MegaPig, PigBurst, PigStage, RightBurst } from './fx';
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
@@ -336,7 +336,7 @@ export function KidHome() {
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div className="hero-name">Привет, {o.me.name}</div></div>
-      <div className="chips"><button className="chip" onClick={() => tab('play')}>Уровень {o.me.level}</button><button className="chip" onClick={() => tab('play')}><Coin />{o.me.coins}</button></div>
+      <div className="chips"><button className="chip" onClick={() => tab('play')}>Уровень {o.me.level}</button><button className="chip" onClick={() => push('coins')}><Coin />{o.me.coins}</button></div>
       <div className="bal-row"><div className="bal">{hide ? '**** BYN' : fmt(o.me.balance)}</div><button className="iconbtn" onClick={() => setHide(!hide)} aria-label={hide ? 'Показать баланс' : 'Скрыть баланс'}><Icon name={hide ? 'eye' : 'eye-off'} size={30} sw={1.6} /></button></div>
       <div className="hero-sub">Сегодня можно потратить ещё {hide ? '****' : fmt(left)}</div>
       <div className="actions">
@@ -496,7 +496,7 @@ export function Quiz({ id }: { id: string }) {
   return <><TopBar title={lesson.title} /><div className="page">
     <small className="muted">Вопрос {i + 1} из {lesson.questions.length}</small>
     <Bar value={i} max={lesson.questions.length} />
-    <div className="quiz-q">{q.q}</div>
+    <div className="quiz-q">{q.q}{picked === q.answer && <RightBurst key={i} n={i} />}</div>
     {q.options.map((opt, k) => <button key={k} className={`opt press ${picked !== undefined ? (k === q.answer ? 'right' : k === picked ? 'wrong' : '') : ''}`} disabled={picked !== undefined}
       onClick={() => setAnswers(a => { const n = [...a]; n[i] = k; return n; })}>{opt}</button>)}
     {picked !== undefined && <button className="btn" onClick={() => (i + 1 < lesson.questions.length ? setI(i + 1) : finish())}>{i + 1 < lesson.questions.length ? 'Дальше' : 'Завершить'}</button>}
@@ -522,7 +522,7 @@ export function Fraud() {
   const next = async () => { if (i + 1 < FRAUD_CASES.length) setI(i + 1); else { const r = await run(() => call('/api/child/fraud', { answers })); if (r) setResult(r); } };
   return <><TopBar title="Распознай мошенника" /><div className="page">
     <small className="muted">Ситуация {i + 1} из {FRAUD_CASES.length} · верно {answers.filter((a, k) => a === FRAUD_CASES[k].fraud).length}</small>
-    <div className="msg"><RowIcon name={f.icon} /><div><div className="muted" style={{ fontWeight: 600, fontSize: 12.5 }}>{f.from}</div><div style={{ fontSize: 16, marginTop: 4 }}>{f.text}</div></div></div>
+    <div className="msg"><RowIcon name={f.icon} /><div><div className="muted" style={{ fontWeight: 600, fontSize: 12.5 }}>{f.from}</div><div style={{ fontSize: 16, marginTop: 4 }}>{f.text}</div></div>{correct && <RightBurst key={i} n={i} />}</div>
     {picked === undefined ? <div className="btns"><button className="btn" onClick={() => pick(false)}>Безопасно</button><button className="btn solid-red" onClick={() => pick(true)}>Мошенники</button></div> : <>
       <div className={`card ${correct ? 'fx-right' : 'fx-wrong'}`} style={{ border: `2px solid ${correct ? 'var(--blue)' : 'var(--red)'}` }}><b>{correct ? 'Верно. ' : 'Не совсем. '}{f.fraud ? 'Это мошенники.' : 'Это безопасно.'}</b><p style={{ marginTop: 6, fontSize: 14.5, color: '#4F5A6E' }}>{f.why}</p></div>
       <button className="btn" onClick={next}>{i + 1 < FRAUD_CASES.length ? 'Дальше' : 'Завершить'}</button></>}
@@ -598,12 +598,32 @@ export function TeenHome() {
   </>;
 }
 
-function SpendBars({ o, n }: { o: ChildOverview; n: number }) {
-  const by: Record<string, number> = {};
-  o.me.ops.filter(x => x.amount < 0).forEach(x => { by[x.category] = (by[x.category] ?? 0) - x.amount; });
-  const arr = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, n);
-  if (!arr.length) return <div className="empty">Трат пока нет</div>;
-  return <div className="bars">{arr.map(([c, v]) => <div className="b" key={c}><div><span>{c}</span><b>{fmt(v)}</b></div><Bar value={v} max={arr[0][1]} /></div>)}</div>;
+const PIE = ['#1F5FD6', '#E4252F', '#97CFFF', '#2334C8', '#FFB3AD', '#82AED3'];
+/** Траты месяца пирогом: пять крупных категорий и «Другое», в центре — итог */
+function SpendPie({ items, total }: { items: { category: string; amount: number }[]; total: number }) {
+  if (!items.length || !total) return <div className="empty">В этом месяце трат пока нет</div>;
+  const rest = items.slice(5).reduce((s, x) => s + x.amount, 0);
+  const parts = rest ? [...items.slice(0, 5), { category: 'Другое', amount: rest }] : items;
+  const R = 70, L = 2 * Math.PI * R;
+  let acc = 0;
+  return <div className="pie">
+    <div className="pie-chart">
+      <svg viewBox="0 0 180 180" role="img" aria-label="Траты по категориям">
+        <circle cx="90" cy="90" r={R} fill="none" stroke="var(--line)" strokeWidth="26" />
+        {parts.map((p, i) => {
+          const len = (p.amount / total) * L;
+          const seg = <circle key={p.category} className="pie-seg" cx="90" cy="90" r={R} fill="none" stroke={PIE[i % PIE.length]} strokeWidth="26"
+            strokeDasharray={`${parts.length > 1 ? Math.max(0.5, len - 2) : len} ${L}`} strokeDashoffset={-acc} transform="rotate(-90 90 90)" style={{ animationDelay: `${i * 90}ms` }} />;
+          acc += len;
+          return seg;
+        })}
+      </svg>
+      <div className="pie-center"><small>за месяц</small><b>{fmt(total)}</b></div>
+    </div>
+    <div className="pie-legend">{parts.map((p, i) => (
+      <div key={p.category}><i style={{ background: PIE[i % PIE.length] }} /><span>{p.category}</span><small>{Math.round((p.amount / total) * 100)}%</small><b>{fmt(p.amount)}</b></div>
+    ))}</div>
+  </div>;
 }
 
 export function TeenAnalytics() {
@@ -611,7 +631,8 @@ export function TeenAnalytics() {
   if (!o) return <Loading />;
   const allowanceMonth = o.me.settings.allowance.amount * 4;
   return <><TopBar title="Аналитика" /><div className="page">
-    <div className="card"><small className="muted">Потрачено в этом месяце</small><div className="bal" style={{ fontSize: 28, marginTop: 4 }}>{fmt(o.me.spentMonth)}</div><SpendBars o={o} n={8} /></div>
+    <div className="card"><h3>Траты в этом месяце</h3><SpendPie items={o.me.spendByCategory} total={o.me.spentMonth} />
+      <div className="limitline" style={{ marginTop: 12 }}><span>Лимит {fmt(o.me.settings.limits.month)} в месяц</span><span>осталось {fmt(Math.max(0, o.me.settings.limits.month - o.me.spentMonth))}</span></div></div>
     <div className="card"><h3>Совет Moby</h3><p style={{ marginTop: 8, fontSize: 14.5 }}>По правилу 50/30/20 из карманных {fmt(allowanceMonth)} в месяц стоит откладывать {fmt(allowanceMonth * 0.2)}. Сейчас в копилках {fmt(o.me.goals.reduce((a, g) => a + g.saved, 0))}.</p></div>
   </div></>;
 }
@@ -752,17 +773,17 @@ export function TeenSavings() {
 // ---------- MobyPlay: игры, уроки, предложения партнёров ----------
 export function MobyPlay() {
   const o = useChild();
-  const { push, toast } = useDevice();
+  const { push, sheet } = useDevice();
   if (!o) return <Loading />;
   const game = (icon: string, tone: 'red' | undefined, title: string, sub: string, to: string, done?: boolean) => (
     <button className="family-entry press" onClick={() => push(to)}><div className={`ic ${tone ?? ''}`}><Icon name={icon} size={24} /></div>
       <div className="tx"><b>{title}</b><small>{sub}</small></div>{done ? <span className="tag">Пройдено</span> : <Chev />}</button>);
   return <>
-    <PlainTop title="MobyPlay" right={<span className="tag" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}><Coin />{o.me.coins}</span>} />
+    <PlainTop title="MobyPlay" right={<button className="tag press" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }} onClick={() => push('coins')} aria-label="Мои Манички"><Coin />{o.me.coins}</button>} />
     <div className="page tight">
       <div className="sec">Игры</div>
       {game('shield-alert', 'red', 'Распознай мошенника', `${FRAUD_CASES.length} ситуаций, +${FRAUD_REWARD_PER_ANSWER.coins} Маничек за верный ответ`, 'fraud', o.me.lessons.includes('fraud'))}
-      {game('layout-grid', undefined, 'Карты по памяти', `Найди пары партнёров Moby, +${GAME_REWARD.memory.coins} Маничек в день`, 'memory')}
+      {game('layout-grid', undefined, 'Карты по памяти', `Найди пары партнёров Moby за минуту, +${GAME_REWARD.memory.coins} Маничек в день`, 'memory')}
       {game('tag', undefined, 'Угадай цену', `Сколько стоят вещи вокруг, +${GAME_REWARD.price.coins} Манички за верный ответ`, 'price')}
       <div className="sec">Уроки</div>
       <div className="card">{LESSONS[o.me.group].map(l => (
@@ -770,9 +791,68 @@ export function MobyPlay() {
           right={o.me.lessons.includes(l.id) ? <span className="tag">Пройден</span> : <Chev />} onClick={() => push('quiz', { id: l.id })} />
       ))}</div>
       <div className="sec">Предложения партнёров</div>
-      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{PARTNER_OFFERS[o.me.group].map(p => <Row key={p.title} icon={p.icon} title={p.title} sub={p.sub} onClick={() => toast('Предложение сохранено в Маничках')} />)}</div>
+      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{PARTNER_OFFERS[o.me.group].map(p => <Row key={p.id} icon={p.icon} title={p.title} sub={p.sub} onClick={() => sheet(c => <OfferSheet id={p.id} close={c} />)} />)}</div>
     </div>
   </>;
+}
+
+/** Предложение партнёра: скидка по карте Moby всегда, купон — за Манички */
+function OfferSheet({ id, close }: { id: string; close: () => void }) {
+  const o = useChild();
+  const { run, call } = useDevice();
+  const [busy, wrap] = useBusy();
+  const [got, setGot] = useState<Coupon | null>(null);
+  if (!o) return <Loading />;
+  const p = PARTNER_OFFERS[o.me.group].find(x => x.id === id)!;
+  const short = p.coupon.price - o.me.coins;
+  return <>
+    <div className="offer-h"><RowIcon name={p.icon} /><div><h2>{p.title}</h2><small className="muted">Партнёр Moby</small></div></div>
+    <div className="card" style={{ background: 'var(--mt-cloud)' }}><b>{p.sub}</b><p className="muted" style={{ margin: '4px 0 0', fontSize: 14 }}>{p.how}</p></div>
+    <div className="card offer-coupon"><Icon name="gift" size={26} /><div className="tx"><small className="muted">Купон за Манички</small><b>{p.coupon.title}</b></div><span className="tag"><Coin />{p.coupon.price}</span></div>
+    {got ? <div className="coupon-code"><small>Покажи код на кассе</small><b>{got.code}</b><span>Купон сохранён: «Ещё» → «Манички»</span></div>
+      : <button className="btn" disabled={busy || short > 0} onClick={() => wrap(async () => { const c = await run(() => call<Coupon>('/api/child/coins/redeem', { offerId: id })); if (c) setGot(c); })}>
+        {short > 0 ? `Не хватает ${short} ${plural(short, 'Манички', 'Маничек', 'Маничек')}` : `Получить за ${p.coupon.price} Маничек`}</button>}
+    <button className="btn ghost" onClick={close}>{got ? 'Готово' : 'Закрыть'}</button>
+  </>;
+}
+
+/** Манички: что это, на что потратить и как заработать */
+export function CoinsScreen() {
+  const o = useChild();
+  const { sheet, run, call } = useDevice();
+  const [busy, wrap] = useBusy();
+  if (!o) return <Loading />;
+  const coins = o.me.coins;
+  const can = Math.floor(coins / COINS_PER_BYN) * COINS_PER_BYN;
+  const byn = (n: number) => fmt((n / COINS_PER_BYN) * BYN);
+  const exchange = (n: number) => wrap(() => run(() => call('/api/child/coins/exchange', { coins: n }), `${byn(n)} пришли на счёт`));
+  const earn: [string, string, string][] = [
+    ['credit-card', 'Покупки картой Moby', `${BYN / PURCHASE_COINS.kidPer} Маничка за каждый 1 BYN`],
+    ['gamepad-2', 'Игры в MobyPlay', 'Раз в день за каждую игру'],
+    ['graduation-cap', 'Уроки', `+${LESSON_REWARD.coins} Маничек за урок`],
+    ['shield-alert', 'Распознай мошенника', `+${FRAUD_REWARD_PER_ANSWER.coins} за верный ответ`],
+    ...(o.me.cashbackWeek.unit === 'coins' ? [['percent', 'Кешбэк недели у партнёров', 'Приходит Маничками по понедельникам'] as [string, string, string]] : []),
+  ];
+  return <><TopBar title="Манички" /><div className="page">
+    <div className="card coins-hero"><span className="coin big">М</span><div><div className="bal">{coins}</div>
+      <small>Манички — бонусы Moby. Копи их и меняй на подарки у партнёров или на деньги на счёт.</small></div></div>
+    <div className="sec">Подарки партнёров</div>
+    <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{PARTNER_OFFERS[o.me.group].map(p => (
+      <Row key={p.id} icon="gift" title={p.coupon.title} sub={p.title} right={<span className={`tag ${coins >= p.coupon.price ? '' : 'off'}`}><Coin />{p.coupon.price}</span>}
+        onClick={() => sheet(c => <OfferSheet id={p.id} close={c} />)} />
+    ))}</div>
+    <div className="card"><h3>Обменять на деньги</h3>
+      <p className="muted" style={{ margin: '4px 0 12px', fontSize: 14 }}>{COINS_PER_BYN} Маничек = 1 BYN на твой счёт.</p>
+      {can ? <div className="exch">
+        {can > COINS_PER_BYN && <button className="btn" disabled={busy} onClick={() => exchange(can)}>Обменять {can} на {byn(can)}</button>}
+        <button className="btn ghost" disabled={busy} onClick={() => exchange(COINS_PER_BYN)}>Обменять {COINS_PER_BYN} на {byn(COINS_PER_BYN)}</button>
+      </div> : <small className="muted">Накопи ещё {COINS_PER_BYN - coins} — и можно менять</small>}
+    </div>
+    {o.me.coupons.length > 0 && <><div className="sec">Мои купоны</div>
+      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{o.me.coupons.map(c => <Row key={c.id} icon="gift" title={c.title} sub={`${c.partner} · код ${c.code}`} />)}</div></>}
+    <div className="sec">Как заработать</div>
+    <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{earn.map(([ic, t, s]) => <Row key={t} icon={ic} title={t} sub={s} />)}</div>
+  </div></>;
 }
 
 type GameResult = { rewarded: boolean; coins: number; xp: number; level: number | null };
@@ -791,7 +871,8 @@ function GameDone({ icon, title, text, r, onAgain }: { icon: string; title: stri
 
 const shuffle = <T,>(a: T[]) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 
-/** «Карты по памяти»: 6 пар партнёров Moby на поле 3×4 */
+const MEMORY_SECONDS = 60;
+/** «Карты по памяти»: 6 пар партнёров Moby на поле 3×4 за минуту */
 export function Memory() {
   const { run, call } = useDevice();
   const deal = () => shuffle([...MEMORY_PARTNERS, ...MEMORY_PARTNERS]);
@@ -801,9 +882,17 @@ export function Memory() {
   const [moves, setMoves] = useState(0);
   const [miss, setMiss] = useState<number[]>([]);
   const [result, setResult] = useState<GameResult | null>(null);
-  const again = () => { setDeck(deal()); setOpen([]); setFound([]); setMoves(0); setResult(null); };
+  const [left, setLeft] = useState(MEMORY_SECONDS);
+  const done = found.length === MEMORY_PARTNERS.length;
+  const timeUp = left <= 0 && !done;
+  useEffect(() => {
+    if (done || left <= 0) return;
+    const t = setTimeout(() => setLeft(l => l - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left, done]);
+  const again = () => { setDeck(deal()); setOpen([]); setFound([]); setMoves(0); setResult(null); setMiss([]); setLeft(MEMORY_SECONDS); };
   const flip = (i: number) => {
-    if (open.length === 2 || open.includes(i) || found.includes(deck[i].id)) return;
+    if (timeUp || open.length === 2 || open.includes(i) || found.includes(deck[i].id)) return;
     const next = [...open, i];
     setOpen(next);
     if (next.length < 2) return;
@@ -815,7 +904,14 @@ export function Memory() {
   };
   if (result) return <><TopBar title="Карты по памяти" /><GameDone icon="trophy" title={`Все пары за ${moves} ${plural(moves, 'ход', 'хода', 'ходов')}`}
     text="Это партнёры Moby: плати у них картой — в понедельник часть денег вернётся кешбэком." r={result} onAgain={again} /></>;
+  if (timeUp) return <><TopBar title="Карты по памяти" /><div className="page">
+    <div className="result"><div className="big no win"><Icon name="clock" size={34} /></div><h2>Время вышло</h2>
+      <p>Найдено пар: {found.length} из {MEMORY_PARTNERS.length}. Награда — за все пары за {MEMORY_SECONDS} секунд. Попробуй ещё!</p></div>
+    <button className="btn" onClick={again}>Сыграть ещё</button></div></>;
   return <><TopBar title="Карты по памяти" /><div className="page">
+    <div className={`memtimer ${left <= 10 && !done ? 'low' : ''} ${done ? 'stop' : ''}`} role="timer" aria-label={`Осталось ${left} секунд`}>
+      <div className="mt-track"><i style={{ width: `${(left / MEMORY_SECONDS) * 100}%` }} /></div><b>0:{String(Math.max(0, left)).padStart(2, '0')}</b>
+    </div>
     <small className="muted">Открывай по две карты и находи одинаковых партнёров · ходов {moves} · пар {found.length} из {MEMORY_PARTNERS.length}</small>
     <div className="memgrid">{deck.map((p, i) => {
       const up = open.includes(i) || found.includes(p.id);
@@ -846,7 +942,7 @@ export function PriceGame() {
   return <><TopBar title="Угадай цену" /><div className="page">
     <small className="muted">Вещь {i + 1} из {PRICE_GAME.length} · верно {correct}</small>
     <Bar value={i} max={PRICE_GAME.length} />
-    <div className="msg" style={{ alignItems: 'center' }}><RowIcon name={q.icon} /><div style={{ fontSize: 18, fontWeight: 600 }}>{q.item}</div></div>
+    <div className="msg" style={{ alignItems: 'center' }}><RowIcon name={q.icon} /><div style={{ fontSize: 18, fontWeight: 600 }}>{q.item}</div>{picked === q.answer && <RightBurst key={i} n={i} />}</div>
     <p className="muted">Сколько это примерно стоит в Минске?</p>
     {q.options.map((v, k) => <button key={k} className={`opt press ${picked !== undefined ? (k === q.answer ? 'right' : k === picked ? 'wrong' : '') : ''}`} disabled={picked !== undefined}
       onClick={() => setAnswers(a => { const n = [...a]; n[i] = k; return n; })}>{fmt(v)}</button>)}
@@ -895,7 +991,7 @@ function RequestsSheet() {
 /** «Ещё»: как у взрослого Moby, но только то, что нужно ребёнку 7–13 или подростку 14–17 */
 export function ChildMore() {
   const o = useChild();
-  const { push, tab, sheet, toast, logout } = useDevice();
+  const { push, sheet, toast, logout } = useDevice();
   const ask = useAsk();
   if (!o) return <Loading />;
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
@@ -910,9 +1006,8 @@ export function ChildMore() {
     ['list-checks', 'Задания', () => push('tasks')],
     ['history', 'Мои покупки', () => sheet(() => <OpsSheet title="Мои покупки" />)],
     ['send', 'Мои запросы', () => sheet(() => <RequestsSheet />)],
-    ['coins', `Манички: ${o.me.coins}`, () => tab('play')],
+    ['coins', `Манички: ${o.me.coins}`, () => push('coins')],
     ...insurance,
-    ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],
   ] : [
     ['settings', 'Настройки', () => push('settings')],
@@ -921,9 +1016,8 @@ export function ChildMore() {
     ['chart-column', 'Аналитика трат', () => push('analytics')],
     ['repeat', 'Подписки', () => (o.me.settings.perms.subs ? push('subs') : ask.perm('perms.subs'))],
     ['briefcase', 'Заработок и задания', () => push('earn')],
-    ['coins', `Манички: ${o.me.coins}`, () => tab('play')],
+    ['coins', `Манички: ${o.me.coins}`, () => push('coins')],
     ...insurance,
-    ['shield', 'Ваша безопасность', () => push('fraud')],
     ['info', 'О Банке', soon],
   ];
   return <div className="page" style={{ paddingTop: 56 }}>

@@ -151,6 +151,22 @@ export function Confetti({ count = 46 }: { count?: number }) {
   ))}</div>;
 }
 
+const CHEERS = ['Верно!', 'Отлично!', 'В точку!', 'Супер!'];
+/** Вспышка за верный ответ: кольцо, разлетающиеся искры и монетки, «Верно!». Перезапускается по key */
+export function RightBurst({ n = 0 }: { n?: number }) {
+  const sparks = useMemo(() => Array.from({ length: 16 }, (_, i) => {
+    const a = (i / 16) * Math.PI * 2 + Math.random() * .3;
+    const d = 80 + Math.random() * 70;
+    return { dx: Math.cos(a) * d, dy: Math.sin(a) * d * .8, coin: i % 3 === 0, color: COLORS[i % COLORS.length], delay: Math.random() * 90 };
+  }), []);
+  return <div className="rightburst" aria-hidden="true">
+    <i className="rb-ring" />
+    {sparks.map((s, i) => <i key={i} className={s.coin ? 'rb-coin' : 'rb-star'}
+      style={{ ['--dx' as string]: `${s.dx}px`, ['--dy' as string]: `${s.dy}px`, animationDelay: `${s.delay}ms`, background: s.coin ? undefined : s.color }} />)}
+    <b className="rb-text">{CHEERS[n % CHEERS.length]}</b>
+  </div>;
+}
+
 /** Число, которое «набегает» от 0 — для наград */
 export function CountUp({ to, ms = 900 }: { to: number; ms?: number }) {
   const [v, setV] = useState(0);

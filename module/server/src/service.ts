@@ -3,12 +3,12 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import { SAVE_CAP, monthName, monthStartMs, monthWeeks, nextMonthMs, savePercents, weekPercent } from './domain/weeks';
 import {
-  AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
+  AVATAR_COLORS, BYN, CARD_TYPES, COINS_PER_BYN, PARTNER_OFFERS, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
   DISPUTE_REASONS, GAME_REWARD, PURCHASE_COINS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
-  AgeGroup, Card, CardType, ChildDetail, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
+  AgeGroup, Card, CardType, ChildDetail, Coupon, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
   FamilyPlan, FeedItem, Goal, JoinRequest, ParentCard, ParentOverview, ParentTask, SaveDiscount, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
 } from './types';
 
@@ -206,6 +206,11 @@ export class FamilyService {
       ...this.summary(c),
       settings: this.settings(c),
       spentMonth: this.spent(c.user_id, startOfMonth()),
+      spendByCategory: this.q<{ category: string; amount: number }>(
+        "SELECT category, -SUM(amount) AS amount FROM transactions WHERE user_id = ? AND kind = 'spend' AND amount < 0 AND created_at >= ? GROUP BY category ORDER BY amount DESC", c.user_id, startOfMonth()),
+      coupons: this.q<{ id: string; offer_id: string; title: string; partner: string; code: string; created_at: string }>(
+        'SELECT * FROM coupons WHERE child_id = ? ORDER BY created_at DESC', c.user_id)
+        .map(x => ({ id: x.id, offerId: x.offer_id, title: x.title, partner: x.partner, code: x.code, createdAt: x.created_at })),
       income: c.income,
       lessons: JSON.parse(c.lessons),
       goals: this.q<Goal>('SELECT id, title, icon, target, saved FROM goals WHERE child_id = ? ORDER BY created_at', c.user_id),
@@ -1056,6 +1061,37 @@ export class FamilyService {
       this.touch(c.family_id);
     }
     return { rewarded: first && units > 0, coins: first ? r.coins * units : 0, xp: first ? r.xp * units : 0, level };
+  }
+
+  // ---------- Манички: на что потратить ----------
+  private spendCoins(childId: string, n: number) {
+    if (!Number(this.run('UPDATE children SET coins = coins - ? WHERE user_id = ? AND coins >= ?', n, childId, n).changes)) throw bad('coins', `Не хватает Маничек: нужно ${n}`);
+  }
+  /** Купон партнёра за Манички */
+  redeemOffer(childId: string, offerId: string): Coupon {
+    const c = this.childRow(childId);
+    const offer = PARTNER_OFFERS[c.grp].find(x => x.id === offerId);
+    if (!offer) throw notFound('Предложение');
+    const coupon: Coupon = { id: newId('cp'), offerId, title: offer.coupon.title, partner: offer.title, code: `MOBY-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, createdAt: nowIso() };
+    tx(this.db, () => {
+      this.spendCoins(childId, offer.coupon.price);
+      this.run('INSERT INTO coupons VALUES (?,?,?,?,?,?,?)', coupon.id, childId, offerId, coupon.title, coupon.partner, coupon.code, coupon.createdAt);
+    });
+    this.touch(c.family_id);
+    return coupon;
+  }
+  /** Обменять Манички на деньги на счёте: 100 Маничек = 1 BYN */
+  exchangeCoins(childId: string, coins: number) {
+    const c = this.childRow(childId);
+    if (coins < COINS_PER_BYN || coins % COINS_PER_BYN) throw bad('coins', `Меняем по ${COINS_PER_BYN} Маничек`);
+    const amount = (coins / COINS_PER_BYN) * BYN;
+    tx(this.db, () => {
+      this.spendCoins(childId, coins);
+      this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', amount, childId);
+      this.addTx(childId, `Обмен ${coins} Маничек`, amount, 'Манички', 'internal');
+    });
+    this.touch(c.family_id);
+    return { amount };
   }
 
   setSubscription(childId: string, subId: string, active: boolean) {

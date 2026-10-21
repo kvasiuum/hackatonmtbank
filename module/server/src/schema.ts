@@ -77,6 +77,10 @@ CREATE TABLE IF NOT EXISTS parent_cards (
 CREATE TABLE IF NOT EXISTS family_parents (
   family_id TEXT NOT NULL REFERENCES families(id), user_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY (family_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS coupons (
+  id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), offer_id TEXT NOT NULL, title TEXT NOT NULL,
+  partner TEXT NOT NULL, code TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS family_meta (
   family_id TEXT PRIMARY KEY REFERENCES families(id), tariff TEXT NOT NULL DEFAULT 'start',
   since TEXT NOT NULL, fee_month TEXT, intro_seen INTEGER NOT NULL DEFAULT 0
@@ -140,7 +144,7 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
-export const TABLES = ['sessions', 'save_rewards', 'family_parents', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+export const TABLES = ['sessions', 'coupons', 'save_rewards', 'family_parents', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
   'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
@@ -171,7 +175,7 @@ export function seed(db: DB) {
     const kidSettings = defaultSettings('kid');
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_misha', 'child', 'Ребёнок 2', null, pin, ago(60 * 24 * 90));
     ins(`INSERT INTO children (user_id,family_id,age,grp,color,balance,income,xp,coins,settings,lessons,allowance_paid_at,invite_code,joined)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_misha', 'f_demo', 9, 'kid', '#E4252F', 2340, 0, 140, 85, JSON.stringify(kidSettings), '["money"]', nowIso(), null);
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`, 'u_misha', 'f_demo', 9, 'kid', '#E4252F', 2340, 0, 140, 260, JSON.stringify(kidSettings), '["money"]', nowIso(), null);
     ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_misha1', 'u_misha', 'sticker', '4417', '#E4252F', 'active', ago(60 * 24 * 80));
     ins('INSERT INTO cards (id,child_id,type,last4,color,status,created_at) VALUES (?,?,?,?,?,?,?)', 'c_misha2', 'u_misha', 'virtual', '9921', '#1F5FD6', 'active', ago(60 * 24 * 80));
     const kOps: [string, number, string, 'spend' | 'income', number][] = [

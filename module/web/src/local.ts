@@ -8,7 +8,7 @@ import { initDb, type DB, type Stmt } from '../../server/src/schema';
 import { createApi } from '../../server/src/routes';
 import { sha256Hex } from './sha256';
 
-const STORE = 'moby-family:db:v8';
+const STORE = 'moby-family:db:v9';
 type Arg = string | number | null;
 
 class SqlJsDb implements DB {

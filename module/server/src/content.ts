@@ -165,20 +165,27 @@ export const FRAUD_CASES = [
 ];
 export const FRAUD_REWARD_PER_ANSWER = { xp: 15, coins: 5 };
 
-export const PARTNER_OFFERS: Record<AgeGroup, { icon: string; title: string; sub: string }[]> = {
+/**
+ * Предложения партнёров в MobyPlay. Скидка (sub) действует при оплате картой Moby всегда,
+ * а купон покупается за Манички — так у Маничек появляется понятная ценность.
+ */
+export interface PartnerOffer { id: string; icon: string; title: string; sub: string; how: string; coupon: { title: string; price: number } }
+export const PARTNER_OFFERS: Record<AgeGroup, PartnerOffer[]> = {
   kid: [
-    { icon: 'ferris-wheel', title: 'Детский развлекательный центр', sub: '−15% на батуты и квесты' },
-    { icon: 'clapperboard', title: 'Кинотеатр', sub: '2 детских билета по цене 1 по средам' },
-    { icon: 'book-open', title: 'Книжный магазин', sub: 'Кешбэк 7% Маничками' },
-    { icon: 'dumbbell', title: 'Спортивные секции', sub: '−10% на первый месяц' },
+    { id: 'fun', icon: 'ferris-wheel', title: 'Детский развлекательный центр', sub: '−15% на батуты и квесты', how: 'Плати картой Moby на кассе — скидка применится сама.', coupon: { title: '30 минут на батутах бесплатно', price: 250 } },
+    { id: 'cinema', icon: 'clapperboard', title: 'Кинотеатр', sub: '2 детских билета по цене 1 по средам', how: 'Покажи код на кассе и оплати второй билет картой Moby.', coupon: { title: 'Попкорн в подарок к билету', price: 120 } },
+    { id: 'books', icon: 'book-open', title: 'Книжный магазин', sub: 'Кешбэк 7% Маничками', how: 'Плати картой Moby — Манички придут в понедельник.', coupon: { title: 'Скидка 20% на любую книгу', price: 150 } },
+    { id: 'sport', icon: 'dumbbell', title: 'Спортивные секции', sub: '−10% на первый месяц', how: 'Родитель оплачивает секцию через ЕРИП в Moby.', coupon: { title: 'Пробное занятие бесплатно', price: 200 } },
   ],
   teen: [
-    { icon: 'clapperboard', title: 'Кинотеатр', sub: '−20% по будням до 18:00' },
-    { icon: 'coffee', title: 'Кофейни-партнёры', sub: 'Кешбэк 5% Маничками' },
-    { icon: 'code', title: 'Курсы программирования', sub: '−15% для клиентов Moby 14+' },
-    { icon: 'bus', title: 'Проездной через ЕРИП', sub: 'Кешбэк 3%' },
+    { id: 'cinema', icon: 'clapperboard', title: 'Кинотеатр', sub: '−20% по будням до 18:00', how: 'Плати картой Moby на кассе или в приложении кинотеатра.', coupon: { title: 'Билет за полцены в любой день', price: 200 } },
+    { id: 'coffee', icon: 'coffee', title: 'Кофейни-партнёры', sub: 'Кешбэк 5% Маничками', how: 'Плати картой Moby — Манички придут в понедельник.', coupon: { title: 'Напиток в подарок', price: 120 } },
+    { id: 'code', icon: 'code', title: 'Курсы программирования', sub: '−15% для клиентов Moby 14+', how: 'Назови код при записи, оплата — картой Moby.', coupon: { title: 'Ещё −15% на первый месяц', price: 300 } },
+    { id: 'bus', icon: 'bus', title: 'Проездной через ЕРИП', sub: 'Кешбэк 3%', how: 'Оплати проездной в «Платежах» → ЕРИП.', coupon: { title: '5 BYN на следующий проездной', price: 400 } },
   ],
 };
+/** Обмен Маничек на деньги: 100 Маничек = 1 BYN (столько же, сколько ребёнок получает с покупок — 1%) */
+export const COINS_PER_BYN = 100;
 
 // ---------- MobyPlay: мини-игры ----------
 /** Партнёры на картах игры «Карты по памяти» */

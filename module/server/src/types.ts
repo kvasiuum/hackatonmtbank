@@ -63,6 +63,10 @@ export interface ChildSummary {
 export interface ChildDetail extends ChildSummary {
   settings: ChildSettings;
   spentMonth: number;
+  /** Траты этого месяца по категориям — сумма совпадает со spentMonth */
+  spendByCategory: { category: string; amount: number }[];
+  /** Купоны партнёров, полученные за Манички */
+  coupons: Coupon[];
   income: number;
   lessons: string[];
   goals: Goal[];
@@ -125,3 +129,5 @@ export type PayDecision =
   | { status: 'declined'; reason: string; title: string; text: string; ask?: { type: 'perm'; key: SettingPath } | { type: 'money'; amount: number } | { type: 'limit'; day: number } };
 
 export interface Device { userId: string; name: string; role: Role; group: AgeGroup | null; joined: boolean; inviteCode: string | null }
+
+export interface Coupon { id: string; offerId: string; title: string; partner: string; code: string; createdAt: string }
