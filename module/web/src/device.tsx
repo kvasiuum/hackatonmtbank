@@ -213,7 +213,7 @@ const TEEN: Record<string, Screen> = {
 };
 const TABS: Record<'parent' | 'kid' | 'teen', [string, string, string][]> = {
   parent: [['home', 'Главная', 'moby'], ['products', 'Продукты', 'products'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],
-  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['tasks', 'Задания', 'list-checks'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
+  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
   teen: [['home', 'Главная', 'moby'], ['savings', 'Накопления', 'piggy-bank'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
 };
 

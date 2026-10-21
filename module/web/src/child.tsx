@@ -241,10 +241,13 @@ function TaskList({ o }: { o: ChildOverview }) {
   </>;
 }
 
-function NextTask({ o, to }: { o: ChildOverview; to: () => void }) {
-  const { run, call } = useDevice();
+/** Ближайшее задание на главной. always — показывать карточку и без заданий (у ребёнка 7–13 это вход в задания) */
+function NextTask({ o, to, always }: { o: ChildOverview; to: () => void; always?: boolean }) {
+  const { run, call, sheet } = useDevice();
   const open = o.me.tasks.filter(t => t.status === 'open');
-  if (!open.length) return null;
+  if (!open.length) return always ? <div className="card"><h3>Задания <button className="link" onClick={to}>Все</button></h3>
+    <Row icon="list-checks" title="Сейчас заданий нет" sub="Придумай дело и предложи родителям" right={<button className="sbtn" onClick={() => sheet(c => <ProposeTaskSheet close={c} />)}>Предложить</button>} />
+  </div> : null;
   const t = open[0];
   return <div className="card"><h3>Задание <button className="link" onClick={to}>Все{open.length > 1 ? ` (${open.length})` : ''}</button></h3>
     <Row icon="list-checks" title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`} right={<button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button>} />
@@ -278,7 +281,7 @@ export function KidHome() {
         {main.status === 'blocked' ? `${CARD_TYPES[main.type].label}: карта заблокирована. Нашлась? Попроси родителя разблокировать.` : `${CARD_TYPES[main.type].label} в пути.`}
         {virtualOk ? ' Пока плати виртуальной картой в телефоне' : ''}{o.me.settings.perms.qr ? `${virtualOk ? ' или' : ' Плати'} по QR КРОК.` : virtualOk ? '.' : ''}</span></div>}
       <Waiting o={o} />
-      <NextTask o={o} to={() => tab('tasks')} />
+      <NextTask o={o} to={() => push('tasks')} always />
       {o.me.goals[0] && <GoalCard o={o} id={o.me.goals[0].id} />}
       <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
         <Row icon="credit-card" title="Моя карта" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}` : 'Карт нет'} onClick={() => sheet(c => <CardsSheet close={c} />)} />
@@ -309,8 +312,8 @@ export function KidTasks() {
   const o = useChild();
   if (!o) return <Loading />;
   return <>
-    <PlainTop title="Задания" />
-    <div className="page tight">
+    <TopBar title="Задания" />
+    <div className="page">
       <p className="muted">Выполняй задания от родителей и получай деньги и опыт для нового уровня. Можно придумать своё.</p>
       <TaskList o={o} />
     </div>
@@ -738,6 +741,7 @@ export function ChildMore() {
   const items: [string, string, () => void][] = o.me.group === 'kid' ? [
     ['settings', 'Настройки', () => push('settings')],
     ['credit-card', 'Моя карта', () => sheet(c => <CardsSheet close={c} />)],
+    ['list-checks', 'Задания', () => push('tasks')],
     ['history', 'Мои покупки', () => sheet(() => <OpsSheet title="Мои покупки" />)],
     ['send', 'Мои запросы', () => sheet(() => <RequestsSheet />)],
     ['coins', `Манички: ${o.me.coins}`, () => push('play')],
