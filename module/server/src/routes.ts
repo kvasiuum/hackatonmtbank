@@ -25,6 +25,13 @@ const settingsPatch = z.object({
   mobyAccess: z.boolean().optional(),
 }).strict();
 const reason = z.string().max(80).optional();
+/** Номер карты: 16 цифр и контрольная сумма Луна */
+export function luhn(n: string) {
+  if (!/^\d{16}$/.test(n)) return false;
+  let sum = 0;
+  for (let i = 0; i < 16; i++) { let d = Number(n[15 - i]); if (i % 2) { d *= 2; if (d > 9) d -= 9; } sum += d; }
+  return sum % 10 === 0;
+}
 const phone = z.string().transform((v, ctx) => normPhone(v) ?? (ctx.addIssue({ code: 'custom', message: 'Номер в формате +375 (29) 123-45-67' }), z.NEVER));
 const consents = z.object({ legalRep: z.boolean(), personalData: z.boolean(), terms: z.boolean(), marketing: z.boolean() });
 const preset = z.enum(['strict', 'normal', 'free']);
@@ -152,6 +159,14 @@ export function createApi(db: DB, opts: ApiOptions) {
       const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
       svc.createTask(me(r).userId, id(r), b.title, b.reward); return ok;
     } },
+    { method: 'POST', path: '/api/parent/tasks/shared', role: 'parent', handler: r => {
+      const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
+      svc.createSharedTask(me(r).userId, b.title, b.reward); return ok;
+    } },
+    { method: 'POST', path: '/api/parent/children/:id/withdraw', role: 'parent', handler: r => {
+      const b = z.object({ amount: money, cardId }).parse(r.body);
+      svc.withdraw(me(r).userId, id(r), b.amount, b.cardId); return ok;
+    } },
     { method: 'GET', path: '/api/parent/tasks', role: 'parent', handler: r => svc.parentTasks(me(r).userId) },
     { method: 'PATCH', path: '/api/parent/tasks/:id', role: 'parent', handler: r => {
       const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
@@ -198,8 +213,12 @@ export function createApi(db: DB, opts: ApiOptions) {
     } },
     { method: 'POST', path: '/api/child/erip', role: 'child', handler: r => { const b = z.object({ serviceId: z.string(), amount: money }).parse(r.body); return svc.payErip(me(r).userId, b.serviceId, b.amount); } },
     { method: 'POST', path: '/api/child/transfer', role: 'child', handler: r => {
-      const b = z.object({ phone: z.string().regex(/^\+375\s?\(?\d{2}\)?\s?\d{3}-?\d{2}-?\d{2}$/, 'Номер в формате +375 (29) 123-45-67'), amount: money }).parse(r.body);
-      return svc.transfer(me(r).userId, b.phone, b.amount);
+      const b = z.object({
+        amount: money,
+        phone: z.string().regex(/^\+375\s?\(?\d{2}\)?\s?\d{3}-?\d{2}-?\d{2}$/, 'Номер в формате +375 (29) 123-45-67').optional(),
+        card: z.string().transform(v => v.replace(/\D/g, '')).refine(luhn, 'Проверьте номер карты: 16 цифр').optional(),
+      }).refine(x => !!x.phone !== !!x.card, 'Укажите номер карты или телефона').parse(r.body);
+      return svc.transfer(me(r).userId, b.card ? { card: b.card } : { phone: b.phone! }, b.amount);
     } },
     { method: 'POST', path: '/api/child/cards', role: 'child', handler: r => { const b = z.object({ color: cardColor }).parse(r.body); return svc.issueCard({ id: me(r).userId, role: 'child' }, me(r).userId, 'virtual', b.color); } },
     { method: 'POST', path: '/api/child/tasks/:id/done', role: 'child', handler: r => { svc.taskDone(me(r).userId, id(r)); return ok; } },

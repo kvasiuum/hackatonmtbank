@@ -416,3 +416,4 @@ svg { display: block; flex: none; }
 .chev.edit { color: var(--blue); }
 .lvl-wrap { background: var(--blue); border-radius: var(--r-lg); padding: 0 12px 12px; }
 button.chip { color: inherit; }
+.link { color: var(--blue); font-weight: 500; font-size: 14px; }

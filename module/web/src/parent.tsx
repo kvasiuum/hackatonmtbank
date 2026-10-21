@@ -329,8 +329,8 @@ export function FamilyScreen() {
         <Bar value={g.saved} max={g.target} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <small className="muted">{fmt(g.saved)} из {fmt(g.target)}, копит вся семья</small>
-          <button className="sbtn" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={50 * BYN} title="В семейную цель" sub={g.title}
-            cta="Отложить" okText="+50.00 BYN в семейную цель" pay={cardId => call('/api/family/goal', { amount: 50 * BYN, cardId })} />)}>+50 BYN</button>
+          <button className="sbtn" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={50 * BYN} editable title="В семейную цель" sub={g.title}
+            cta="Отложить" okText={a => `+${fmt(a)} в семейную цель`} pay={(cardId, amount) => call('/api/family/goal', { amount, cardId })} />)}>Отложить</button>
         </div>
       </div>
       <Fold icon="bell" title="Лента семьи" sub={o.feed[0]?.text ?? 'Покупки и успехи детей'}>
@@ -367,8 +367,8 @@ export function ChildScreen({ id }: { id: string }) {
       <div className="bal-row"><div className="bal">{fmt(c.balance)}</div></div>
       <div className="actions">
         <Act icon="topup" label="Пополнить" onClick={() => sheet(close => <TopupSheet o={o} close={close} childId={id} />)} />
+        <Act icon="upload" label="Списать" onClick={() => sheet(close => <WithdrawSheet o={o} c={c} close={close} />)} />
         <Act icon="list-checks" label="Задание" onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)} />
-        <Act icon="credit-card" label="Новая карта" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />
       </div>
     </div>
     <div className="body">
@@ -400,6 +400,7 @@ export function ChildScreen({ id }: { id: string }) {
                 : <button className="sbtn red" onClick={() => cardAct(card.id, 'block', 'Карта заблокирована')}>Блок</button>}
           </div>
         ))}
+        {c.cards.length < MAX_CARDS && <Row icon="plus" tone="dash" title="Выпустить карту" sub="Виртуальная сразу, физическая за 3–5 дней" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />}
         {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
           onClick={() => run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')} />}
       </Fold>
@@ -439,7 +440,7 @@ export function ChildScreen({ id }: { id: string }) {
 }
 function TaskRow({ t, sub, onClick }: { t: Task; sub?: string; onClick: () => void }) {
   return <button className="row" onClick={onClick} aria-label={`Изменить задание «${t.title}»`}>
-    <RowIcon name={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : 'list-checks'} />
+    <RowIcon name={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : t.shared ? 'users' : 'list-checks'} />
     <div className="tx"><b>{t.title}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{sub ? `${sub} · ` : ''}{fmt(t.reward)} <TaskTag s={t.status} /></small></div>
     <span className="chev edit"><Icon name="pencil" size={18} /></span>
   </button>;
@@ -455,6 +456,7 @@ function TaskEditSheet({ t, close }: { t: Task; close: () => void }) {
   const del = () => wrap(async () => { if (await run(() => call(`/api/parent/tasks/${t.id}`, undefined, 'DELETE'), 'Задание удалено')) close(); });
   return <>
     <h2>{editable ? 'Изменить задание' : t.title}</h2>
+    {t.shared && <small className="muted" style={{ marginTop: -8 }}>Задание для всех детей: изменения и удаление применяются у каждого</small>}
     {editable ? <>
       <div className="field"><label>Что нужно сделать</label><input maxLength={60} value={title} onChange={e => setTitle(e.target.value)} /></div>
       <AmountField label="Награда, BYN" value={reward} onChange={setReward} presets={[1, 3, 5, 10]} />
@@ -471,62 +473,94 @@ export function TasksScreen({ childId }: { childId?: string }) {
   const o = useOverview();
   const { data: tasks } = useData<ParentTask[]>('/api/parent/tasks');
   const { sheet } = useDevice();
-  const [who, setWho] = useState(childId ?? 'all');
+  const [who, setWho] = useState(childId ?? ALL);
   if (!o || !tasks) return <><TopBar title="Задания" /><div className="loading">Загрузка…</div></>;
-  const list = tasks.filter(t => who === 'all' || t.childId === who);
   const name = (id: string) => o.children.find(c => c.id === id)?.name ?? '';
-  const many = who === 'all' && o.children.length > 1;
+  // Общее задание показываем одной строкой: ту копию, что на проверке или оплачена, иначе любую
+  const rank = { review: 0, paid: 1, open: 2, taken: 3 } as const;
+  const shared = new Map<string, ParentTask>();
+  for (const t of tasks) if (t.grp) { const cur = shared.get(t.grp); if (!cur || rank[t.status] < rank[cur.status]) shared.set(t.grp, t); }
+  const list = [...tasks.filter(t => !t.grp), ...shared.values()]
+    .filter(t => who === ALL || (t.grp ? tasks.some(x => x.grp === t.grp && x.childId === who) : t.childId === who))
+    .sort((a, b) => rank[a.status] - rank[b.status]);
+  const subOf = (t: ParentTask) => t.grp ? (t.status === 'open' ? 'Всем детям' : `Всем · выполнил ${name(t.childId)}`) : who === ALL && o.children.length > 1 ? name(t.childId) : undefined;
   const group = (title: string, items: ParentTask[]) => items.length > 0 && <div className="card"><h3>{title} <span className="muted" style={{ fontWeight: 500 }}>{items.length}</span></h3>
-    {items.map(t => <TaskRow key={t.id} t={t} sub={many ? name(t.childId) : undefined} onClick={() => sheet(close => <TaskEditSheet t={t} close={close} />)} />)}</div>;
+    {items.map(t => <TaskRow key={t.id} t={t} sub={subOf(t)} onClick={() => sheet(close => <TaskEditSheet t={t} close={close} />)} />)}</div>;
   const paid = list.filter(t => t.status === 'paid');
   return <>
     <TopBar title="Задания" />
     <div className="page">
-      {o.children.length > 1 && <div className="pills">
-        <button className={`pill ${who === 'all' ? 'on' : ''}`} onClick={() => setWho('all')}>Все</button>
-        {o.children.map(c => <button key={c.id} className={`pill ${who === c.id ? 'on' : ''}`} onClick={() => setWho(c.id)}>{c.name}</button>)}
+      <button className="btn" onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={who === ALL ? undefined : who} />)}><Icon name="plus" size={20} /> Новое задание</button>
+      {o.children.length > 1 && <div className="seg">
+        <button className={who === ALL ? 'on' : ''} onClick={() => setWho(ALL)}>Все дети</button>
+        {o.children.map(c => <button key={c.id} className={who === c.id ? 'on' : ''} onClick={() => setWho(c.id)}>{c.name}</button>)}
       </div>}
-      <button className="btn" onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={who === 'all' ? undefined : who} />)}><Icon name="plus" size={20} /> Новое задание</button>
       {group('На проверке', list.filter(t => t.status === 'review'))}
       {group('В работе', list.filter(t => t.status === 'open'))}
       {!list.some(t => t.status !== 'paid') && <div className="empty">Активных заданий нет. Придумайте своё или предложите ребёнку придумать</div>}
       {paid.length > 0 && <Fold icon="check" title="Выполнено" sub={`${paid.length} · выплачено ${fmt(paid.reduce((a, t) => a + t.reward, 0))}`}>
-        {paid.map(t => <TaskRow key={t.id} t={t} sub={many ? name(t.childId) : undefined} onClick={() => sheet(close => <TaskEditSheet t={t} close={close} />)} />)}
+        {paid.map(t => <TaskRow key={t.id} t={t} sub={subOf(t)} onClick={() => sheet(close => <TaskEditSheet t={t} close={close} />)} />)}
       </Fold>}
       <small className="muted">Нажмите на задание, чтобы изменить текст и награду или удалить его.</small>
     </div>
   </>;
 }
 
-export const TaskTag = ({ s }: { s: 'open' | 'review' | 'paid' }) => s === 'paid' ? <span className="tag">Оплачено</span> : s === 'review' ? <span className="tag red">На проверке</span> : <span className="tag navy">В работе</span>;
+export const TaskTag = ({ s }: { s: Task['status'] }) => s === 'paid' ? <span className="tag">Оплачено</span> : s === 'review' ? <span className="tag red">На проверке</span>
+  : s === 'taken' ? <span className="tag navy">Взял другой</span> : <span className="tag navy">В работе</span>;
 
 // ---------- шторки ----------
 function ChildPills({ o, value, onChange }: { o: ParentOverview; value: string; onChange: (id: string) => void }) {
   return <div className="pills">{o.children.map(c => <button key={c.id} className={`pill ${c.id === value ? 'on' : ''}`} onClick={() => onChange(c.id)}>{c.name}</button>)}</div>;
 }
 
+/** Вернуть деньги со счёта ребёнка на свою карту */
+function WithdrawSheet({ o, c, close }: { o: ParentOverview; c: ChildDetail; close: () => void }) {
+  const { run, call } = useDevice();
+  const [sum, setSum] = useState(String(Math.min(10, Math.floor(c.balance / 100))));
+  const [cardId, setCardId] = useState(o.parent.cards[0].id);
+  const [busy, wrap] = useBusy();
+  const amount = toKop(sum);
+  const short = amount > c.balance;
+  return <>
+    <h2>Списать со счёта: {c.name}</h2>
+    <p className="muted" style={{ marginTop: -8 }}>На счёте {fmt(c.balance)}. Деньги вернутся на вашу карту, {c.name} увидит операцию в истории.</p>
+    <AmountField label="Сумма, BYN" value={sum} onChange={setSum} presets={[5, 10, 20]} />
+    <button className="link" style={{ alignSelf: 'flex-start', marginTop: -6 }} onClick={() => setSum((c.balance / 100).toFixed(2))}>Весь остаток {fmt(c.balance)}</button>
+    {short && <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(c.balance)}</small>}
+    <small className="muted">На карту</small>
+    <CardCarousel cards={o.parent.cards} value={cardId} onChange={setCardId} />
+    {c.group === 'teen' && <div className="legal"><Icon name="info" size={18} /><span>Заработок подростка ({fmt(c.income)}) хранится отдельно: им он распоряжается сам (ст. 26 ГК РБ), списать его нельзя.</span></div>}
+    <button className="btn" disabled={busy || amount <= 0 || short} onClick={() => wrap(async () => {
+      if (await run(() => call(`/api/parent/children/${c.id}/withdraw`, { amount, cardId }), `${fmt(amount)} вернулось на карту`)) close();
+    })}>Списать {amount > 0 ? fmt(amount) : ''}</button>
+  </>;
+}
+
 /** Карта по умолчанию: основная, если на ней хватает, иначе первая, где хватает */
 const firstCard = (o: ParentOverview, amount: number) => (o.parent.cards.find(c => c.balance >= amount) ?? o.parent.cards[0]).id;
 
 /** Списание с карты родителя на выбор: одобрение запроса, награда, карманные, семейная цель */
-function PayFromCardSheet({ o, title, sub, amount, cta, okText, pay, close }: {
-  o: ParentOverview; title: string; sub?: string; amount: number; cta: string; okText: string;
-  pay: (cardId: string) => Promise<unknown>; close: () => void;
+function PayFromCardSheet({ o, title, sub, amount: fixed, editable, cta, okText, pay, close }: {
+  o: ParentOverview; title: string; sub?: string; amount: number; editable?: boolean; cta: string; okText: string | ((amount: number) => string);
+  pay: (cardId: string, amount: number) => Promise<unknown>; close: () => void;
 }) {
   const { run } = useDevice();
-  const [cardId, setCardId] = useState(firstCard(o, amount));
+  const [sum, setSum] = useState(String(fixed / 100));
+  const amount = editable ? toKop(sum) : fixed;
+  const [cardId, setCardId] = useState(firstCard(o, fixed));
   const [busy, wrap] = useBusy();
   const card = o.parent.cards.find(c => c.id === cardId)!;
   const short = amount > card.balance;
   return <>
     <h2>{title}</h2>
     {sub && <p className="muted" style={{ marginTop: -8 }}>{sub}</p>}
-    <div className="bal" style={{ fontSize: 30, color: 'var(--text)' }}>{fmt(amount)}</div>
+    {editable ? <AmountField label="Сумма, BYN" value={sum} onChange={setSum} presets={[10, 20, 50, 100]} /> : <div className="bal" style={{ fontSize: 30, color: 'var(--text)' }}>{fmt(amount)}</div>}
     <small className="muted">С карты</small>
     <CardCarousel cards={o.parent.cards} value={cardId} onChange={setCardId} />
     {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств на карте {card.title} {card.mask}: {fmt(card.balance)}. Пролистайте на другую карту</small>
       : <small className="muted">Без комиссии, деньги придут сразу</small>}
-    <button className="btn" disabled={busy || short} onClick={() => wrap(async () => { if (await run(() => pay(cardId), okText)) close(); })}>{cta}</button>
+    <button className="btn" disabled={busy || short || amount <= 0} onClick={() => wrap(async () => { if (await run(() => pay(cardId, amount), typeof okText === 'string' ? okText : okText(amount))) close(); })}>{cta}</button>
   </>;
 }
 
@@ -553,21 +587,30 @@ function TopupSheet({ o, close, childId }: { o: ParentOverview; close: () => voi
   </>;
 }
 
+const ALL = 'all';
 function TaskSheet({ o, close, childId }: { o: ParentOverview; close: () => void; childId?: string }) {
   const { run, call } = useDevice();
-  const [id, setId] = useState(childId ?? o.children[0]?.id);
+  const [id, setId] = useState(childId ?? (o.children.length > 1 ? ALL : o.children[0]?.id));
   const [title, setTitle] = useState('');
   const [reward, setReward] = useState('3');
   const [busy, wrap] = useBusy();
   if (!id) return <><h2>Задание</h2><div className="empty">Сначала добавьте ребёнка</div></>;
+  const all = id === ALL;
   return <>
-    <h2>Своё задание</h2>
-    <ChildPills o={o} value={id} onChange={setId} />
+    <h2>Новое задание</h2>
+    <div className="pills">
+      {o.children.length > 1 && <button className={`pill ${all ? 'on' : ''}`} onClick={() => setId(ALL)}><Icon name="users" size={18} /> Всем детям</button>}
+      {o.children.map(c => <button key={c.id} className={`pill ${c.id === id ? 'on' : ''}`} onClick={() => setId(c.id)}>{c.name}</button>)}
+    </div>
+    {all && <small className="muted">Задание увидят все дети. Награду получит тот, кто выполнит первым: у остальных оно закроется.</small>}
     <div className="field"><label>Что нужно сделать</label><input maxLength={60} placeholder="Напишите своими словами" value={title} onChange={e => setTitle(e.target.value)} /></div>
     <small className="muted">Или возьмите готовое:</small>
     <div className="pills">{['Убрать в комнате', 'Сделать уроки без напоминаний', 'Погулять с собакой', 'Помыть посуду'].map(t => <button key={t} className="pill" onClick={() => setTitle(t)}>{t}</button>)}</div>
     <AmountField label="Награда, BYN" value={reward} onChange={setReward} presets={[1, 3, 5, 10]} />
-    <button className="btn" disabled={busy || title.trim().length < 2 || toKop(reward) <= 0} onClick={() => wrap(async () => { if (await run(() => call(`/api/parent/children/${id}/tasks`, { title, reward: toKop(reward) }), 'Задание отправлено')) close(); })}>Отправить задание</button>
+    <button className="btn" disabled={busy || title.trim().length < 2 || toKop(reward) <= 0} onClick={() => wrap(async () => {
+      const body = { title, reward: toKop(reward) };
+      if (await run(() => (all ? call('/api/parent/tasks/shared', body) : call(`/api/parent/children/${id}/tasks`, body)), all ? 'Задание отправлено всем детям' : 'Задание отправлено')) close();
+    })}>Отправить задание</button>
   </>;
 }
 

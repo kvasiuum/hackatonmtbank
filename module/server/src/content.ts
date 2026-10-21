@@ -33,7 +33,7 @@ export const SETTING_LABELS: Record<SettingPath, { title: string; sub: string }>
   'perms.qr': { title: 'QR-оплата КРОК', sub: 'Оплата по QR на кассе прямо со счёта, без карты' },
   'perms.goals': { title: 'Копилки', sub: 'Создавать цели и откладывать деньги' },
   'perms.erip': { title: 'Платежи ЕРИП', sub: 'Связь, проезд, кружки' },
-  'perms.p2p': { title: 'Переводы друзьям', sub: 'По номеру телефона +375' },
+  'perms.p2p': { title: 'Переводы друзьям', sub: 'По номеру карты, с 14 лет и по номеру телефона' },
   'perms.subs': { title: 'Карта для подписок', sub: 'Отдельный лимит 20 BYN в месяц' },
   'perms.newCards': { title: 'Выпуск виртуальных карт', sub: 'Иначе запрос на карту придёт вам' },
   'perms.deposit': { title: 'Свой вклад', sub: 'До 14 лет только с вашего согласия' },

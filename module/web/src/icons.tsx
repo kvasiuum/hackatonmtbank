@@ -1,6 +1,6 @@
 // Иконки. Основные (вкладки, действия на главной, история) нарисованы под стиль Moby,
 // остальные — из набора Lucide с той же толщиной линии.
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import {
   ArrowLeft, Ban, Banknote, Bell, Bike, BookOpen, Briefcase, Bus, ChartColumn, Check, ChevronDown, ChevronRight, Calculator, Percent, Sparkles, Trash2, UserPlus, X, Cigarette, Clapperboard,
   Clock, Cloud, Code, Coffee, Coins, CreditCard, Dices, Dumbbell, Eye, EyeOff, FerrisWheel, FileText, Footprints, Gamepad2, Gift,
@@ -51,15 +51,18 @@ const MOBY: Record<string, (p: { size?: number; sw?: number }) => ReactNode> = {
 /** Логотип Moby для вкладки «Главная»: цветной, когда вкладка активна */
 export function MobyLogo({ active, size = 30 }: { active: boolean; size?: number }) {
   const d = 'M4.5 19V8.6c0-2 2.5-2.9 3.7-1.3L12 12.6l3.8-5.3c1.2-1.6 3.7-.7 3.7 1.3V19';
+  // Свой id градиента у каждого логотипа: если взять общий, а телефон с первым логотипом скрыт (display: none),
+  // браузер не нарисует градиент и иконка «Главной» пропадёт
+  const id = `mobyM${useId().replace(/:/g, '')}`;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <defs>
-        <linearGradient id="mobyM" x1="3" y1="12" x2="21" y2="12" gradientUnits="userSpaceOnUse">
+        <linearGradient id={id} x1="3" y1="12" x2="21" y2="12" gradientUnits="userSpaceOnUse">
           <stop stopColor="#2F6BFF" /><stop offset=".55" stopColor="#8C4DFF" /><stop offset="1" stopColor="#FF4F6E" />
         </linearGradient>
       </defs>
       {active
-        ? <path d={d} stroke="url(#mobyM)" strokeWidth={4.2} strokeLinecap="round" strokeLinejoin="round" />
+        ? <path d={d} stroke={`url(#${id})`} strokeWidth={4.2} strokeLinecap="round" strokeLinejoin="round" />
         : <><path d={d} stroke="#1A1F2B" strokeWidth={4.4} strokeLinecap="round" strokeLinejoin="round" /><path d={d} stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /></>}
     </svg>
   );

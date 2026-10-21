@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS tx_user_time ON transactions(user_id, created_at);
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL,
-  reward INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL
+  reward INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL, grp TEXT
 );
 CREATE TABLE IF NOT EXISTS goals (
   id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL,
@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 /** Создаёт таблицы и при пустой базе заполняет демо-семью */
 export function initDb(db: DB) {
   db.exec(SCHEMA);
+  // Базы до общих заданий: добавляем колонку группы
+  const cols = db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[];
+  if (!cols.some(c => c.name === 'grp')) db.exec('ALTER TABLE tasks ADD COLUMN grp TEXT');
   const row = db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number };
   if (Number(row.n) === 0) seed(db);
 }
@@ -146,9 +149,9 @@ export function seed(db: DB) {
     for (const [t, a, c, k, m] of kOps) ins('INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)', newId('t'), 'u_misha', t, a, c, 'card', k, ago(m));
     ins('INSERT INTO goals VALUES (?,?,?,?,?,?,?)', 'g_scooter', 'u_misha', 'Самокат', 'bike', 120 * BYN, 4600, ago(60 * 24 * 20));
     ins('INSERT INTO goals VALUES (?,?,?,?,?,?,?)', 'g_lego', 'u_misha', 'Конструктор', 'toy-brick', 60 * BYN, 1200, ago(60 * 24 * 10));
-    ins('INSERT INTO tasks VALUES (?,?,?,?,?,?)', 'k_vacuum', 'u_misha', 'Пропылесосить комнату', 300, 'open', ago(60 * 5));
-    ins('INSERT INTO tasks VALUES (?,?,?,?,?,?)', 'k_book', 'u_misha', 'Прочитать 50 страниц книги', 500, 'open', ago(60 * 24));
-    ins('INSERT INTO tasks VALUES (?,?,?,?,?,?)', 'k_trash', 'u_misha', 'Выносить мусор всю неделю', 400, 'paid', ago(60 * 70));
+    ins('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', 'k_vacuum', 'u_misha', 'Пропылесосить комнату', 300, 'open', ago(60 * 5));
+    ins('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', 'k_book', 'u_misha', 'Прочитать 50 страниц книги', 500, 'open', ago(60 * 24));
+    ins('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', 'k_trash', 'u_misha', 'Выносить мусор всю неделю', 400, 'paid', ago(60 * 70));
 
     const teenSettings = defaultSettings('teen');
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_anya', 'child', 'Ребёнок 1', '+375297654321', pin, ago(60 * 24 * 200));
@@ -163,7 +166,7 @@ export function seed(db: DB) {
     ];
     for (const [t, a, c, k, m] of tOps) ins('INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)', newId('t'), 'u_anya', t, a, c, 'card', k, ago(m));
     ins('INSERT INTO goals VALUES (?,?,?,?,?,?,?)', 'g_phones', 'u_anya', 'Наушники', 'headphones', 180 * BYN, 9500, ago(60 * 24 * 30));
-    ins('INSERT INTO tasks VALUES (?,?,?,?,?,?)', 'k_balcony', 'u_anya', 'Помочь с покраской балкона', 1500, 'open', ago(60 * 24));
+    ins('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', 'k_balcony', 'u_anya', 'Помочь с покраской балкона', 1500, 'open', ago(60 * 24));
     ins('INSERT INTO subscriptions VALUES (?,?,?,?,?,?)', 's_music', 'u_anya', 'Музыкальный сервис', 549, 1, 'music');
     ins('INSERT INTO subscriptions VALUES (?,?,?,?,?,?)', 's_tv', 'u_anya', 'Онлайн-кинотеатр', 990, 1, 'tv');
     ins('INSERT INTO subscriptions VALUES (?,?,?,?,?,?)', 's_cloud', 'u_anya', 'Облако для фото', 290, 0, 'cloud');

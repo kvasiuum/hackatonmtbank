@@ -84,18 +84,20 @@ function CardRequestSheet({ close, o }: { close: () => void; o: ChildOverview })
 function GoalSheet({ o, goalId, close }: { o: ChildOverview; goalId: string; close: () => void }) {
   const { run, call } = useDevice();
   const g = o.me.goals.find(x => x.id === goalId)!;
-  const [amount, setAmount] = useState(2);
+  const [sum, setSum] = useState('2');
   const [busy, wrap] = useBusy();
   const bonus = o.me.settings.parentBonus;
-  const short = amount * BYN > o.me.balance;
+  const amount = toKop(sum);
+  const short = amount > o.me.balance;
   return <>
     <div className="goal-h"><RowIcon name={g.icon} tone="red" /><div className="tx"><h2>{g.title}</h2><small className="muted">На счёте {fmt(o.me.balance)}{bonus ? ', родители добавят 10%' : ''}</small></div></div>
-    <div className="pills">{[1, 2, 5, 10].map(x => <button key={x} className={`pill ${amount === x ? 'on' : ''}`} onClick={() => setAmount(x)}>{x} BYN</button>)}</div>
-    {short && <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
-    <button className="btn" disabled={busy || short} onClick={() => wrap(async () => {
-      if (await run(() => call<{ added: number }>(`/api/child/goals/${goalId}/deposit`, { amount: amount * BYN }), r => `+${fmt(r.added)} в копилку`)) close();
-    })}>Положить {fmt(amount * BYN)}{bonus ? `, в копилку упадёт ${fmt(amount * BYN * 1.1)}` : ''}</button>
-    <button className="btn ghost" onClick={() => wrap(async () => { if (await run(() => call('/api/child/requests', { type: 'goal', goalId, amount: 5 * BYN, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) close(); })}>Попросить родителей добавить 5 BYN</button>
+    <AmountField label="Сколько положить, BYN" value={sum} onChange={setSum} presets={[1, 2, 5, 10]} />
+    {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>
+      : g.target > g.saved && <small className="muted">До цели осталось {fmt(g.target - g.saved)}</small>}
+    <button className="btn" disabled={busy || short || amount <= 0} onClick={() => wrap(async () => {
+      if (await run(() => call<{ added: number }>(`/api/child/goals/${goalId}/deposit`, { amount }), r => `+${fmt(r.added)} в копилку`)) close();
+    })}>Положить {fmt(amount)}{bonus && amount > 0 ? `, в копилку упадёт ${fmt(Math.round(amount * 1.1))}` : ''}</button>
+    <button className="btn ghost" disabled={busy || amount <= 0} onClick={() => wrap(async () => { if (await run(() => call('/api/child/requests', { type: 'goal', goalId, amount, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) close(); })}>Попросить у родителей {fmt(amount)}</button>
   </>;
 }
 
@@ -128,15 +130,36 @@ function GoalCard({ o, id }: { o: ChildOverview; id: string }) {
   </div>;
 }
 
+/** Шторка «положить любую сумму»: копилка, вклад, семейная цель */
+function MoneySheet({ title, sub, cta, max, min = 1, presets, send, ok, close, maxLabel = 'на счёте' }: {
+  title: string; sub?: string; cta: string; max: number; min?: number; presets: number[]; maxLabel?: string;
+  send: (amount: number) => Promise<unknown>; ok: (amount: number) => string; close: () => void;
+}) {
+  const { run } = useDevice();
+  const [sum, setSum] = useState(String(presets[1] ?? presets[0]));
+  const [busy, wrap] = useBusy();
+  const amount = toKop(sum);
+  const short = amount > max;
+  return <>
+    <h2>{title}</h2>
+    {sub && <p className="muted" style={{ marginTop: -8 }}>{sub}</p>}
+    <AmountField label="Сумма, BYN" value={sum} onChange={setSum} presets={presets} />
+    {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: {maxLabel} {fmt(max)}</small>
+      : amount > 0 && amount < min ? <small style={{ color: 'var(--red)' }}>Минимум {fmt(min)}</small> : <small className="muted">{maxLabel[0].toUpperCase() + maxLabel.slice(1)} {fmt(max)}</small>}
+    <button className="btn" disabled={busy || short || amount <= 0 || amount < min} onClick={() => wrap(async () => { if (await run(() => send(amount), ok(amount))) close(); })}>{cta} {amount > 0 ? fmt(amount) : ''}</button>
+  </>;
+}
+
 function FamilyGoalCard({ o }: { o: ChildOverview }) {
-  const { run, call, toast } = useDevice();
+  const { call, sheet } = useDevice();
   const g = o.familyGoal;
   return <div className="card goal">
     <div className="goal-h"><RowIcon name={g.icon} /><div className="tx"><small className="muted">Семейная цель</small><b>{g.title}</b></div><b>{Math.round(g.saved / g.target * 100)}%</b></div>
     <Bar value={g.saved} max={g.target} />
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
       <small className="muted">{fmt(g.saved)} из {fmt(g.target)}, копит вся семья</small>
-      <button className="sbtn" onClick={() => (o.me.balance < 2 * BYN ? toast(`Недостаточно средств: на счёте ${fmt(o.me.balance)}`, true) : run(() => call('/api/family/goal', { amount: 2 * BYN }), '+2.00 BYN в семейную цель'))}>+2 BYN</button>
+      <button className="sbtn" onClick={() => sheet(c => <MoneySheet title="В семейную цель" sub={g.title} cta="Положить" max={o.me.balance} presets={[1, 2, 5, 10]}
+        send={amount => call('/api/family/goal', { amount })} ok={a => `+${fmt(a)} в семейную цель`} close={c} />)}>Положить</button>
     </div>
   </div>;
 }
@@ -229,7 +252,8 @@ function TaskList({ o }: { o: ChildOverview }) {
   const { run, call, sheet } = useDevice();
   return <>
     <div className="card">{o.me.tasks.length ? o.me.tasks.map(t => (
-      <Row key={t.id} icon={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : 'list-checks'} title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`}
+      <Row key={t.id} icon={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : t.shared ? 'users' : 'list-checks'} title={t.title}
+        sub={t.status === 'taken' ? 'Другой ребёнок уже выполнил' : `+${fmt(t.reward)} и 40 опыта${t.shared && t.status === 'open' ? ' · кто первый' : ''}`}
         right={t.status === 'open' ? <button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button> : <TaskTag s={t.status} />} />
     )) : <div className="empty">Заданий пока нет</div>}</div>
     <button className="btn ghost" onClick={() => sheet(c => <ProposeTaskSheet close={c} />)}><Icon name="plus" size={20} /> Предложить своё задание</button>
@@ -250,6 +274,7 @@ function NextTask({ o, to }: { o: ChildOverview; to: () => void }) {
 export function KidHome() {
   const o = useChild();
   const { push, tab, sheet } = useDevice();
+  const ask = useAsk();
   if (!o) return <Loading />;
   const main = mainCard(o.me.cards);
   const virtualOk = o.me.cards.some(c => c.type === 'virtual' && c.status === 'active');
@@ -262,8 +287,8 @@ export function KidHome() {
       <div className="hero-sub">Сегодня можно потратить ещё {fmt(left)}</div>
       <div className="actions">
         <Act icon="pay" label="Оплатить" onClick={() => push('pay')} />
+        <Act icon="transfer" label="Перевести" onClick={() => (o.me.settings.perms.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
         <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
-        <Act icon="piggy-bank" label="Копилки" onClick={() => tab('goals')} />
       </div>
     </div>
     <div className="body">
@@ -486,18 +511,30 @@ function EripSheet({ id, close }: { id: string; close: () => void }) {
   </>;
 }
 
+/** 4111111111111111 → 4111 1111 1111 1111 */
+const fmtCard = (v: string) => v.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
 function TransferSheet({ close }: { close: () => void }) {
+  const o = useChild();
   const { call, run, sheet } = useDevice();
+  const [by, setBy] = useState<'card' | 'phone'>('card');
+  const [card, setCard] = useState('');
   const [phone, setPhone] = useState('+375 (29) ');
   const [amount, setAmount] = useState('5');
   const short = useShort(toKop(amount));
+  const teen = o?.me.group === 'teen';
+  const to = by === 'card' ? { card: card.replace(/\s/g, '') } : { phone: phone.trim() };
+  const filled = by === 'card' ? card.replace(/\s/g, '').length === 16 : phone.replace(/\D/g, '').length === 12;
   return <>
     <h2>Перевод другу</h2>
-    <div className="field"><label>Номер телефона</label><input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
+    {teen && <div className="seg"><button className={by === 'card' ? 'on' : ''} onClick={() => setBy('card')}>По номеру карты</button><button className={by === 'phone' ? 'on' : ''} onClick={() => setBy('phone')}>По телефону</button></div>}
+    {by === 'card'
+      ? <div className="field"><label>Номер карты друга</label><input inputMode="numeric" autoComplete="off" placeholder="0000 0000 0000 0000" value={card} onChange={e => setCard(fmtCard(e.target.value))} /></div>
+      : <div className="field"><label>Номер телефона</label><input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>}
+    {by === 'card' && <div className="hint" style={{ fontSize: 13 }}>Демо: <button className="link" onClick={() => setCard(fmtCard('4111111111111111'))}>4111 1111 1111 1111</button></div>}
     <AmountField label="Сумма, BYN" value={amount} onChange={setAmount} presets={[2, 5, 10]} />
     <FundsHint amount={toKop(amount)} />
     <div className="legal"><Icon name="shield" size={18} /><span>Переводи только тем, кого знаешь лично. Если «друг» пишет с нового номера, сначала позвони ему.</span></div>
-    <button className="btn" disabled={toKop(amount) <= 0 || short} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/transfer', { phone: phone.trim(), amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); else close(); }}>Перевести</button>
+    <button className="btn" disabled={toKop(amount) <= 0 || short || !filled} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/transfer', { ...to, amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); }}>Перевести</button>
   </>;
 }
 
@@ -514,7 +551,7 @@ export function TeenPayments() {
     <div className="card"><h3>ЕРИП {!p.erip && <span className="tag solid-red">Закрыто</span>}</h3>
       {ERIP_SERVICES.map(s => <Row key={s.id} icon={s.icon} tone="dash" title={s.title} sub={s.sub} onClick={() => (p.erip ? sheet(c => <EripSheet id={s.id} close={c} />) : ask.perm('perms.erip'))} />)}</div>
     <div className="card"><h3>Переводы</h3>
-      <Row icon="transfer" tone="dash" title="Другу по номеру телефона" sub="Мгновенно, внутри Беларуси" onClick={() => (p.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
+      <Row icon="transfer" tone="dash" title="Другу по номеру карты или телефона" sub="Мгновенно, внутри Беларуси" onClick={() => (p.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
       <Row icon="send" tone="dash" title="Попросить у родителей" sub="Запрос придёт в их Moby" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
     </div>
     <div className="card"><h3>Подписки {!p.subs && <span className="tag solid-red">Закрыто</span>}</h3>
@@ -543,7 +580,7 @@ export function TeenSubs() {
 
 export function TeenEarn() {
   const o = useChild();
-  const { run, call, tab } = useDevice();
+  const { call, tab, sheet } = useDevice();
   if (!o) return <Loading />;
   const g = o.me.goals.find(x => x.saved < x.target);
   return <><TopBar title="Заработок и задания" /><div className="page">
@@ -551,8 +588,8 @@ export function TeenEarn() {
     <div className="sec">Задания от родителей</div>
     <TaskList o={o} />
     <div className="legal"><Icon name="file-text" size={18} /><span>С 14 лет ты сам(а) распоряжаешься заработком и стипендией и можешь открыть вклад (ст. 26 ГК РБ). Лимиты родителя на эти деньги не действуют.</span></div>
-    {g && o.me.income < 20 * BYN && <small style={{ color: 'var(--red)' }}>Недостаточно собственных средств: {fmt(o.me.income)}</small>}
-    {g && <button className="btn" disabled={o.me.income < 20 * BYN} onClick={() => run(() => call('/api/child/income-to-goal', { goalId: g.id, amount: 20 * BYN }), `20.00 BYN отложено на «${g.title}»`)}>Отложить 20 BYN на «{g.title}»</button>}
+    {g && <button className="btn" disabled={o.me.income <= 0} onClick={() => sheet(c => <MoneySheet title={`Отложить на «${g.title}»`} sub="Из собственных средств" cta="Отложить" max={o.me.income} maxLabel="собственных"
+      presets={[5, 10, 20, 50]} send={amount => call('/api/child/income-to-goal', { goalId: g.id, amount })} ok={a => `${fmt(a)} отложено на «${g.title}»`} close={c} />)}>Отложить на «{g.title}»</button>}
     <button className="btn ghost" onClick={() => tab('savings')}>Перейти к вкладу</button>
   </div></>;
 }
@@ -569,12 +606,12 @@ export function TeenSavings() {
       {d ? <>
         <div className="bal" style={{ fontSize: 28, marginTop: 8 }}>{fmt(d.amount)}</div>
         <small className="muted">{d.rate}% годовых, через год около {fmt(Math.round(d.amount * (1 + d.rate / 100)))}</small>
-        <button className="btn ghost" style={{ marginTop: 12 }} disabled={o.me.balance < 10 * BYN} onClick={() => run(() => call('/api/child/deposit', { action: 'topup', amount: 10 * BYN }), '+10.00 BYN на вклад')}>Пополнить на 10 BYN</button>
-        {o.me.balance < 10 * BYN && <small style={{ color: 'var(--red)', display: 'block', marginTop: 6 }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
+        <button className="btn ghost" style={{ marginTop: 12 }} onClick={() => sheet(c => <MoneySheet title="Пополнить вклад" cta="Пополнить" max={o.me.balance} min={10 * BYN} presets={[10, 20, 50]}
+          send={amount => call('/api/child/deposit', { action: 'topup', amount })} ok={a => `+${fmt(a)} на вклад`} close={c} />)}>Пополнить</button>
       </> : <>
         <p className="muted" style={{ marginTop: 6 }}>Отзывный вклад от 10 BYN. С 14 лет можно открыть самостоятельно.</p>
-        <button className="btn" style={{ marginTop: 12 }} disabled={o.me.balance < 10 * BYN} onClick={() => run(() => call('/api/child/deposit', { action: 'open', amount: 10 * BYN }), 'Вклад открыт')}>Открыть вклад</button>
-        {o.me.balance < 10 * BYN && <small style={{ color: 'var(--red)', display: 'block', marginTop: 6 }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => sheet(c => <MoneySheet title="Открыть вклад «Мой старт»" sub="От 10 BYN" cta="Открыть с" max={o.me.balance} min={10 * BYN} presets={[10, 20, 50]}
+          send={amount => call('/api/child/deposit', { action: 'open', amount })} ok={() => 'Вклад открыт'} close={c} />)}>Открыть вклад</button>
       </>}
     </div>
     {o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />)}

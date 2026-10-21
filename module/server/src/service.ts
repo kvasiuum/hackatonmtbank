@@ -194,7 +194,9 @@ export class FamilyService {
       income: c.income,
       lessons: JSON.parse(c.lessons),
       goals: this.q<Goal>('SELECT id, title, icon, target, saved FROM goals WHERE child_id = ? ORDER BY created_at', c.user_id),
-      tasks: this.q<Task>("SELECT id, title, reward, status FROM tasks WHERE child_id = ? ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'review' THEN 1 ELSE 2 END, created_at DESC", c.user_id),
+      tasks: this.q<{ id: string; title: string; reward: number; status: Task['status']; grp: string | null }>(
+        "SELECT id, title, reward, status, grp FROM tasks WHERE child_id = ? ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'review' THEN 1 WHEN 'taken' THEN 2 ELSE 3 END, created_at DESC", c.user_id,
+      ).map(t => ({ id: t.id, title: t.title, reward: t.reward, status: t.status, shared: !!t.grp })),
       ops: this.ops(c.user_id, 30),
       subscriptions: this.q<{ id: string; title: string; price: number; active: number; icon: string }>('SELECT * FROM subscriptions WHERE child_id = ?', c.user_id)
         .map(s => ({ id: s.id, title: s.title, price: s.price, active: !!s.active, icon: s.icon })),
@@ -432,6 +434,22 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
+  /** Родитель забирает деньги со счёта ребёнка на свою карту. Заработок подростка (ст. 26 ГК РБ) не трогаем: он хранится отдельно */
+  withdraw(parentId: string, childId: string, amount: number, cardId = 'main') {
+    const c = this.ownChild(parentId, childId);
+    const card = this.parentCards(parentId).find(x => x.id === cardId);
+    if (!card) throw notFound('Карта');
+    tx(this.db, () => {
+      this.debitChild(childId, amount);
+      if (cardId === 'main') this.run('UPDATE parents SET balance = balance + ? WHERE user_id = ?', amount, parentId);
+      else this.run('UPDATE parent_cards SET balance = balance + ? WHERE id = ? AND parent_id = ?', amount, cardId, parentId);
+      this.addTx(childId, 'Возврат родителю', -amount, 'Семья', 'internal');
+      this.addTx(parentId, `Возврат от ребёнка: ${c.name}${cardId === 'main' ? '' : ` · ${card.title}`}`, amount, 'Семья', 'internal');
+      this.addFeed(c.family_id, childId, `Вы вернули себе со счёта: ${c.name}`, -amount);
+    });
+    this.touch(c.family_id);
+  }
+
   payAllowanceNow(parentId: string, childId: string, cardId = 'main') {
     const c = this.ownChild(parentId, childId);
     const s = this.settings(c);
@@ -522,24 +540,44 @@ export class FamilyService {
 
   createTask(parentId: string, childId: string, title: string, reward: number) {
     const c = this.ownChild(parentId, childId);
-    this.run('INSERT INTO tasks VALUES (?,?,?,?,?,?)', newId('k'), childId, title.trim(), reward, 'open', nowIso());
+    this.run('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', newId('k'), childId, title.trim(), reward, 'open', nowIso());
     this.touch(c.family_id);
+  }
+
+  /** Общее задание: копия у каждого ребёнка, награду получит тот, кто выполнит первым */
+  createSharedTask(parentId: string, title: string, reward: number) {
+    const familyId = this.familyOfParent(parentId);
+    const kids = this.q<{ user_id: string }>('SELECT user_id FROM children WHERE family_id = ?', familyId);
+    if (kids.length < 2) throw bad('kids', 'Общее задание — когда в семье больше одного ребёнка');
+    const grp = newId('kg');
+    tx(this.db, () => {
+      for (const k of kids) this.run('INSERT INTO tasks (id,child_id,title,reward,status,created_at,grp) VALUES (?,?,?,?,?,?,?)', newId('k'), k.user_id, title.trim(), reward, 'open', nowIso(), grp);
+      this.addFeed(familyId, null, `Задание для всех: «${title.trim()}», ${fmt(reward)} тому, кто выполнит первым`);
+    });
+    this.touch(familyId);
+  }
+  /** id всех копий задания (у общего — по одной на ребёнка) */
+  private taskCopies(taskId: string) {
+    const t = this.one<{ grp: string | null }>('SELECT grp FROM tasks WHERE id = ?', taskId);
+    return t?.grp ? this.q<{ id: string }>('SELECT id FROM tasks WHERE grp = ?', t.grp).map(x => x.id) : [taskId];
   }
 
   parentTasks(parentId: string): ParentTask[] {
     const familyId = this.familyOfParent(parentId);
-    return this.q<{ id: string; child_id: string; title: string; reward: number; status: Task['status'] }>(
-      `SELECT t.id, t.child_id, t.title, t.reward, t.status FROM tasks t JOIN children c ON c.user_id = t.child_id WHERE c.family_id = ?
+    return this.q<{ id: string; child_id: string; title: string; reward: number; status: Task['status']; grp: string | null }>(
+      `SELECT t.id, t.child_id, t.title, t.reward, t.status, t.grp FROM tasks t JOIN children c ON c.user_id = t.child_id WHERE c.family_id = ?
        ORDER BY CASE t.status WHEN 'review' THEN 0 WHEN 'open' THEN 1 ELSE 2 END, t.created_at DESC`, familyId,
-    ).map(t => ({ id: t.id, childId: t.child_id, title: t.title, reward: t.reward, status: t.status }));
+    ).map(t => ({ id: t.id, childId: t.child_id, title: t.title, reward: t.reward, status: t.status, shared: !!t.grp, grp: t.grp }));
   }
 
   updateTask(parentId: string, taskId: string, title: string, reward: number) {
     const t = this.one<{ child_id: string; status: string }>('SELECT child_id, status FROM tasks WHERE id = ?', taskId);
     if (!t) throw notFound('Задание');
     const c = this.ownChild(parentId, t.child_id);
-    if (t.status !== 'open') throw bad('state', t.status === 'review' ? 'Задание уже на проверке: примите его или удалите' : 'Задание уже оплачено');
-    this.run('UPDATE tasks SET title = ?, reward = ? WHERE id = ?', title.trim(), reward, taskId);
+    const copies = this.taskCopies(taskId);
+    const busy = this.one<{ status: string }>(`SELECT status FROM tasks WHERE id IN (${copies.map(() => '?').join(',')}) AND status != 'open'`, ...copies);
+    if (busy) throw bad('state', busy.status === 'paid' ? 'Задание уже оплачено' : 'Задание уже на проверке: примите его или удалите');
+    for (const id of copies) this.run('UPDATE tasks SET title = ?, reward = ? WHERE id = ?', title.trim(), reward, id);
     this.touch(c.family_id);
   }
 
@@ -549,8 +587,10 @@ export class FamilyService {
     const c = this.ownChild(parentId, t.child_id);
     tx(this.db, () => {
       // Задание на проверке: снимаем и запрос на награду
-      this.run("UPDATE requests SET status = 'declined', resolved_at = ? WHERE type = 'task' AND status = 'pending' AND json_extract(payload, '$.taskId') = ?", nowIso(), taskId);
-      this.run('DELETE FROM tasks WHERE id = ?', taskId);
+      for (const id of this.taskCopies(taskId)) {
+        this.run("UPDATE requests SET status = 'declined', resolved_at = ? WHERE type = 'task' AND status = 'pending' AND json_extract(payload, '$.taskId') = ?", nowIso(), id);
+        this.run('DELETE FROM tasks WHERE id = ?', id);
+      }
       this.addFeed(c.family_id, c.user_id, `Задание удалено: «${t.title}»`);
     });
     this.touch(c.family_id);
@@ -575,7 +615,7 @@ export class FamilyService {
             this.checkCardAllowed(c.family_id, p.cardType);
             this.insertCard(c.user_id, p.cardType, p.color); break;
           case 'proposal':
-            this.run('INSERT INTO tasks VALUES (?,?,?,?,?,?)', newId('k'), c.user_id, p.title, p.reward, 'open', nowIso()); break;
+            this.run('INSERT INTO tasks (id,child_id,title,reward,status,created_at) VALUES (?,?,?,?,?,?)', newId('k'), c.user_id, p.title, p.reward, 'open', nowIso()); break;
           case 'purchase': {
             const d = this.executePayment(c, p.payment, { parentApproved: true });
             if (d.status !== 'approved') throw bad('purchase_failed', d.status === 'declined' ? d.text : 'Не удалось провести оплату');
@@ -586,6 +626,8 @@ export class FamilyService {
             if (!t) throw notFound('Задание');
             this.moveFromParent(c.family_id, c.user_id, t.reward, `Награда: ${t.title}`, cardId);
             this.run("UPDATE tasks SET status = 'paid' WHERE id = ?", p.taskId);
+            // У остальных детей общее задание исчезает: награду получил этот ребёнок
+            for (const id of this.taskCopies(p.taskId)) if (id !== p.taskId) this.run('DELETE FROM tasks WHERE id = ?', id);
             this.addXp(c, 40, 10);
             break;
           }
@@ -598,7 +640,8 @@ export class FamilyService {
           }
         }
       } else if (r.type === 'task') {
-        this.run("UPDATE tasks SET status = 'open' WHERE id = ?", p.taskId);
+        // Не принято — общее задание снова доступно всем
+        for (const id of this.taskCopies(p.taskId)) this.run("UPDATE tasks SET status = 'open' WHERE id = ? AND status IN ('review','taken')", id);
       }
       this.run('UPDATE requests SET status = ?, resolved_at = ? WHERE id = ?', approve ? 'approved' : 'declined', nowIso(), requestId);
       const info = this.request({ ...r });
@@ -695,17 +738,24 @@ export class FamilyService {
     if (!svc) throw notFound('Услуга ЕРИП');
     return this.pay(childId, { title: `ЕРИП: ${svc.title}`, amount, category: 'erip', method: 'card' });
   }
-  transfer(childId: string, phone: string, amount: number) {
-    return this.pay(childId, { title: `Перевод ${phone.slice(-9)}`, amount, category: 'p2p', method: 'card' });
+  /** Перевод другу: по номеру карты всем, по номеру телефона — с 14 лет */
+  transfer(childId: string, to: { card: string } | { phone: string }, amount: number) {
+    if ('phone' in to) {
+      if (this.childRow(childId).grp !== 'teen') throw forbidden('Перевод по номеру телефона — с 14 лет. Переведи по номеру карты');
+      return this.pay(childId, { title: `Перевод ${to.phone.slice(-9)}`, amount, category: 'p2p', method: 'card' });
+    }
+    return this.pay(childId, { title: `Перевод на карту •• ${to.card.slice(-4)}`, amount, category: 'p2p', method: 'card' });
   }
 
   taskDone(childId: string, taskId: string) {
     const c = this.childRow(childId);
     const t = this.one<{ status: string }>('SELECT status FROM tasks WHERE id = ? AND child_id = ?', taskId, childId);
     if (!t) throw notFound('Задание');
+    if (t.status === 'taken') throw bad('state', 'Это задание уже выполнил другой ребёнок');
     if (t.status !== 'open') throw bad('state', 'Задание уже отмечено');
     tx(this.db, () => {
       this.run("UPDATE tasks SET status = 'review' WHERE id = ?", taskId);
+      for (const id of this.taskCopies(taskId)) if (id !== taskId) this.run("UPDATE tasks SET status = 'taken' WHERE id = ? AND status = 'open'", id);
       this.addRequest(childId, 'task', { taskId }, null);
     });
     this.touch(c.family_id);

@@ -272,4 +272,44 @@ describe('API модуля «Семья»', () => {
     const cards = (await call('GET', '/api/parent/overview', parent)).body.parent.cards;
     expect(cards.every((c: any) => c.balance === 100)).toBe(true);
   });
+
+  it('общее задание: награду получает тот, кто выполнил первым', async () => {
+    const parent = await login('u_parent'); const misha = await login('u_misha'); const anya = await login('u_anya');
+    await call('POST', '/api/parent/tasks/shared', parent, { title: 'Вынести мусор', reward: 300 });
+    const mine = (tok: string) => call('GET', '/api/child/overview', tok).then(r => r.body.me.tasks.find((t: any) => t.title === 'Вынести мусор'));
+    const tm = await mine(misha), ta = await mine(anya);
+    expect(tm).toMatchObject({ shared: true, status: 'open' });
+    await call('POST', `/api/child/tasks/${ta.id}/done`, anya);
+    expect((await mine(misha)).status).toBe('taken');
+    expect((await call('POST', `/api/child/tasks/${tm.id}/done`, misha)).status).toBe(400);
+    // родитель отклонил — задание снова у всех
+    let req = (await call('GET', '/api/parent/overview', parent)).body.requests.find((x: any) => x.type === 'task' && x.status === 'pending');
+    await call('POST', '/api/parent/requests/' + req.id, parent, { approve: false });
+    expect((await mine(misha)).status).toBe('open');
+    await call('POST', `/api/child/tasks/${tm.id}/done`, misha);
+    req = (await call('GET', '/api/parent/overview', parent)).body.requests.find((x: any) => x.type === 'task' && x.status === 'pending');
+    await call('POST', '/api/parent/requests/' + req.id, parent, { approve: true });
+    expect((await mine(misha)).status).toBe('paid');
+    expect(await mine(anya)).toBeUndefined();
+  });
+
+  it('родитель возвращает себе деньги ребёнка, не больше баланса', async () => {
+    const parent = await login('u_parent');
+    expect((await call('POST', '/api/parent/children/u_misha/withdraw', parent, { amount: 2341, cardId: 'pc_salary' })).body.error.code).toBe('funds');
+    expect((await call('POST', '/api/parent/children/u_misha/withdraw', parent, { amount: 2340, cardId: 'pc_salary' })).status).toBe(200);
+    const o = (await call('GET', '/api/parent/overview', parent)).body;
+    expect(o.children.find((k: any) => k.id === 'u_misha').balance).toBe(0);
+    expect(o.parent.cards.find((c: any) => c.id === 'pc_salary').balance).toBe(1246 + 2340);
+  });
+
+  it('перевод другу: по карте всем, по телефону с 14 лет', async () => {
+    const parent = await login('u_parent'); const kid = await login('u_misha'); const teen = await login('u_anya');
+    await call('PATCH', '/api/parent/children/u_misha/settings', parent, { perms: { p2p: true } });
+    expect((await call('POST', '/api/child/transfer', kid, { card: '4111 1111 1111 1112', amount: 100 })).status).toBe(400); // Луна не сходится
+    const ok = await call('POST', '/api/child/transfer', kid, { card: '4111 1111 1111 1111', amount: 100 });
+    expect(ok.body.status).toBe('approved');
+    expect((await call('POST', '/api/child/transfer', kid, { phone: '+375291112233', amount: 100 })).status).toBe(403);
+    await call('PATCH', '/api/parent/children/u_anya/settings', parent, { perms: { p2p: true } });
+    expect((await call('POST', '/api/child/transfer', teen, { phone: '+375291112233', amount: 100 })).body.status).toBe('approved');
+  });
 });
