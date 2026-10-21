@@ -243,6 +243,7 @@ export function createApi(db: DB, opts: ApiOptions) {
       const b = z.object({ title: z.string().trim().min(2).max(30), icon: z.string().max(30), target: money }).parse(r.body);
       svc.createGoal(me(r).userId, b.title, b.icon, b.target); return ok;
     } },
+    { method: 'POST', path: '/api/child/goals/:id/break', role: 'child', handler: r => svc.breakGoal(me(r).userId, id(r)) },
     { method: 'POST', path: '/api/child/goals/:id/deposit', role: 'child', handler: r => svc.depositGoal(me(r).userId, id(r), z.object({ amount: money }).parse(r.body).amount) },
     { method: 'POST', path: '/api/child/lessons/:id', role: 'child', handler: r => svc.completeLesson(me(r).userId, id(r), z.object({ answers: z.array(z.number().int()) }).parse(r.body).answers) },
     { method: 'POST', path: '/api/child/games/:id', role: 'child', handler: r => {

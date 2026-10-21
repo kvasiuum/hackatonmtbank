@@ -386,4 +386,15 @@ describe('API модуля «Семья»', () => {
     const income = (await call('GET', '/api/child/overview', kid)).body.me.ops.find((o: any) => o.amount > 0);
     expect((await call('POST', '/api/disputes', kid, { txId: income.id, reason })).body.error.code).toBe('kind');
   });
+
+  it('разбить копилку можно только полную: деньги возвращаются на счёт', async () => {
+    const kid = await login('u_misha');
+    expect((await call('POST', '/api/child/goals/g_lego/break', kid)).body.error.code).toBe('not_full');
+    ctx.db.prepare("UPDATE goals SET saved = target WHERE id = 'g_lego'").run();
+    const before = (await call('GET', '/api/child/overview', kid)).body.me.balance;
+    expect((await call('POST', '/api/child/goals/g_lego/break', kid)).body.amount).toBe(6000);
+    const me = (await call('GET', '/api/child/overview', kid)).body.me;
+    expect(me.balance).toBe(before + 6000);
+    expect(me.goals.some((g: any) => g.id === 'g_lego')).toBe(false);
+  });
 });

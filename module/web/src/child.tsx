@@ -5,7 +5,7 @@ import {
   MAX_CARDS, MERCHANTS, PARTNER_OFFERS, SETTING_LABELS, SUBS_MONTHLY_LIMIT, levelOf, nextLevel,
 } from '../../server/src/content';
 import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
-import { Confetti, CountUp, Piggy, PiggyParty } from './fx';
+import { Confetti, CountUp, MegaPig, PigBurst, PigStage, PiggyParty } from './fx';
 import { Icon } from './icons';
 import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
@@ -88,6 +88,7 @@ function GoalSheet({ o, goalId, close }: { o: ChildOverview; goalId: string; clo
   const [sum, setSum] = useState('2');
   const [busy, wrap] = useBusy();
   const [party, setParty] = useState<{ added: number } | null>(null);
+  const [boom, setBoom] = useState(false);
   const bonus = o.me.settings.parentBonus;
   const amount = toKop(sum);
   const short = amount > o.me.balance;
@@ -95,12 +96,15 @@ function GoalSheet({ o, goalId, close }: { o: ChildOverview; goalId: string; clo
   // Ребёнку 7–13 — праздник копилки: монетки падают, свинка радуется
   if (party) {
     const saved = g.saved + party.added;
+    const full = saved >= g.target;
     return <>
-      <PiggyParty from={g.saved / g.target} to={saved / g.target} amount={fmt(party.added)} />
-      <h2 style={{ textAlign: 'center' }}>{saved >= g.target ? `Ура! Хватает на «${g.title}»` : 'Хрю! Спасибо!'}</h2>
-      <p className="muted" style={{ textAlign: 'center', marginTop: -6 }}>{saved >= g.target ? 'Цель накоплена — покажи родителям' : `В копилке ${fmt(saved)} из ${fmt(g.target)}. Осталось ${fmt(g.target - saved)}`}</p>
-      {saved >= g.target && <Confetti />}
-      <button className="btn" onClick={close}>Готово</button>
+      {/* Набрали цель — копилка светится и взрывается, деньги приходят на счёт */}
+      <PiggyParty from={g.saved / g.target} to={saved / g.target} amount={fmt(party.added)}
+        onBurst={full ? () => run(() => call(`/api/child/goals/${goalId}/break`, {})).then(r => { if (r) setBoom(true); }) : undefined} />
+      <h2 style={{ textAlign: 'center' }}>{boom ? 'Бум! Копилка разбита' : full ? 'Копилка полная!' : 'Хрю! Спасибо!'}</h2>
+      <p className="muted" style={{ textAlign: 'center', marginTop: -6 }}>{boom ? `${fmt(saved)} уже на счёте — можно покупать «${g.title}»` : full ? 'Сейчас что-то будет…' : `В копилке ${fmt(saved)} из ${fmt(g.target)}. Осталось ${fmt(g.target - saved)}`}</p>
+      {boom && <Confetti />}
+      <button className="btn" disabled={full && !boom} onClick={close}>{boom ? 'Ура!' : 'Готово'}</button>
     </>;
   }
   return <>
@@ -138,7 +142,7 @@ function GoalCard({ o, id }: { o: ChildOverview; id: string }) {
   const weeks = o.me.settings.allowance.on ? Math.ceil((g.target - g.saved) / o.me.settings.allowance.amount) : null;
   const kid = o.me.group === 'kid';
   return <div className="card goal">
-    <div className="goal-h">{kid ? <Piggy fill={g.saved / g.target} size={62} /> : <RowIcon name={g.icon} tone="red" />}
+    <div className="goal-h">{kid ? <MegaPig fill={g.saved / g.target} className="pig-mini" /> : <RowIcon name={g.icon} tone="red" />}
       <div className="tx"><b style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{kid && <Icon name={g.icon} size={18} />}{g.title}</b><small className="muted">{fmt(g.saved)} из {fmt(g.target)}</small></div>
       <button className="sbtn" onClick={() => sheet(c => <GoalSheet o={o} goalId={id} close={c} />)}>Положить</button></div>
     <Bar value={g.saved} max={g.target} red />
@@ -312,19 +316,51 @@ export function KidHome() {
 
 export function KidGoals() {
   const o = useChild();
-  const { sheet } = useDevice();
+  const { sheet, run, call } = useDevice();
+  const [sel, setSel] = useState<string | null>(null);
+  // Разбиваем копилку: свинка трясётся, взрывается, деньги приходят на счёт
+  const [smash, setSmash] = useState<{ title: string; amount: number; phase: 'shake' | 'boom' | 'done' } | null>(null);
   if (!o) return <Loading />;
+  const goals = o.me.goals;
+  const g = goals.find(x => x.id === sel) ?? goals[0];
+  const full = !!g && g.saved >= g.target;
+  const weeks = g && o.me.settings.allowance.on ? Math.ceil((g.target - g.saved) / o.me.settings.allowance.amount) : null;
+  const breakIt = () => {
+    if (!g) return;
+    setSmash({ title: g.title, amount: g.saved, phase: 'shake' });
+    setTimeout(async () => {
+      setSmash(s => s && { ...s, phase: 'boom' });
+      await run(() => call(`/api/child/goals/${g.id}/break`, {}));
+      setTimeout(() => setSmash(s => s && { ...s, phase: 'done' }), 1300);
+    }, 1400);
+  };
   return <>
     <PlainTop title="Копилки" />
     <div className="page tight">
       {o.me.settings.parentBonus && <div className="family-entry"><div className="ic red"><Icon name="gift" size={24} /></div><div className="tx"><b>Родители добавляют 10%</b><small>Положишь 10 BYN, в копилке станет 11 BYN</small></div></div>}
-      {o.me.goals.length ? o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />) : <div className="empty">Копилок пока нет</div>}
+      {smash ? <div className="card pigcard">
+        <PigStage>{smash.phase === 'shake' ? <MegaPig fill={1} mood="full" className="pig-shake" /> : <><PigBurst /><div className="pig-hole" /></>}</PigStage>
+        {smash.phase === 'done' && <Confetti />}
+        <h2 style={{ textAlign: 'center' }}>{smash.phase === 'done' ? 'Бум! Копилка разбита' : 'Разбиваем…'}</h2>
+        {smash.phase === 'done' && <><p className="muted" style={{ textAlign: 'center', marginTop: -6 }}>{fmt(smash.amount)} уже на счёте — можно покупать «{smash.title}»</p>
+          <button className="btn" onClick={() => { setSmash(null); setSel(null); }}>Ура!</button></>}
+      </div> : g ? <div className="card pigcard">
+        <PigStage top={goals.length > 1 && <div className="ps-goals" role="tablist">{goals.map(x => (
+          <button key={x.id} role="tab" aria-selected={x.id === g.id} className={`ps-goal ${x.id === g.id ? 'on' : ''}`} onClick={() => setSel(x.id)}><Icon name={x.icon} size={16} />{x.title}</button>))}</div>}>
+          <MegaPig key={g.id} fill={g.saved / g.target} mood={full ? 'full' : 'idle'} />
+        </PigStage>
+        <div className="pig-info"><b><Icon name={g.icon} size={20} />{g.title}</b><span>{fmt(g.saved)} из {fmt(g.target)}</span></div>
+        <Bar value={g.saved} max={g.target} red />
+        <small className="muted">{full ? 'Копилка полная! Разбей её — деньги придут на счёт' : `Осталось ${fmt(g.target - g.saved)}${weeks ? `, около ${weeks} нед. с карманных` : ''}`}
+          {!full && o.me.settings.roundup && g.id === goals.find(x => x.saved < x.target)?.id ? '. Сюда же падает сдача с покупок' : ''}</small>
+        {full ? <button className="btn solid-red" onClick={breakIt}>Разбить копилку!</button>
+          : <button className="btn" onClick={() => sheet(c => <GoalSheet o={o} goalId={g.id} close={c} />)}>Положить</button>}
+      </div> : <div className="card empty">Копилок пока нет. Придумай, на что копить</div>}
+      {o.me.settings.perms.goals && <button className="btn ghost" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
+      <CashbackCard o={o} />
+      <FamilyGoalCard o={o} />
       {o.me.deposit && <div className="family-entry"><div className="ic"><Icon name="landmark" size={24} /></div>
         <div className="tx"><b>Вклад «На вырост»: {fmt(o.me.deposit.amount)}</b><small>Копят родители, {o.me.deposit.rate}% годовых. Через год будет около {fmt(Math.round(o.me.deposit.amount * (1 + o.me.deposit.rate / 100)))}</small></div></div>}
-      <CashbackCard o={o} />
-      {o.me.settings.roundup && o.me.goals[0] && <div className="legal"><Icon name="coins" size={18} /><span>Сдача с покупок округляется и падает в первую незаполненную копилку.</span></div>}
-      <FamilyGoalCard o={o} />
-      {o.me.settings.perms.goals && <button className="btn" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
     </div>
   </>;
 }

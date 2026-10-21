@@ -456,19 +456,12 @@ button.chip { color: inherit; }
 .ins-price small { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 
 /* ---------- эффекты для детей ---------- */
-.piggy { overflow: visible; flex: none; }
-.pig-level { transition: y 900ms var(--ease-out); }
-.pig-wave { animation: pigwave 2.4s ease-in-out infinite; }
-@keyframes pigwave { 50% { transform: translateX(-6px); } }
 .pig-jump { animation: pigjump 700ms var(--ease-out) 2; transform-origin: 50% 90%; }
 @keyframes pigjump { 0% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-14px) scale(.96, 1.05); } 60% { transform: translateY(0) scale(1.06, .93); } 100% { transform: translateY(0) scale(1, 1); } }
 .pigparty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 6px; }
-.pig-stage { position: relative; width: 220px; height: 190px; display: flex; align-items: flex-end; justify-content: center; }
 .pig-coin { position: absolute; top: -6px; width: 26px; height: 26px; border-radius: 50%; background: var(--blue-light); color: #fff; font-weight: 800; font-size: 13px; display: grid; place-items: center;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .15); opacity: 0; animation: coindrop 650ms cubic-bezier(.5, 0, .9, .6) forwards; }
 @keyframes coindrop { 0% { opacity: 0; transform: translateY(-30px) rotate(0); } 15% { opacity: 1; } 85% { opacity: 1; transform: translateY(78px) rotate(200deg) scaleX(.6); } 100% { opacity: 0; transform: translateY(86px) scaleX(.2); } }
-.pig-heart { position: absolute; bottom: 70px; color: var(--red); font-size: 20px; opacity: 0; animation: heartup 1400ms ease-out forwards; }
-@keyframes heartup { 0% { opacity: 0; transform: translateY(0) scale(.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-90px) scale(1.2); } }
 .pig-amount { font-size: 30px; font-weight: 800; color: var(--red); animation: popin 500ms var(--ease-out) 600ms both; }
 @keyframes popin { 0% { opacity: 0; transform: scale(.4); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
 
@@ -490,3 +483,47 @@ button.chip { color: inherit; }
 .cc-item.on { border-color: var(--blue); }
 .cc-item:not(.on) { transform: scale(.96); }
 .cc-item .bankcard { height: 150px; }
+
+/* мега-копилка */
+.pigcard { display: flex; flex-direction: column; gap: 10px; padding: 10px 10px 16px; }
+.pigcard > :not(.pigstage) { margin: 0 6px; }
+.pigstage { position: relative; border-radius: 16px; overflow: hidden; height: 268px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 4px;
+  background: radial-gradient(120% 90% at 50% 0%, #5C9BF3 0%, #1F5FD6 42%, #2334C8 100%); }
+.ps-beam { position: absolute; top: -10px; width: 130px; height: 300px; background: linear-gradient(180deg, rgba(255, 255, 255, .38), rgba(255, 255, 255, 0) 85%); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); pointer-events: none; }
+.ps-beam.l { left: 6%; transform: rotate(16deg); transform-origin: top center; }
+.ps-beam.r { right: 6%; transform: rotate(-16deg); transform-origin: top center; }
+.ps-star { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px 2px rgba(255, 255, 255, .8); animation: twinkle 2.2s ease-in-out infinite; }
+@keyframes twinkle { 50% { opacity: .2; transform: scale(.5); } }
+.ps-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; z-index: 2; }
+.ps-goal { flex: none; display: inline-flex; gap: 6px; align-items: center; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, .2); color: #fff; font-size: 13.5px; font-weight: 600; }
+.ps-goal.on { background: #fff; color: var(--blue); }
+.ps-pig { position: relative; width: 256px; }
+.megapig { width: 100%; height: auto; display: block; overflow: visible; }
+.megapig.pig-mini { width: 76px; flex: none; }
+.megapig.full { filter: drop-shadow(0 0 14px rgba(151, 207, 255, .95)); animation: pigglow 1.6s ease-in-out infinite; }
+@keyframes pigglow { 50% { filter: drop-shadow(0 0 26px rgba(255, 255, 255, .95)); } }
+.pm-new { animation: pmdrop 620ms cubic-bezier(.5, 0, .9, .6) both; }
+@keyframes pmdrop { 0% { opacity: 0; transform: translateY(-110px); } 30% { opacity: 1; } 85% { transform: translateY(3px); } 100% { transform: translateY(0); } }
+.pm-spark { transform-box: fill-box; transform-origin: center; animation: sparkle 1.1s ease-in-out infinite; }
+@keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(.3); } 50% { opacity: 1; transform: scale(1.1); } }
+.pig-shake { animation: pigshake 1.5s ease-in-out both; transform-origin: 50% 85%; }
+@keyframes pigshake { 0%, 100% { transform: rotate(0); } 10%, 30%, 50%, 70%, 90% { transform: rotate(-3deg) scale(1.02); } 20%, 40%, 60%, 80% { transform: rotate(3deg) scale(1.04); } }
+.ps-pig .pig-coin { top: -34px; }
+.pig-info { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pig-info b { display: flex; gap: 6px; align-items: center; font-size: 17px; }
+.pig-info span { color: var(--muted); font-size: 14px; white-space: nowrap; }
+
+/* взрыв копилки */
+.pigburst { position: absolute; inset: 0; pointer-events: none; }
+.pb-flash { position: absolute; left: 50%; top: 55%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, .8) 40%, rgba(255, 255, 255, 0) 70%); animation: pbflash 700ms ease-out forwards; }
+@keyframes pbflash { 0% { transform: scale(.2); opacity: 1; } 100% { transform: scale(9); opacity: 0; } }
+.pb-ring { position: absolute; left: 50%; top: 55%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; border: 4px solid #fff; animation: pbring 800ms ease-out forwards; }
+@keyframes pbring { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(7); opacity: 0; } }
+.pb-shard { position: absolute; left: 50%; top: 55%; width: 90px; height: 90px; margin: -45px; animation: pbshard 1300ms cubic-bezier(.2, .7, .4, 1) forwards; }
+@keyframes pbshard { 0% { transform: translate(0, 0) rotate(0) scale(.6); opacity: 1; } 55% { transform: translate(var(--dx), var(--dy)) rotate(calc(var(--r) * .6)) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 170px)) rotate(var(--r)) scale(.9); opacity: 0; } }
+.pb-coin { position: absolute; left: 50%; top: 55%; width: 18px; height: 18px; margin: -9px; border-radius: 50%; background: #5C9BF3; border: 2px solid #1F5FD6; animation: pbcoin 1500ms cubic-bezier(.25, .6, .45, 1) both; }
+.pb-coin.sky { background: #97CFFF; border-color: #5C9BF3; }
+.pb-coin.note { width: 26px; height: 13px; margin: -6px -13px; border-radius: 3px; background: #FF8E87; border-color: #E42C26; }
+@keyframes pbcoin { 0% { transform: translate(0, 0) rotate(0) scale(.4); opacity: 1; } 35% { transform: translate(calc(var(--dx) * .6), var(--up)) rotate(calc(var(--r) * .4)) scale(1); } 100% { transform: translate(var(--dx), 230px) rotate(var(--r)); opacity: 0; } }
+.ps-goals { display: flex; gap: 6px; }
+.pig-hole { width: 256px; aspect-ratio: 260 / 222; }

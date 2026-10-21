@@ -880,6 +880,23 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
+  /** «Разбить копилку»: цель накоплена — деньги возвращаются на счёт ребёнка, чтобы купить то, на что копил */
+  breakGoal(childId: string, goalId: string) {
+    const c = this.childRow(childId);
+    const g = this.one<{ title: string; saved: number; target: number }>('SELECT title, saved, target FROM goals WHERE id = ? AND child_id = ?', goalId, childId);
+    if (!g) throw notFound('Копилка');
+    if (g.saved < g.target) throw bad('not_full', `Копилка ещё не полная: ${fmt(g.saved)} из ${fmt(g.target)}`);
+    tx(this.db, () => {
+      this.run('DELETE FROM goals WHERE id = ?', goalId);
+      this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', g.saved, childId);
+      this.addTx(childId, `Копилка «${g.title}» разбита`, g.saved, 'Копилки', 'internal');
+      this.addFeed(c.family_id, childId, `${c.name} накопил(а) на «${g.title}» и разбил(а) копилку`, g.saved);
+      this.addXp(c, 30, 10);
+    });
+    this.touch(c.family_id);
+    return { amount: g.saved };
+  }
+
   depositGoal(childId: string, goalId: string, amount: number) {
     const c = this.childRow(childId);
     const g = this.one<{ title: string }>('SELECT title FROM goals WHERE id = ? AND child_id = ?', goalId, childId);
