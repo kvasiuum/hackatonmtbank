@@ -309,13 +309,33 @@ export function KidHome() {
   </>;
 }
 
+/** Шторка суммы для копилки ребёнка 7–13: сама анимация пополнения идёт на экране копилки */
+function DepositSheet({ o, goalId, close, onPut }: { o: ChildOverview; goalId: string; close: () => void; onPut: (amount: number) => void }) {
+  const { run, call } = useDevice();
+  const g = o.me.goals.find(x => x.id === goalId)!;
+  const [sum, setSum] = useState('2');
+  const [busy, wrap] = useBusy();
+  const amount = toKop(sum);
+  const short = amount > o.me.balance;
+  const bonus = o.me.settings.parentBonus;
+  return <>
+    <div className="goal-h"><span className="gi-ic"><Icon name={g.icon} size={20} /></span><div className="tx"><h2>{g.title}</h2><small className="muted">На счёте {fmt(o.me.balance)}{bonus ? ', родители добавят 10%' : ''}</small></div></div>
+    <AmountField label="Сколько положить, BYN" value={sum} onChange={setSum} presets={[1, 2, 5, 10]} />
+    {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>
+      : g.target > g.saved && <small className="muted">До цели осталось {fmt(g.target - g.saved)}</small>}
+    <button className="btn" disabled={short || amount <= 0} onClick={() => { close(); onPut(amount); }}>
+      Положить {amount > 0 ? fmt(amount) : ''}{bonus && amount > 0 ? `, в копилку упадёт ${fmt(Math.round(amount * 1.1))}` : ''}</button>
+    <button className="btn ghost" disabled={busy || amount <= 0} onClick={() => wrap(async () => {
+      if (await run(() => call('/api/child/requests', { type: 'goal', goalId, amount, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) close();
+    })}>Попросить у родителей {amount > 0 ? fmt(amount) : ''}</button>
+  </>;
+}
+
 export function KidGoals() {
   const o = useChild();
   const { sheet, run, call } = useDevice();
   const [sel, setSel] = useState<string | null>(() => { const p = pickedGoal; pickedGoal = null; return p; });
-  // Пополнение прямо здесь: сумма под свинкой, после — монеты падают внутрь и свинка подпрыгивает
-  const [adding, setAdding] = useState(false);
-  const [sum, setSum] = useState('2');
+  // Сумму выбирают в шторке, а анимация идёт здесь: монеты падают внутрь и свинка подпрыгивает
   const [anim, setAnim] = useState<{ from: number; added: number; bonus: number } | null>(null);
   // Разбиваем копилку: свинка трясётся, взрывается, деньги приходят на счёт
   const [smash, setSmash] = useState<{ title: string; amount: number; phase: 'shake' | 'boom' | 'done' } | null>(null);
@@ -328,8 +348,6 @@ export function KidGoals() {
   const g = goals.find(x => x.id === sel) ?? goals[0];
   const full = !!g && g.saved >= g.target;
   const weeks = g && o.me.settings.allowance.on ? Math.ceil((g.target - g.saved) / o.me.settings.allowance.amount) : null;
-  const amount = toKop(sum);
-  const short = amount > o.me.balance;
   const pct = g ? Math.min(100, Math.round(g.saved / g.target * 100)) : 0;
   const breakIt = (goalId: string, title: string, saved: number) => {
     setSmash({ title, amount: saved, phase: 'shake' });
@@ -340,11 +358,10 @@ export function KidGoals() {
       setTimeout(() => setSmash(s => s && { ...s, phase: 'done' }), 1300);
     }, 1400);
   };
-  const put = () => wrap(async () => {
+  const put = (amount: number) => wrap(async () => {
     const from = g.saved / g.target;
     const r = await run(() => call<{ added: number; bonus: number }>(`/api/child/goals/${g.id}/deposit`, { amount }));
     if (!r) return;
-    setAdding(false);
     showPig();
     setAnim({ from, added: r.added, bonus: r.bonus });
     const saved = g.saved + r.added;
@@ -356,14 +373,14 @@ export function KidGoals() {
     <div className="page tight">
       {o.me.settings.parentBonus && <div className="family-entry"><div className="ic red"><Icon name="gift" size={24} /></div><div className="tx"><b>Родители добавляют 10%</b><small>Положишь 10 BYN, в копилке станет 11 BYN</small></div></div>}
       {smash ? <div className="card pigcard" ref={card}>
-        <PigStage>{smash.phase === 'shake' ? <MegaPig fill={1} mood="full" className="pig-shake" /> : <><PigBurst /><div className="pig-hole" /></>}</PigStage>
+        <PigStage>{smash.phase === 'shake' ? <MegaPig fill={1} mood="full" cracking className="pig-shake" /> : <><PigBurst /><div className="pig-hole" /></>}</PigStage>
         {smash.phase === 'done' && <Confetti />}
         <h2 style={{ textAlign: 'center' }}>{smash.phase === 'done' ? 'Бум! Копилка разбита' : 'Копилка полная! Разбиваем…'}</h2>
         {smash.phase === 'done' && <><p className="muted" style={{ textAlign: 'center', marginTop: -6 }}>{fmt(smash.amount)} уже на счёте — можно покупать «{smash.title}»</p>
           <button className="btn" onClick={() => { setSmash(null); setSel(null); }}>Ура!</button></>}
       </div> : g ? <div className="card pigcard" ref={card}>
         <PigStage top={goals.length > 1 && <div className="ps-goals" role="tablist">{goals.map(x => (
-          <button key={x.id} role="tab" aria-selected={x.id === g.id} className={`ps-goal ${x.id === g.id ? 'on' : ''}`} onClick={() => { setSel(x.id); setAdding(false); }}><Icon name={x.icon} size={16} />{x.title}</button>))}</div>}>
+          <button key={x.id} role="tab" aria-selected={x.id === g.id} className={`ps-goal ${x.id === g.id ? 'on' : ''}`} onClick={() => setSel(x.id)}><Icon name={x.icon} size={16} />{x.title}</button>))}</div>}>
           {anim && [0, 1, 2].map(i => <span key={i} className="pig-coin" style={{ animationDelay: `${i * 160}ms`, left: `${46 + i * 3}%` }}>М</span>)}
           <MegaPig key={g.id} fill={g.saved / g.target} prevFill={anim?.from} mood={full ? 'full' : anim ? 'happy' : 'idle'} className={anim ? 'pig-jump' : ''} />
           {anim && <div className="pig-plus">+{fmt(anim.added)}{anim.bonus > 0 && <small>из них {fmt(anim.bonus)} от родителей</small>}</div>}
@@ -376,19 +393,7 @@ export function KidGoals() {
             : `Осталось ${fmt(g.target - g.saved)}${weeks ? ` · около ${weeks} нед. с карманных` : ''}${o.me.settings.roundup && g.id === goals.find(x => x.saved < x.target)?.id ? ' · сюда падает сдача с покупок' : ''}`}</small>
         </div>
         {full ? <button className="btn" onClick={() => breakIt(g.id, g.title, g.saved)}>Разбить копилку!</button>
-          : adding ? <div className="pig-add">
-            <AmountField label="Сколько положить, BYN" value={sum} onChange={setSum} presets={[1, 2, 5, 10]} />
-            {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>
-              : <small className="muted">На счёте {fmt(o.me.balance)}{o.me.settings.parentBonus && amount > 0 ? ` · в копилку упадёт ${fmt(Math.round(amount * 1.1))}` : ''}</small>}
-            <div className="btns">
-              <button className="btn ghost" onClick={() => setAdding(false)}>Отмена</button>
-              <button className="btn" disabled={busy || short || amount <= 0} onClick={put}>Положить {amount > 0 ? fmt(amount) : ''}</button>
-            </div>
-            <button className="link" style={{ alignSelf: 'center' }} disabled={busy || amount <= 0} onClick={() => wrap(async () => {
-              if (await run(() => call('/api/child/requests', { type: 'goal', goalId: g.id, amount, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) setAdding(false);
-            })}>Попросить {amount > 0 ? fmt(amount) : ''} у родителей</button>
-          </div>
-          : <button className="btn" disabled={!!anim} onClick={() => setAdding(true)}>Положить</button>}
+          : <button className="btn" disabled={!!anim || busy} onClick={() => sheet(c => <DepositSheet o={o} goalId={g.id} close={c} onPut={put} />)}>Положить</button>}
       </div> : <div className="card empty">Копилок пока нет. Придумай, на что копить</div>}
       {o.me.settings.perms.goals && <button className="btn ghost" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
       <CashbackCard o={o} />
