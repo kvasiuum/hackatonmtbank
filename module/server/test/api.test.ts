@@ -406,7 +406,8 @@ describe('API модуля «Семья»', () => {
     expect((await call('GET', '/api/parent/overview', p2)).body.children.length).toBe(2);
     expect((await call('POST', '/api/child/requests', kid, { type: 'money', amount: 700, parentId: 'u_nobody' })).status).toBe(400);
     const r = await call('POST', '/api/child/requests', kid, { type: 'money', amount: 700, parentId: 'u_parent2', reason: 'Кино' });
-    const req = (await call('GET', '/api/parent/overview', p1)).body.requests.find((x: any) => x.id === r.body.id);
+    expect((await call('GET', '/api/parent/overview', p1)).body.requests.some((x: any) => x.id === r.body.id)).toBe(false); // чужой запрос не виден
+    const req = (await call('GET', '/api/parent/overview', p2)).body.requests.find((x: any) => x.id === r.body.id);
     expect(req.toParent).toEqual({ id: 'u_parent2', name: 'Родитель 2' });
     expect((await call('POST', `/api/parent/requests/${r.body.id}`, p1, { approve: true })).status).toBe(403);
     const before = (await call('GET', '/api/parent/overview', p2)).body.parent.balance;

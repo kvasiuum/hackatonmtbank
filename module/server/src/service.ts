@@ -318,7 +318,8 @@ export class FamilyService {
     const u = this.one<{ name: string; balance: number; card_mask: string; phone: string | null }>('SELECT u.name, u.phone, p.balance, p.card_mask FROM users u JOIN parents p ON p.user_id = u.id WHERE u.id = ?', parentId)!;
     const kids = this.q<ChildRow>('SELECT c.*, u.name FROM children c JOIN users u ON u.id = c.user_id WHERE c.family_id = ? ORDER BY c.age DESC', familyId);
     const requests = this.q<ReqRow>(
-      'SELECT r.* FROM requests r JOIN children c ON c.user_id = r.child_id WHERE c.family_id = ? ORDER BY r.status = \'pending\' DESC, r.created_at DESC LIMIT 30', familyId,
+      // запрос денег у конкретного родителя видит только он
+      'SELECT r.* FROM requests r JOIN children c ON c.user_id = r.child_id WHERE c.family_id = ? AND coalesce(json_extract(r.payload, \'$.parentId\'), ?) = ? ORDER BY r.status = \'pending\' DESC, r.created_at DESC LIMIT 30', familyId, parentId, parentId,
     ).map(r => this.request(r));
     const feed = this.q<{ id: string; child_id: string | null; text: string; amount: number | null; created_at: string }>(
       'SELECT * FROM feed WHERE family_id = ? ORDER BY created_at DESC LIMIT 20', familyId,

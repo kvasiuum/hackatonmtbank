@@ -179,15 +179,14 @@ function RequestItem({ r, o, showName = true }: { r: ChildRequest; o: ParentOver
     <div className="req">
       <div className="req-h">
         {showName && <Kava c={c} />}
-        <div className="tx"><small>{showName ? `${c.name} · ` : ''}{when(r.createdAt)}</small><b>{REQ_LABEL[r.type]}{r.toParent ? ` у ${r.toParent.id === o.parent.id ? 'вас' : r.toParent.name}` : ''}</b>{r.type !== 'money' && <small>{r.summary}</small>}</div>
+        <div className="tx"><small>{showName ? `${c.name} · ` : ''}{when(r.createdAt)}</small><b>{REQ_LABEL[r.type]}{r.toParent ? ' у вас' : ''}</b>{r.type !== 'money' && <small>{r.summary}</small>}</div>
         {r.amount != null && <span className="req-sum">{fmt(r.amount)}</span>}
       </div>
       {r.reason && <div className="reason">{r.reason}</div>}
-      {/* Запрос адресован другому родителю — видим, но отвечает он */}
-      {r.toParent && r.toParent.id !== o.parent.id ? <div className="legal"><Icon name="clock" size={18} /><span>Ждёт ответа: {r.toParent.name}. Деньги переведёт он со своей карты</span></div> : <div className="btns">
+      <div className="btns">
         <button className="btn red" disabled={busy} onClick={() => resolve(false)}>Отклонить</button>
         <button className="btn" disabled={busy} onClick={() => resolve(true)}>{r.type === 'level' ? 'Расширить' : r.type === 'money' || r.type === 'task' ? 'Перевести' : 'Одобрить'}</button>
-      </div>}
+      </div>
     </div>
   );
 }
