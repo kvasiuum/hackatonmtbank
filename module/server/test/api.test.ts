@@ -231,4 +231,21 @@ describe('API модуля «Семья»', () => {
     expect(me).toMatchObject({ name: 'Лиза', group: 'teen', phone: '+375447778899', joined: true });
     expect((await call('POST', '/api/auth/login', undefined, { userId: me.id, pin: '1357' })).status).toBe(200);
   });
+
+  it('родитель меняет задание и переводит с другой карты', async () => {
+    const parent = await login('u_parent');
+    expect((await call('PATCH', '/api/parent/tasks/k_vacuum', parent, { title: 'Пропылесосить всю квартиру', reward: 600 })).status).toBe(200);
+    const tasks = (await call('GET', '/api/parent/tasks', parent)).body;
+    expect(tasks.find((t: any) => t.id === 'k_vacuum')).toMatchObject({ childId: 'u_misha', title: 'Пропылесосить всю квартиру', reward: 600 });
+    expect((await call('PATCH', '/api/parent/tasks/k_trash', parent, { title: 'Мусор', reward: 100 })).status).toBe(400); // уже оплачено
+
+    const cards = (await call('GET', '/api/parent/overview', parent)).body.parent.cards;
+    expect(cards.map((c: any) => c.id)).toEqual(['main', 'pc_halva', 'pc_salary']);
+    expect((await call('POST', '/api/parent/children/u_misha/topup', parent, { amount: 2000, cardId: 'pc_salary' })).body.error.code).toBe('parent_funds');
+    expect((await call('POST', '/api/parent/children/u_misha/topup', parent, { amount: 2000, cardId: 'pc_halva' })).status).toBe(200);
+    const after = (await call('GET', '/api/parent/overview', parent)).body;
+    expect(after.parent.cards[1].balance).toBe(31200 - 2000);
+    expect(after.parent.balance).toBe(124050);
+    expect(after.children.find((k: any) => k.id === 'u_misha').balance).toBe(2340 + 2000);
+  });
 });

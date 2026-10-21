@@ -159,24 +159,42 @@ function MyRequests({ o }: { o: ChildOverview }) {
   ))}</div>;
 }
 
-function MyCards({ o }: { o: ChildOverview }) {
+/** Карты ребёнка в шторке: данные берём свежие, чтобы блокировка сразу отражалась */
+function CardsSheet({ close }: { close: () => void }) {
+  const o = useChild();
   const { run, call, sheet } = useDevice();
+  if (!o) return <Loading />;
   const kid = o.me.group === 'kid';
   const main = mainCard(o.me.cards);
-  return <Fold icon="credit-card" title="Мои карты" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}${o.me.cards.length > 1 ? ` и ещё ${o.me.cards.length - 1}` : ''}` : 'Карт нет'}>
-    {main && <div style={{ padding: '12px 0 4px' }}><BankCard name={o.me.name} card={main} /></div>}
-    {main?.status === 'active' && CARD_TYPES[main.type].physical && <button className="btn red" style={{ margin: '8px 0' }} onClick={() => run(() => call(`/api/cards/${main.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}><Icon name="lock" size={20} /> Я потерял карту</button>}
-    {o.me.cards.map(c => (
+  return <>
+    <h2>Мои карты</h2>
+    {main && <BankCard name={o.me.name} card={main} />}
+    {main?.status === 'active' && CARD_TYPES[main.type].physical && <button className="btn red" onClick={() => run(() => call(`/api/cards/${main.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}><Icon name="lock" size={20} /> Я потерял карту</button>}
+    <div>{o.me.cards.map(c => (
       <div className="row" key={c.id}>
         <div className="ic" style={{ background: c.color, color: '#fff' }}><Icon name={cardIcon(c.type)} size={22} /></div>
         <div className="tx"><b>{CARD_TYPES[c.type].label}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>•• {c.last4} <CardStatus c={c} /></small></div>
         {c.status === 'active' && <button className="sbtn red" onClick={() => run(() => call(`/api/cards/${c.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}>Блок</button>}
         {c.status === 'blocked' && !kid && <button className="sbtn" onClick={() => run(() => call(`/api/cards/${c.id}`, { action: 'unblock' }), 'Карта снова работает')}>Разблок.</button>}
       </div>
-    ))}
-    {o.me.cards.length < MAX_CARDS && <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(c => <CardRequestSheet o={o} close={c} />)}>
+    ))}</div>
+    {o.me.cards.length < MAX_CARDS && <button className="btn ghost" onClick={() => { close(); sheet(c => <CardRequestSheet o={o} close={c} />); }}>
       <Icon name={o.me.settings.perms.newCards ? 'plus' : 'send'} size={20} /> {o.me.settings.perms.newCards ? 'Выпустить виртуальную карту' : 'Попросить новую карту'}</button>}
-  </Fold>;
+  </>;
+}
+
+function OpsSheet({ title }: { title: string }) {
+  const o = useChild();
+  if (!o) return <Loading />;
+  return <><h2>{title}</h2><div><OpsList ops={o.me.ops} limit={20} /></div></>;
+}
+
+/** Ожидающие ответа запросы одной строкой: подробности ребёнку не нужны */
+function Waiting({ o }: { o: ChildOverview }) {
+  const p = o.requests.filter(r => r.status === 'pending');
+  if (!p.length) return null;
+  const r = p[0];
+  return <div className="waitline"><Icon name="clock" size={20} /><span>Ждём ответа родителей: <b>{r.summary}{r.amount != null ? `, ${fmt(r.amount)}` : ''}</b>{p.length > 1 ? ` и ещё ${p.length - 1}` : ''}</span></div>;
 }
 
 function CashbackCard({ o }: { o: ChildOverview }) {
@@ -233,15 +251,16 @@ export function KidHome() {
   if (!o) return <Loading />;
   const main = mainCard(o.me.cards);
   const virtualOk = o.me.cards.some(c => c.type === 'virtual' && c.status === 'active');
-  const left = Math.max(0, o.me.settings.limits.day - o.me.spentToday);
+  const left = Math.max(0, Math.min(o.me.settings.limits.day - o.me.spentToday, o.me.balance));
   return <>
     <div className="hero">
-      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">Привет, {o.me.name}</div><div className="hero-sub">Сегодня можно потратить ещё {fmt(Math.min(left, o.me.balance))}</div></div></div>
+      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div className="hero-name">Привет, {o.me.name}</div></div>
+      <div className="chips"><button className="chip" onClick={() => tab('learn')}>Уровень {o.me.level}</button><button className="chip" onClick={() => tab('learn')}><Coin />{o.me.coins}</button></div>
       <div className="bal-row"><div className="bal">{fmt(o.me.balance)}</div></div>
-      <LevelBox o={o} to="learn" />
+      <div className="hero-sub">Сегодня можно потратить ещё {fmt(left)}</div>
       <div className="actions">
-        <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
         <Act icon="pay" label="Оплатить" onClick={() => push('pay')} />
+        <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
         <Act icon="piggy-bank" label="Копилки" onClick={() => tab('goals')} />
       </div>
     </div>
@@ -249,12 +268,13 @@ export function KidHome() {
       {main && main.status !== 'active' && <div className="legal"><Icon name={main.status === 'blocked' ? 'lock' : 'clock'} size={18} /><span>
         {main.status === 'blocked' ? `${CARD_TYPES[main.type].label}: карта заблокирована. Нашлась? Попроси родителя разблокировать.` : `${CARD_TYPES[main.type].label} в пути.`}
         {virtualOk ? ' Пока плати виртуальной картой в телефоне' : ''}{o.me.settings.perms.qr ? `${virtualOk ? ' или' : ' Плати'} по QR КРОК.` : virtualOk ? '.' : ''}</span></div>}
-      <MyRequests o={o} />
+      <Waiting o={o} />
       <NextTask o={o} to={() => tab('tasks')} />
       {o.me.goals[0] && <GoalCard o={o} id={o.me.goals[0].id} />}
-      <CashbackCard o={o} />
-      <MyCards o={o} />
-      <Fold icon="history" title="Мои покупки" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Покупок пока нет'}><OpsList ops={o.me.ops} limit={8} /></Fold>
+      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+        <Row icon="credit-card" title="Моя карта" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}` : 'Карт нет'} onClick={() => sheet(c => <CardsSheet close={c} />)} />
+        <Row icon="history" title="Мои покупки" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Покупок пока нет'} onClick={() => sheet(() => <OpsSheet title="Мои покупки" />)} />
+      </div>
     </div>
   </>;
 }
@@ -268,6 +288,7 @@ export function KidGoals() {
     <div className="page tight">
       {o.me.settings.parentBonus && <div className="family-entry"><div className="ic red"><Icon name="gift" size={24} /></div><div className="tx"><b>Родители добавляют 10%</b><small>Положишь 10 BYN, в копилке станет 11 BYN</small></div></div>}
       {o.me.goals.length ? o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />) : <div className="empty">Копилок пока нет</div>}
+      <CashbackCard o={o} />
       {o.me.settings.roundup && o.me.goals[0] && <div className="legal"><Icon name="coins" size={18} /><span>Сдача с покупок округляется и падает в первую незаполненную копилку.</span></div>}
       <FamilyGoalCard o={o} />
       {o.me.settings.perms.goals && <button className="btn" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
@@ -306,7 +327,7 @@ export function KidLearn() {
   const o = useChild();
   if (!o) return <Loading />;
   return <><PlainTop title="Игры и уроки" right={<span className="tag red" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}><Coin />{o.me.coins}</span>} />
-    <div className="page tight"><LearnBlock o={o} /></div></>;
+    <div className="page tight"><div className="lvl-wrap"><LevelBox o={o} to="learn" /></div><LearnBlock o={o} /></div></>;
 }
 
 export function Quiz({ id }: { id: string }) {
@@ -394,27 +415,32 @@ export function TeenHome() {
   const [hide, setHide] = useState(false);
   if (!o) return <Loading />;
   const s = o.me.settings;
+  const main = mainCard(o.me.cards);
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">{o.me.name}</div><div className="hero-sub">Moby 14+</div></div></div>
-      <div className="chips"><span className="chip">УРОВЕНЬ {o.me.level}</span>{o.me.cards[0] && <span className="chip">5*{mainCard(o.me.cards).last4}</span>}<span className="chip"><Coin />{o.me.coins}</span></div>
+      <div className="chips"><button className="chip" onClick={() => tab('growth')}>Уровень {o.me.level}</button>{main && <span className="chip">5*{main.last4}</span>}<span className="chip"><Coin />{o.me.coins}</span></div>
       <div className="bal-row"><div className="bal">{hide ? '**** BYN' : fmt(o.me.balance)}</div><button className="iconbtn" onClick={() => setHide(!hide)} aria-label="Скрыть баланс"><Icon name={hide ? 'eye' : 'eye-off'} size={30} sw={1.6} /></button></div>
       <div className="actions">
-        <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
-        <Act icon="transfer" label="Перевести" onClick={() => (s.perms.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
         <Act icon="pay" label="Оплатить" onClick={() => push('pay')} />
+        <Act icon="transfer" label="Перевести" onClick={() => (s.perms.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
+        <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
       </div>
     </div>
     <div className="body">
-      <MyRequests o={o} />
-      <div className="card"><h3>Траты за месяц <button className="link" onClick={() => push('analytics')}>Подробнее</button></h3>
-        <div className="limitline" style={{ margin: '2px 0 10px' }}><span>{fmt(o.me.spentMonth)} из {fmt(s.limits.month)}</span><span>сегодня {fmt(o.me.spentToday)} из {fmt(s.limits.day)}</span></div>
-        <SpendBars o={o} n={3} /></div>
+      <Waiting o={o} />
+      <button className="card press" style={{ textAlign: 'left', width: '100%' }} onClick={() => push('analytics')}>
+        <h3>Потрачено в этом месяце <Chev /></h3>
+        <div className="bal" style={{ fontSize: 26, margin: '6px 0 8px', color: 'var(--text)' }}>{fmt(o.me.spentMonth)}</div>
+        <Bar value={o.me.spentMonth} max={s.limits.month} red={o.me.spentMonth >= s.limits.month} />
+        <div className="limitline"><span>Лимит {fmt(s.limits.month)} в месяц</span><span>сегодня {fmt(o.me.spentToday)} из {fmt(s.limits.day)}</span></div>
+      </button>
       <NextTask o={o} to={() => push('earn')} />
-      <CashbackCard o={o} />
-      <MyCards o={o} />
-      <Fold icon="history" title="История" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={o.me.ops} limit={10} /></Fold>
-      <button className="family-entry press" onClick={() => tab('growth')}><div className="ic"><Icon name="rocket" size={24} /></div><div className="tx"><b>Путь к 18: уровень {o.me.level} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div><Chev /></button>
+      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+        <Row icon="credit-card" title="Мои карты" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}${o.me.cards.length > 1 ? ` и ещё ${o.me.cards.length - 1}` : ''}` : 'Карт нет'} onClick={() => sheet(c => <CardsSheet close={c} />)} />
+        <Row icon="history" title="История" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Операций пока нет'} onClick={() => sheet(() => <OpsSheet title="История" />)} />
+        <Row icon="rocket" title={`Путь к 18: уровень ${o.me.level} из 5`} sub="Новый уровень — больше свободы и лимитов" onClick={() => tab('growth')} />
+      </div>
     </div>
   </>;
 }
@@ -535,6 +561,7 @@ export function TeenSavings() {
       </>}
     </div>
     {o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />)}
+    <CashbackCard o={o} />
     <FamilyGoalCard o={o} />
     {o.me.settings.perms.goals && <button className="btn" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
   </div></>;

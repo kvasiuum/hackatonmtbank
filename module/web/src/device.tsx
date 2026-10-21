@@ -4,7 +4,7 @@ import type { Device as DeviceInfo } from '../../server/src/types';
 import { Fraud, KidGoals, KidHome, KidLearn, KidTasks, Pay, Quiz, TeenAnalytics, TeenEarn, TeenGrowth, TeenHome, TeenPayments, TeenSavings, TeenSubs } from './child';
 import { Icon, MobyLogo } from './icons';
 import { api, ApiError, DeviceProvider, useDevice, type Route } from './lib';
-import { ChildScreen, FamilyScreen, Onboarding, PackageScreen, ParentChat, ParentHome, ParentMore, ParentProducts, ParentSettings } from './parent';
+import { ChildScreen, FamilyScreen, Onboarding, PackageScreen, TasksScreen, ParentChat, ParentHome, ParentMore, ParentProducts, ParentSettings } from './parent';
 import { Sheet } from './ui';
 
 const tokenKey = (userId: string) => `moby-family:token:${userId}`;
@@ -195,7 +195,7 @@ type Screen = (r: Route) => ReactNode;
 const PARENT: Record<string, Screen> = {
   home: () => <ParentHome />, products: () => <ParentProducts />, chat: () => <ParentChat />, more: () => <ParentMore />,
   settings: () => <ParentSettings />, family: () => <FamilyScreen />, child: r => <ChildScreen id={r.params!.id} />, onboard: () => <Onboarding />,
-  package: () => <PackageScreen />,
+  package: () => <PackageScreen />, tasks: r => <TasksScreen childId={r.params?.childId} />,
 };
 const KID: Record<string, Screen> = {
   home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, learn: () => <KidLearn />,

@@ -135,7 +135,10 @@ export function createApi(db: DB, opts: ApiOptions) {
       return svc.addChild(me(r).userId, b as Parameters<FamilyService['addChild']>[1]);
     } },
     { method: 'PATCH', path: '/api/parent/children/:id/settings', role: 'parent', handler: r => svc.updateSettings(me(r).userId, id(r), settingsPatch.parse(r.body)) },
-    { method: 'POST', path: '/api/parent/children/:id/topup', role: 'parent', handler: r => { svc.topup(me(r).userId, id(r), z.object({ amount: money }).parse(r.body).amount); return ok; } },
+    { method: 'POST', path: '/api/parent/children/:id/topup', role: 'parent', handler: r => {
+      const b = z.object({ amount: money, cardId: z.string().max(40).optional() }).parse(r.body);
+      svc.topup(me(r).userId, id(r), b.amount, b.cardId); return ok;
+    } },
     { method: 'POST', path: '/api/parent/children/:id/allowance', role: 'parent', handler: r => { svc.payAllowanceNow(me(r).userId, id(r)); return ok; } },
     { method: 'POST', path: '/api/parent/children/:id/cards', role: 'parent', handler: r => {
       const b = z.object({ type: z.enum(['plastic', 'sticker', 'bracelet', 'virtual']), color: cardColor }).parse(r.body);
@@ -145,6 +148,11 @@ export function createApi(db: DB, opts: ApiOptions) {
     { method: 'POST', path: '/api/parent/children/:id/tasks', role: 'parent', handler: r => {
       const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
       svc.createTask(me(r).userId, id(r), b.title, b.reward); return ok;
+    } },
+    { method: 'GET', path: '/api/parent/tasks', role: 'parent', handler: r => svc.parentTasks(me(r).userId) },
+    { method: 'PATCH', path: '/api/parent/tasks/:id', role: 'parent', handler: r => {
+      const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
+      svc.updateTask(me(r).userId, id(r), b.title, b.reward); return ok;
     } },
     { method: 'DELETE', path: '/api/parent/tasks/:id', role: 'parent', handler: r => { svc.deleteTask(me(r).userId, id(r)); return ok; } },
     { method: 'POST', path: '/api/parent/plan', role: 'parent', handler: r => svc.setTariff(me(r).userId, z.object({ tariff: z.enum(['start', 'plus']) }).parse(r.body).tariff) },

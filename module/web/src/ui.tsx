@@ -1,7 +1,7 @@
 // Базовые элементы интерфейса в стиле Moby.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CARD_COLORS, CARD_TYPES, CAT_KEYS, PERM_KEYS, SETTING_LABELS } from '../../server/src/content';
-import type { Card, CardType, ChildSettings, ChildSummary, SettingPath, Tx } from '../../server/src/types';
+import type { Card, CardType, ChildSettings, ChildSummary, ParentCard, SettingPath, Tx } from '../../server/src/types';
 import { Icon } from './icons';
 import { fmt, initial, useDevice, when } from './lib';
 
@@ -77,6 +77,33 @@ export function BankCard({ name, card }: { name: string; card: Pick<Card, 'type'
 }
 export const cardIcon = (t: CardType) => (t === 'bracelet' ? 'watch' : t === 'sticker' ? 'sticker' : t === 'plastic' ? 'credit-card' : 'smartphone');
 export const mainCard = (cards: Card[]) => cards.find(c => CARD_TYPES[c.type].physical) ?? cards[0];
+
+const NetworkLogo = ({ n }: { n: ParentCard['network'] }) => n === 'visa' ? <b className="mc-visa">VISA</b>
+  : n === 'mastercard' ? <svg width="34" height="22" viewBox="0 0 34 22" aria-label="Mastercard"><circle cx="12" cy="11" r="10" fill="#E42C26" /><circle cx="22" cy="11" r="10" fill="#FF5912" fillOpacity=".85" /></svg>
+    : <b className="mc-belkart">БЕЛКАРТ</b>;
+
+/** Миниатюра карты родителя, как в Moby */
+export function MiniCard({ c, on }: { c: ParentCard; on?: boolean }) {
+  return <div className={`minicard ${on ? 'on' : ''}`}>
+    <div className="mc-top"><span>{c.title.toUpperCase()}</span><i className="mc-chip" /></div>
+    <div className="mc-bal">{fmt(c.balance).replace(' BYN', '')}<span> BYN</span></div>
+    <div className="mc-bot"><span>{c.mask} · {c.expiry}</span><NetworkLogo n={c.network} /></div>
+  </div>;
+}
+
+/** Карусель карт: листается пальцем, выбранной считается карта, на которой остановилась лента */
+export function CardCarousel({ cards, value, onChange }: { cards: ParentCard[]; value: string; onChange: (id: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const step = () => { const el = ref.current!; const first = el.firstElementChild as HTMLElement | null; return (first?.offsetWidth ?? 1) + 12; };
+  const onScroll = () => { const i = Math.round(ref.current!.scrollLeft / step()); if (cards[i] && cards[i].id !== value) onChange(cards[i].id); };
+  const go = (i: number) => ref.current?.scrollTo({ left: i * step(), behavior: 'smooth' });
+  return <>
+    <div className="mccar" ref={ref} onScroll={onScroll}>
+      {cards.map((c, i) => <button key={c.id} className="mcitem" onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${c.title} ${c.mask}`}><MiniCard c={c} on={c.id === value} /></button>)}
+    </div>
+    {cards.length > 1 && <div className="mcdots">{cards.map((c, i) => <button key={c.id} className={c.id === value ? 'on' : ''} onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${i + 1}`} />)}</div>}
+  </>;
+}
 
 export function CardStatus({ c }: { c: Card }) {
   if (c.status === 'blocked') return <span className="tag solid-red">Заблокирована</span>;

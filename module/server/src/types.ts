@@ -26,6 +26,9 @@ export interface ChildSettings {
 }
 
 export interface Card { id: string; type: CardType; last4: string; color: string; status: CardStatus }
+/** Карта родителя, с которой можно переводить детям. id «main» — основная карта с балансом на главной */
+export interface ParentCard { id: string; title: string; mask: string; expiry: string; network: 'visa' | 'mastercard' | 'belkart'; balance: number }
+export interface ParentTask extends Task { childId: string }
 export interface Tx { id: string; title: string; amount: number; category: string; method: string | null; createdAt: string }
 export interface Task { id: string; title: string; reward: number; status: 'open' | 'review' | 'paid' }
 export interface Goal { id: string; title: string; icon: string; target: number; saved: number }
@@ -75,7 +78,7 @@ export interface FamilyPlan { tariff: Tariff; since: string; spendMonth: number;
 export interface JoinRequest { id: string; name: string; age: number; phone: string; createdAt: string }
 
 export interface ParentOverview {
-  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null };
+  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null; cards: ParentCard[] };
   introSeen: boolean;
   plan: FamilyPlan;
   joinRequests: JoinRequest[];

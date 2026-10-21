@@ -8,7 +8,7 @@ import {
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
   AgeGroup, Card, CardType, ChildDetail, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
-  FamilyPlan, FeedItem, Goal, JoinRequest, ParentOverview, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
+  FamilyPlan, FeedItem, Goal, JoinRequest, ParentCard, ParentOverview, ParentTask, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
 } from './types';
 
 export class AppError extends Error {
@@ -118,15 +118,23 @@ export class FamilyService {
   private addFeed(familyId: string, childId: string | null, text: string, amount: number | null = null) {
     this.run('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), familyId, childId, text, amount, nowIso());
   }
-  private moveFromParent(familyId: string, childId: string, amount: number, title: string) {
+  private moveFromParent(familyId: string, childId: string, amount: number, title: string, cardId = 'main') {
     const parentId = this.parentOfFamily(familyId);
-    const p = this.one<{ balance: number }>('SELECT balance FROM parents WHERE user_id = ?', parentId)!;
-    if (p.balance < amount) throw bad('parent_funds', 'На вашей карте недостаточно средств');
+    const card = this.parentCards(parentId).find(c => c.id === cardId);
+    if (!card) throw notFound('Карта');
+    if (card.balance < amount) throw bad('parent_funds', `На карте ${card.mask} недостаточно средств`);
     const name = this.childRow(childId).name;
-    this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', amount, parentId);
+    if (cardId === 'main') this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', amount, parentId);
+    else this.run('UPDATE parent_cards SET balance = balance - ? WHERE id = ?', amount, cardId);
     this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', amount, childId);
-    this.addTx(parentId, `${title}: ${name}`, -amount, 'Семья', 'internal');
+    this.addTx(parentId, `${title}: ${name}${cardId === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Семья', 'internal');
     this.addTx(childId, title, amount, 'Пополнение', 'income');
+  }
+  private parentCards(parentId: string): ParentCard[] {
+    const main = this.one<{ balance: number; card_mask: string }>('SELECT balance, card_mask FROM parents WHERE user_id = ?', parentId)!;
+    const extra = this.q<{ id: string; title: string; mask: string; expiry: string; network: ParentCard['network']; balance: number }>(
+      'SELECT id, title, mask, expiry, network, balance FROM parent_cards WHERE parent_id = ? ORDER BY sort', parentId);
+    return [{ id: 'main', title: 'ШОППЕР', mask: main.card_mask, expiry: '02/29', network: 'visa', balance: main.balance }, ...extra];
   }
   private addRequest(childId: string, type: RequestType, payload: object, reason: string | null) {
     const id = newId('r');
@@ -220,7 +228,7 @@ export class FamilyService {
       "SELECT * FROM join_requests WHERE family_id = ? AND status = 'pending' ORDER BY created_at DESC", familyId,
     ).map<JoinRequest>(j => ({ id: j.id, name: j.name, age: j.age, phone: j.phone, createdAt: j.created_at }));
     return {
-      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone },
+      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone, cards: this.parentCards(parentId) },
       introSeen: !!this.meta(familyId).intro_seen, plan: this.plan(familyId), joinRequests,
       children: kids.map(k => this.summary(k)), requests, feed, familyGoal: this.familyGoal(familyId),
     };
@@ -391,10 +399,10 @@ export class FamilyService {
     return this.detail(this.childRow(childId));
   }
 
-  topup(parentId: string, childId: string, amount: number) {
+  topup(parentId: string, childId: string, amount: number, cardId = 'main') {
     const c = this.ownChild(parentId, childId);
     tx(this.db, () => {
-      this.moveFromParent(c.family_id, childId, amount, 'Перевод от родителя');
+      this.moveFromParent(c.family_id, childId, amount, 'Перевод от родителя', cardId);
       this.addFeed(c.family_id, childId, `Вы перевели: ${c.name}`, amount);
     });
     this.touch(c.family_id);
@@ -488,6 +496,23 @@ export class FamilyService {
   createTask(parentId: string, childId: string, title: string, reward: number) {
     const c = this.ownChild(parentId, childId);
     this.run('INSERT INTO tasks VALUES (?,?,?,?,?,?)', newId('k'), childId, title.trim(), reward, 'open', nowIso());
+    this.touch(c.family_id);
+  }
+
+  parentTasks(parentId: string): ParentTask[] {
+    const familyId = this.familyOfParent(parentId);
+    return this.q<{ id: string; child_id: string; title: string; reward: number; status: Task['status'] }>(
+      `SELECT t.id, t.child_id, t.title, t.reward, t.status FROM tasks t JOIN children c ON c.user_id = t.child_id WHERE c.family_id = ?
+       ORDER BY CASE t.status WHEN 'review' THEN 0 WHEN 'open' THEN 1 ELSE 2 END, t.created_at DESC`, familyId,
+    ).map(t => ({ id: t.id, childId: t.child_id, title: t.title, reward: t.reward, status: t.status }));
+  }
+
+  updateTask(parentId: string, taskId: string, title: string, reward: number) {
+    const t = this.one<{ child_id: string; status: string }>('SELECT child_id, status FROM tasks WHERE id = ?', taskId);
+    if (!t) throw notFound('Задание');
+    const c = this.ownChild(parentId, t.child_id);
+    if (t.status !== 'open') throw bad('state', t.status === 'review' ? 'Задание уже на проверке: примите его или удалите' : 'Задание уже оплачено');
+    this.run('UPDATE tasks SET title = ?, reward = ? WHERE id = ?', title.trim(), reward, taskId);
     this.touch(c.family_id);
   }
 

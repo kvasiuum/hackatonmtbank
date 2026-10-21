@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS feed (
   id TEXT PRIMARY KEY, family_id TEXT NOT NULL REFERENCES families(id), child_id TEXT,
   text TEXT NOT NULL, amount INTEGER, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS parent_cards (
+  id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, mask TEXT NOT NULL,
+  expiry TEXT NOT NULL, network TEXT NOT NULL, balance INTEGER NOT NULL, sort INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS family_meta (
   family_id TEXT PRIMARY KEY REFERENCES families(id), tariff TEXT NOT NULL DEFAULT 'start',
   since TEXT NOT NULL, fee_month TEXT, intro_seen INTEGER NOT NULL DEFAULT 0
@@ -108,7 +112,7 @@ export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
 export const TABLES = ['sessions', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
-  'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parents', 'users'];
+  'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
 export function seed(db: DB) {
@@ -118,6 +122,8 @@ export function seed(db: DB) {
     const pin = hashPin(DEMO_PIN);
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
     ins('INSERT INTO parents VALUES (?,?,?)', 'u_parent', 124050, '4*2110');
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_halva', 'u_parent', 'Халва', '5*7731', '08/28', 'mastercard', 31200, 1);
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_salary', 'u_parent', 'Зарплатная', '9*4405', '11/27', 'belkart', 1246, 2);
     ins('INSERT INTO families VALUES (?,?,?,?,?,?)', 'f_demo', 'u_parent', 'Отпуск на Нарочи', 'tent', 150000, 62000);
     ins('INSERT INTO family_meta VALUES (?,?,?,?,?)', 'f_demo', 'plus', ago(60 * 24 * 12), null, 0);
     const pOps: [string, number, string, number][] = [
