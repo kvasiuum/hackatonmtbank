@@ -172,6 +172,7 @@ describe('API модуля «Семья»', () => {
     const parent = await login('u_parent');
     const balance = async () => (await call('GET', '/api/parent/overview', parent)).body.parent.balance;
     ctx.db.prepare("UPDATE family_meta SET since = '2020-01-01T00:00:00.000Z'").run();
+    ctx.db.prepare('DELETE FROM transactions WHERE created_at < ?').run(startOfMonth()); // демо-история прошлого месяца не нужна
     const before = await balance();
     ctx.svc.processFees();
     ctx.svc.processFees();
@@ -424,5 +425,26 @@ describe('API модуля «Семья»', () => {
     const d = await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' }); // 6.20 BYN
     expect(d.body.text).toContain('Манички: +6 тебе, +3 родителям');
     expect(await coins()).toEqual({ kid: a.kid + 6, p1: a.p1 + 3, p2: a.p2 + 3 });
+  });
+
+  it('«Трать меньше»: проценты за недели, потолок 20%, скидка у выбранного партнёра один раз', async () => {
+    const { savePercents, weekPercent } = await import('../src/domain/weeks');
+    expect(weekPercent(6000, 4000)).toBe(2);       // 60 → 40 BYN: 2%
+    expect(weekPercent(4000, 4500)).toBe(0);       // траты выросли
+    expect(savePercents([6000, 4000, 4500, 3000], 4)).toEqual({ pct: [null, 2, 0, 1.5], earned: 3.5 });
+    expect(savePercents([90000, 10000, 0, 0], 4).earned).toBe(20); // потолок
+    const kid = await login('u_misha');
+    const d = (await call('GET', '/api/child/overview', kid)).body.me.saveDiscount;
+    expect(d.cap).toBe(20);
+    expect(d.claim).toMatchObject({ percent: 2.2 }); // прошлый месяц: 36→25 (1.1) и 29→18 (1.1)
+    expect((await call('POST', '/api/child/save-discount/claim', kid, { partner: 'nope' })).status).toBe(400);
+    const rw = await call('POST', '/api/child/save-discount/claim', kid, { partner: 'stationery' });
+    expect(rw.body).toMatchObject({ percent: 2.2, partner: 'stationery', used: false });
+    expect((await call('POST', '/api/child/save-discount/claim', kid, { partner: 'stationery' })).status).toBe(400);
+    const p1 = await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' });
+    expect(p1.body.text).toContain('Скидка 2.2% за экономию: −0.14 BYN');
+    expect(p1.body.text).toContain('6.06 BYN');
+    const p2 = await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' });
+    expect(p2.body.text).not.toContain('Скидка');
   });
 });

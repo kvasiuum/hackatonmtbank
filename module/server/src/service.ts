@@ -1,6 +1,7 @@
 // Бизнес-логика модуля «Семья». Маршруты API только проверяют вход и вызывают эти методы.
 import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
+import { SAVE_CAP, monthName, monthStartMs, monthWeeks, nextMonthMs, savePercents, weekPercent } from './domain/weeks';
 import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
   DISPUTE_REASONS, GAME_REWARD, PURCHASE_COINS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
@@ -8,7 +9,7 @@ import {
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
   AgeGroup, Card, CardType, ChildDetail, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
-  FamilyPlan, FeedItem, Goal, JoinRequest, ParentCard, ParentOverview, ParentTask, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
+  FamilyPlan, FeedItem, Goal, JoinRequest, ParentCard, ParentOverview, ParentTask, SaveDiscount, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
 } from './types';
 
 export class AppError extends Error {
@@ -217,6 +218,7 @@ export class FamilyService {
       deposit: dep ?? null,
       insurance: this.insurance(c.user_id),
       cashbackWeek: this.cashbackWeek(c),
+      saveDiscount: this.saveDiscount(c),
       phone: this.one<{ phone: string | null }>('SELECT phone FROM users WHERE id = ?', c.user_id)?.phone ?? null,
     };
   }
@@ -224,6 +226,54 @@ export class FamilyService {
     const i = this.one<{ plan: InsurancePlan; price: number; since: string }>('SELECT plan, price, since FROM insurance WHERE child_id = ?', childId);
     return i ? { plan: i.plan, title: INSURANCE_PLANS[i.plan].title, price: i.price, cover: INSURANCE_PLANS[i.plan].cover, since: i.since } : null;
   }
+  private spentBetween(userId: string, from: number, to: number) {
+    const r = this.one<{ s: number | null }>("SELECT -SUM(amount) AS s FROM transactions WHERE user_id = ? AND kind = 'spend' AND amount < 0 AND created_at >= ? AND created_at < ?",
+      userId, new Date(from).toISOString(), new Date(to).toISOString());
+    return r?.s ?? 0;
+  }
+  private partnersFor(c: ChildRow) {
+    return MERCHANTS[c.grp].filter(m => m.partner).map(m => ({ id: m.id, title: m.title, icon: m.icon }));
+  }
+  /** «Трать меньше — получай скидку»: сравнение недель месяца, потолок 20% */
+  saveDiscount(c: ChildRow, now = Date.now()): SaveDiscount {
+    const month = monthStartMs(now);
+    const weeks = monthWeeks(month);
+    const spent = weeks.map(([f, t]) => this.spentBetween(c.user_id, f, Math.min(t, now)));
+    const cur = weeks.findIndex(([f, t]) => now >= f && now < t);
+    const { pct, earned } = savePercents(spent, cur);
+    const current = cur > 0 ? { prev: spent[cur - 1], spent: spent[cur], potential: Math.min(SAVE_CAP - earned, weekPercent(spent[cur - 1], spent[cur])) } : null;
+    // Прошлый месяц: если накопился процент и партнёр ещё не выбран — предлагаем выбрать
+    const prevMonth = monthStartMs(month - 1);
+    const prevKey = new Date(prevMonth).toISOString();
+    const row = this.one<{ percent: number; partner: string; used: number }>('SELECT percent, partner, used FROM save_rewards WHERE child_id = ? AND month = ?', c.user_id, prevKey);
+    let claim: SaveDiscount['claim'] = null;
+    if (!row) {
+      const prevSpent = monthWeeks(prevMonth).map(([f, t]) => this.spentBetween(c.user_id, f, t));
+      const prevEarned = savePercents(prevSpent, 4).earned;
+      if (prevEarned > 0) claim = { month: monthName(prevMonth), percent: prevEarned, partners: this.partnersFor(c) };
+    }
+    const partner = row && MERCHANTS[c.grp].find(m => m.id === row.partner);
+    return {
+      cap: SAVE_CAP, month: monthName(month), earned,
+      weeks: spent.map((s, i) => ({ n: i + 1, spent: s, pct: pct[i], state: i < cur ? 'done' : i === cur ? 'current' : 'future' })),
+      current, claim,
+      reward: row && partner ? { percent: row.percent, partner: row.partner, title: partner.title, used: !!row.used, until: new Date(nextMonthMs(month) - 1).toISOString() } : null,
+    };
+  }
+
+  /** Выбрать партнёра для скидки за прошлый месяц */
+  claimSaveDiscount(childId: string, partner: string) {
+    const c = this.childRow(childId);
+    const d = this.saveDiscount(c);
+    if (!d.claim) throw bad('nothing', 'За прошлый месяц скидки нет или партнёр уже выбран');
+    if (!d.claim.partners.some(p => p.id === partner)) throw bad('partner', 'Такого партнёра нет');
+    const prevKey = new Date(monthStartMs(monthStartMs(Date.now()) - 1)).toISOString();
+    this.run('INSERT INTO save_rewards VALUES (?,?,?,?,?,?)', childId, prevKey, d.claim.percent, partner, 0, nowIso());
+    this.addFeed(c.family_id, childId, `${c.name}: скидка ${d.claim.percent}% за экономию в ${d.claim.month}е`);
+    this.touch(c.family_id);
+    return this.saveDiscount(c).reward;
+  }
+
   private cashbackWeek(c: ChildRow) {
     const spent = this.one<{ s: number | null }>('SELECT SUM(amount) AS s FROM partner_spend WHERE child_id = ? AND paid = 0', c.user_id)?.s ?? 0;
     const rate = this.tariff(c.family_id).cashbackRate;
@@ -860,7 +910,16 @@ export class FamilyService {
     const c = this.childRow(childId);
     const m = MERCHANTS[c.grp].find(x => x.id === merchantId);
     if (!m) throw notFound('Магазин');
-    return this.pay(childId, { title: m.title, amount: m.amount, category: m.category, method, partner: m.partner, ...(method === 'card' && cardId ? { cardId } : {}) });
+    // Скидка «Трать меньше» у выбранного партнёра: один раз до конца месяца
+    const prevKey = new Date(monthStartMs(monthStartMs(Date.now()) - 1)).toISOString();
+    const reward = m.partner ? this.one<{ percent: number }>('SELECT percent FROM save_rewards WHERE child_id = ? AND month = ? AND partner = ? AND used = 0', childId, prevKey, m.id) : undefined;
+    const amount = reward ? Math.round(m.amount * (1 - reward.percent / 100)) : m.amount;
+    const d = this.pay(childId, { title: m.title, amount, category: m.category, method, partner: m.partner, ...(method === 'card' && cardId ? { cardId } : {}) });
+    if (reward && d.status === 'approved') {
+      this.run('UPDATE save_rewards SET used = 1 WHERE child_id = ? AND month = ?', childId, prevKey);
+      return { ...d, text: `${d.text} Скидка ${reward.percent}% за экономию: −${fmt(m.amount - amount)}.` };
+    }
+    return d;
   }
   payErip(childId: string, serviceId: string, amount: number) {
     const svc = ERIP_SERVICES.find(x => x.id === serviceId);

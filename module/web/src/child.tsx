@@ -237,6 +237,50 @@ function CashbackCard({ o }: { o: ChildOverview }) {
   </div>;
 }
 
+/** «Трать меньше — получай скидку»: недели месяца, накопленный процент (до 20%), выбор партнёра в конце месяца */
+function SaveDiscountCard({ o }: { o: ChildOverview }) {
+  const { sheet } = useDevice();
+  const d = o.me.saveDiscount;
+  const max = Math.max(1, ...d.weeks.map(w => w.spent));
+  return <button className="card savecard press" onClick={() => sheet(() => <SaveDiscountSheet />)}>
+    <div className="sv-head"><div className="tx"><b>Трать меньше — получай скидку</b><small>{d.month}: до {d.cap}% у партнёров Moby</small></div>
+      <span className="sv-pct">{d.earned}%</span></div>
+    <div className="sv-weeks">{d.weeks.map(w => (
+      <div key={w.n} className={`sv-w ${w.state}`}>
+        <span className="sv-pp">{w.pct ? `+${w.pct}%` : w.state === 'current' && d.current?.potential ? `до ${d.current.potential}%` : ''}</span>
+        <i style={{ height: `${w.state === 'future' ? 4 : Math.max(6, w.spent / max * 46)}px` }} />
+        <small>{w.n} нед.</small>
+      </div>))}</div>
+    {d.claim ? <div className="sv-note claim"><Icon name="gift" size={18} /> За {d.claim.month} накоплено {d.claim.percent}% — выбери партнёра</div>
+      : d.reward && !d.reward.used ? <div className="sv-note"><Icon name="percent" size={18} /> Скидка {d.reward.percent}% в «{d.reward.title}» до конца месяца</div>
+        : <div className="sv-note muted">{d.current ? `На этой неделе ${fmt(d.current.spent)}, на прошлой ${fmt(d.current.prev)}` : 'Первая неделя месяца — база для сравнения'}</div>}
+  </button>;
+}
+
+function SaveDiscountSheet() {
+  const o = useChild();
+  const { run, call } = useDevice();
+  const [busy, wrap] = useBusy();
+  if (!o) return <Loading />;
+  const d = o.me.saveDiscount;
+  return <>
+    <h2>Трать меньше — получай скидку</h2>
+    <p className="muted" style={{ marginTop: -6 }}>Каждую неделю Moby сравнивает траты с прошлой неделей. Потратил меньше — каждые 10 BYN разницы дают 1% скидки у партнёра. Проценты за месяц складываются, но не больше {d.cap}%.</p>
+    {d.claim && <div className="card" style={{ background: 'var(--mt-cloud)' }}>
+      <b>За {d.claim.month} накоплено {d.claim.percent}%</b>
+      <p className="muted" style={{ margin: '4px 0 10px', fontSize: 14 }}>Выбери партнёра: скидка сработает один раз до конца месяца</p>
+      <div className="pills">{d.claim.partners.map(p => <button key={p.id} className="pill" disabled={busy}
+        onClick={() => wrap(() => run(() => call('/api/child/save-discount/claim', { partner: p.id }), `Скидка ${d.claim!.percent}% ждёт тебя в «${p.title}»`))}><Icon name={p.icon} size={18} /> {p.title}</button>)}</div>
+    </div>}
+    {d.reward && <Row icon="percent" title={`Скидка ${d.reward.percent}% в «${d.reward.title}»`} sub={d.reward.used ? 'Уже использована' : 'Сработает при следующей покупке у партнёра, до конца месяца'} />}
+    <b>{d.month[0].toUpperCase() + d.month.slice(1)}: {d.earned}% из {d.cap}%</b>
+    <Bar value={d.earned} max={d.cap} />
+    <div>{d.weeks.map(w => <Row key={w.n} icon={w.state === 'done' ? 'check' : w.state === 'current' ? 'clock' : 'history'} title={`${w.n}-я неделя`}
+      sub={w.state === 'future' ? 'Ещё впереди' : w.n === 1 ? `${fmt(w.spent)} · база для сравнения` : w.state === 'current' ? `Пока ${fmt(w.spent)} · удержись ниже ${fmt(d.current?.prev ?? 0)}` : `${fmt(w.spent)} потрачено`}
+      right={w.pct != null ? <span className={`tag ${w.pct ? '' : 'navy'}`}>{w.pct ? `+${w.pct}%` : '0%'}</span> : w.state === 'current' && d.current?.potential ? <span className="tag navy">до {d.current.potential}%</span> : undefined} />)}</div>
+  </>;
+}
+
 function ProposeTaskSheet({ close }: { close: () => void }) {
   const { run, call } = useDevice();
   const [title, setTitle] = useState('');
@@ -411,6 +455,7 @@ export function KidGoals() {
       {o.me.settings.parentBonus && <div className="family-entry"><div className="ic red"><Icon name="gift" size={24} /></div><div className="tx"><b>Родители добавляют 10%</b><small>Положишь 10 BYN, в копилке станет 11 BYN</small></div></div>}
       <PigBank o={o} />
       {o.me.settings.perms.goals && <button className="btn ghost" onClick={() => sheet(c => <NewGoalSheet close={c} />)}><Icon name="plus" size={20} /> Новая цель</button>}
+      <SaveDiscountCard o={o} />
       <CashbackCard o={o} />
       <FamilyGoalCard o={o} />
       {o.me.deposit && <div className="family-entry"><div className="ic"><Icon name="landmark" size={24} /></div>
@@ -509,7 +554,8 @@ export function Pay({ method: initial }: { method?: PayMethod }) {
     {MERCHANTS[o.me.group].map(m => (
       <button key={m.id} className="merchant press" onClick={() => pay(m.id)}>
         <RowIcon name={m.icon} tone={m.category === 'gambling' || m.category === 'adult' ? 'red' : undefined} />
-        <span className="tx"><b>{m.title}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{CATEGORY_NAMES[m.category]}{m.partner && <span className="partner">кешбэк {Math.round(o.me.cashbackWeek.rate * 100)}%</span>}</small></span><b>{fmt(m.amount)}</b>
+        <span className="tx"><b>{m.title}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{CATEGORY_NAMES[m.category]}{m.partner && <span className="partner">кешбэк {Math.round(o.me.cashbackWeek.rate * 100)}%</span>}
+          {o.me.saveDiscount.reward && !o.me.saveDiscount.reward.used && o.me.saveDiscount.reward.partner === m.id && <span className="partner sv">−{o.me.saveDiscount.reward.percent}%</span>}</small></span><b>{fmt(m.amount)}</b>
       </button>
     ))}
   </div></>;
@@ -697,6 +743,7 @@ export function TeenSavings() {
           send={amount => call('/api/child/deposit', { action: 'open', amount })} ok={() => 'Вклад открыт'} close={c} />)}>Открыть вклад</button>
       </>}
     </div>
+    <SaveDiscountCard o={o} />
     <CashbackCard o={o} />
     <FamilyGoalCard o={o} />
   </div></>;

@@ -75,6 +75,20 @@ export interface ChildDetail extends ChildSummary {
   /** unit: ребёнку 7–13 кешбэк приходит Маничками (expected — в Маничках), подростку — в BYN (в копейках) */
   cashbackWeek: { spent: number; rate: number; expected: number; unit: 'byn' | 'coins' };
   phone: string | null;
+  /** «Трать меньше — получай скидку»: недели текущего месяца, накопленный процент, награда за прошлый месяц */
+  saveDiscount: SaveDiscount;
+}
+export interface SaveDiscount {
+  cap: number;
+  month: string;
+  earned: number;
+  weeks: { n: number; spent: number; pct: number | null; state: 'done' | 'current' | 'future' }[];
+  /** Текущая неделя: сколько было на прошлой, сколько уже потрачено, сколько % можно получить, если остановиться сейчас */
+  current: { prev: number; spent: number; potential: number } | null;
+  /** Прошлый месяц закончился с процентом — можно выбрать партнёра */
+  claim: { month: string; percent: number; partners: { id: string; title: string; icon: string }[] } | null;
+  /** Выбранная скидка: действует до конца текущего месяца, один раз */
+  reward: { percent: number; partner: string; title: string; used: boolean; until: string } | null;
 }
 
 export interface FeedItem { id: string; childId: string | null; text: string; amount: number | null; createdAt: string }

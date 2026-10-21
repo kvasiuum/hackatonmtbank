@@ -383,6 +383,13 @@ export function ChildScreen({ id }: { id: string }) {
   const { data: c } = useData<ChildDetail>(`/api/parent/children/${id}`);
   const o = useOverview();
   const { back, sheet, run, call, push } = useDevice();
+  const [section, setSection] = useState<'money' | 'rules' | 'growth' | null>(null);
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  // Открыли раздел — подкручиваем экран, чтобы были видны вкладки и содержимое
+  const openSection = (k: 'money' | 'rules' | 'growth') => {
+    setSection(section === k ? null : k);
+    if (section !== k) setTimeout(() => sectionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+  };
   if (!c || !o) return <div className="loading">Загрузка…</div>;
   const s = c.settings;
   const patch = (body: Partial<Record<keyof ChildSettings, unknown>>, ok?: string) => run(() => call(`/api/parent/children/${id}/settings`, body, 'PATCH'), ok);
@@ -425,55 +432,74 @@ export function ChildScreen({ id }: { id: string }) {
         <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)}><Icon name="plus" size={20} /> Своё задание</button>
       </div>
       <div className="sec">Настройки</div>
-      <Fold icon="credit-card" title="Карты" sub={`${c.cards.length} из ${MAX_CARDS}${main ? ` · ${CARD_TYPES[main.type].label.toLowerCase()} •• ${main.last4}` : ''}`}>
-        <CardManager name={c.name} cards={c.cards} who="parent" />
-        {c.cards.length < MAX_CARDS && <Row icon="plus" tone="dash" title="Выпустить карту" sub="Виртуальная сразу, физическая за 3–5 дней" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />}
-        {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
-          onClick={() => sheet(close => <>
-            <h2>Закрыть и перевыпустить?</h2>
-            <p className="muted">Потерянная карта закроется навсегда, новая с тем же дизайном придёт через 3–5 дней. Виртуальная карта и QR КРОК работают всё это время.</p>
-            <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')) close(); }}>Закрыть и перевыпустить</button>
-            <button className="btn ghost" onClick={close}>Отмена</button>
-          </>)} />}
-      </Fold>
-      <Fold icon="shield-check" title="Что можно покупать" sub={cats.length ? `Можно: ${cats.map(p => SETTING_LABELS[p].title.toLowerCase()).join(', ')}` : 'Только обычные покупки в магазинах'}>
-        <PermissionToggles s={s} group={c.group} keys="cats" onChange={setPath} /><BankLocked />
-      </Fold>
-      <Fold icon="sliders-horizontal" title="Лимиты и подтверждение" sub={`${fmt(s.limits.day)} в день · подтверждать от ${fmt(s.confirmAbove)}`}>
-        <SetRow title="В день" sub={`Сегодня потрачено ${fmt(c.spentToday)}`}><Stepper value={s.limits.day} step={5 * BYN} onChange={v => patch({ limits: { day: v } })} /></SetRow>
-        <SetRow title="В месяц" sub={`Потрачено ${fmt(c.spentMonth)}`}><Stepper value={s.limits.month} step={50 * BYN} onChange={v => patch({ limits: { month: v } })} /></SetRow>
-        <SetRow title="Подтверждать" sub="Покупки дороже этой суммы"><Stepper value={s.confirmAbove} step={5 * BYN} onChange={v => patch({ confirmAbove: v })} /></SetRow>
-      </Fold>
-      <Fold icon="smartphone" title="Возможности в Moby" sub={`Включено ${perms.length} из ${PERM_KEYS.length}: ${perms.slice(0, 3).map(p => SETTING_LABELS[p].title).join(', ')}${perms.length > 3 ? '…' : ''}`}>
-        <PermissionToggles s={s} group={c.group} keys="perms" onChange={setPath} />
-        <SetRow title="Кредиты и рассрочка" sub="Недоступны до 18 лет"><Toggle on={false} locked label="Кредиты" /></SetRow>
-      </Fold>
-      <Fold icon="piggy-bank" title="Карманные деньги и копилки" sub={s.allowance.on ? `${fmt(s.allowance.amount)} каждый понедельник` : 'Автоперевод выключен'}>
-        <SetRow title="Каждый понедельник" sub={`Автоперевод с вашей карты ${o.parent.cardMask}`}><Toggle on={s.allowance.on} label="Карманные деньги" onChange={v => patch({ allowance: { on: v } })} /></SetRow>
-        <SetRow title="Сумма" sub="В неделю"><Stepper value={s.allowance.amount} step={(c.group === 'kid' ? 1 : 5) * BYN} onChange={v => patch({ allowance: { amount: v } })} /></SetRow>
-        <SetRow title="Доплата к копилке +10%" sub="Вы добавляете 10% к каждому взносу"><Toggle on={s.parentBonus} label="Доплата к копилке" onChange={v => patch({ parentBonus: v })} /></SetRow>
-        <SetRow title="Сдачу в копилку" sub="Округлять покупки до целых рублей"><Toggle on={s.roundup} label="Сдачу в копилку" onChange={v => patch({ roundup: v })} /></SetRow>
-        <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={s.allowance.amount} title="Карманные деньги" sub={c.name}
-          cta="Выплатить" okText={`Карманные деньги отправлены: ${fmt(s.allowance.amount)}`} pay={cardId => call(`/api/parent/children/${id}/allowance`, { cardId })} />)}>Выплатить сейчас</button>
-      </Fold>
-      <Fold icon="umbrella" title="Страховка и вклад" sub={`${c.insurance ? `Страховка «${c.insurance.title}»` : 'Без страховки'} · ${c.deposit ? `вклад ${fmt(c.deposit.amount)}` : 'вклада нет'}`}>
-        <InsuranceBlock o={o} c={c} />
-        <div className="sec" style={{ margin: '12px 0 0' }}>Вклад «{c.group === 'kid' ? 'На вырост' : 'Мой старт'}»</div>
-        <Row icon="landmark" title={c.deposit ? fmt(c.deposit.amount) : 'Не открыт'} sub={c.deposit ? `${c.deposit.rate}% годовых, ${c.name} видит вклад, но снять не может` : 'Отложите на долгую цель: учёбу, лагерь, первую машину'} />
-        <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={20 * BYN} editable title={c.deposit ? 'Пополнить вклад' : 'Открыть вклад'} sub={`Для ${c.name}, от 10 BYN, ${9}% годовых`}
-          cta={c.deposit ? 'Пополнить' : 'Открыть вклад'} okText={a => `${fmt(a)} на вклад для ${c.name}`} pay={(cardId, amount) => call(`/api/parent/children/${id}/deposit`, { amount, cardId })} />)}>
-          <Icon name="plus" size={20} /> {c.deposit ? 'Пополнить вклад' : 'Открыть вклад'}</button>
-      </Fold>
-      <Fold icon="trophy" title="Успехи" sub={`Уровень ${lv.n} «${lv.title}» · уроков ${c.lessons.length} · Маничек ${c.coins}`}>
-        <div style={{ margin: '14px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
-        <small className="muted">{nx ? `${c.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'}</small>
-        {c.goals.map(g => <Row key={g.id} icon={g.icon} title={g.title} sub={`${fmt(g.saved)} из ${fmt(g.target)}`} />)}
-        {c.group === 'teen' && <Row icon="briefcase" title={`Заработок: ${fmt(c.income)}`} sub="По ст. 26 ГК РБ подросток сам распоряжается заработком, лимиты на него не действуют" />}
-      </Fold>
-      <Fold icon="history" title="Операции" sub={c.ops[0] ? `${c.ops[0].title}, ${fmt(c.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={c.ops} limit={10} /></Fold>
-      <Fold icon="shield" title="Безопасность" sub={s.mobyAccess ? 'Вход в Moby разрешён' : 'Вход в Moby приостановлен'}>
-        <SetRow title="Вход в Moby" sub="Если выключить, ребёнок выйдет из приложения, карта продолжит работать"><Toggle on={s.mobyAccess} label="Вход в Moby" onChange={v => patch({ mobyAccess: v }, v ? 'Доступ возвращён' : 'Доступ приостановлен')} /></SetRow>
-      </Fold>
+      {/* Три раздела вместо длинного списка: открыт только выбранный */}
+      <div className="sections" role="tablist" ref={sectionsRef}>{([
+        ['money', 'credit-card', 'Деньги', `${fmt(c.balance)} · ${c.cards.length} ${plural(c.cards.length, 'карта', 'карты', 'карт')}`],
+        ['rules', 'sliders-horizontal', 'Правила', `${fmt(s.limits.day)} в день`],
+        ['growth', 'trophy', 'Успехи', `Уровень ${lv.n}`],
+      ] as const).map(([k, icon, title, sub]) => (
+        <button key={k} role="tab" aria-selected={section === k} className={`sect press ${section === k ? 'on' : ''}`} onClick={() => openSection(k)}>
+          <span className="sect-ic"><Icon name={icon} size={22} /></span><b>{title}</b><small>{sub}</small>
+          <span className="sect-chev"><Icon name="chevron-down" size={16} /></span>
+        </button>))}</div>
+      {section === 'money' && <div className="sect-body">
+        <Fold icon="credit-card" title="Карты" sub={`${c.cards.length} из ${MAX_CARDS}${main ? ` · ${CARD_TYPES[main.type].label.toLowerCase()} •• ${main.last4}` : ''}`}>
+          <CardManager name={c.name} cards={c.cards} who="parent" />
+          {c.cards.length < MAX_CARDS && <Row icon="plus" tone="dash" title="Выпустить карту" sub="Виртуальная сразу, физическая за 3–5 дней" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />}
+          {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
+            onClick={() => sheet(close => <>
+              <h2>Закрыть и перевыпустить?</h2>
+              <p className="muted">Потерянная карта закроется навсегда, новая с тем же дизайном придёт через 3–5 дней. Виртуальная карта и QR КРОК работают всё это время.</p>
+              <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')) close(); }}>Закрыть и перевыпустить</button>
+              <button className="btn ghost" onClick={close}>Отмена</button>
+            </>)} />}
+        </Fold>
+        <Fold icon="piggy-bank" title="Карманные деньги и копилки" sub={s.allowance.on ? `${fmt(s.allowance.amount)} каждый понедельник` : 'Автоперевод выключен'}>
+          <SetRow title="Каждый понедельник" sub={`Автоперевод с вашей карты ${o.parent.cardMask}`}><Toggle on={s.allowance.on} label="Карманные деньги" onChange={v => patch({ allowance: { on: v } })} /></SetRow>
+          <SetRow title="Сумма" sub="В неделю"><Stepper value={s.allowance.amount} step={(c.group === 'kid' ? 1 : 5) * BYN} onChange={v => patch({ allowance: { amount: v } })} /></SetRow>
+          <SetRow title="Доплата к копилке +10%" sub="Вы добавляете 10% к каждому взносу"><Toggle on={s.parentBonus} label="Доплата к копилке" onChange={v => patch({ parentBonus: v })} /></SetRow>
+          <SetRow title="Сдачу в копилку" sub="Округлять покупки до целых рублей"><Toggle on={s.roundup} label="Сдачу в копилку" onChange={v => patch({ roundup: v })} /></SetRow>
+          <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={s.allowance.amount} title="Карманные деньги" sub={c.name}
+            cta="Выплатить" okText={`Карманные деньги отправлены: ${fmt(s.allowance.amount)}`} pay={cardId => call(`/api/parent/children/${id}/allowance`, { cardId })} />)}>Выплатить сейчас</button>
+        </Fold>
+        <Fold icon="umbrella" title="Страховка и вклад" sub={`${c.insurance ? `Страховка «${c.insurance.title}»` : 'Без страховки'} · ${c.deposit ? `вклад ${fmt(c.deposit.amount)}` : 'вклада нет'}`}>
+          <InsuranceBlock o={o} c={c} />
+          <div className="sec" style={{ margin: '12px 0 0' }}>Вклад «{c.group === 'kid' ? 'На вырост' : 'Мой старт'}»</div>
+          <Row icon="landmark" title={c.deposit ? fmt(c.deposit.amount) : 'Не открыт'} sub={c.deposit ? `${c.deposit.rate}% годовых, ${c.name} видит вклад, но снять не может` : 'Отложите на долгую цель: учёбу, лагерь, первую машину'} />
+          <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={20 * BYN} editable title={c.deposit ? 'Пополнить вклад' : 'Открыть вклад'} sub={`Для ${c.name}, от 10 BYN, ${9}% годовых`}
+            cta={c.deposit ? 'Пополнить' : 'Открыть вклад'} okText={a => `${fmt(a)} на вклад для ${c.name}`} pay={(cardId, amount) => call(`/api/parent/children/${id}/deposit`, { amount, cardId })} />)}>
+            <Icon name="plus" size={20} /> {c.deposit ? 'Пополнить вклад' : 'Открыть вклад'}</button>
+        </Fold>
+        <Fold icon="history" title="Операции" sub={c.ops[0] ? `${c.ops[0].title}, ${fmt(c.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={c.ops} limit={10} /></Fold>
+      </div>}
+      {section === 'rules' && <div className="sect-body">
+        <Fold icon="shield-check" title="Что можно покупать" sub={cats.length ? `Можно: ${cats.map(p => SETTING_LABELS[p].title.toLowerCase()).join(', ')}` : 'Только обычные покупки в магазинах'}>
+          <PermissionToggles s={s} group={c.group} keys="cats" onChange={setPath} /><BankLocked />
+        </Fold>
+        <Fold icon="sliders-horizontal" title="Лимиты и подтверждение" sub={`${fmt(s.limits.day)} в день · подтверждать от ${fmt(s.confirmAbove)}`}>
+          <SetRow title="В день" sub={`Сегодня потрачено ${fmt(c.spentToday)}`}><Stepper value={s.limits.day} step={5 * BYN} onChange={v => patch({ limits: { day: v } })} /></SetRow>
+          <SetRow title="В месяц" sub={`Потрачено ${fmt(c.spentMonth)}`}><Stepper value={s.limits.month} step={50 * BYN} onChange={v => patch({ limits: { month: v } })} /></SetRow>
+          <SetRow title="Подтверждать" sub="Покупки дороже этой суммы"><Stepper value={s.confirmAbove} step={5 * BYN} onChange={v => patch({ confirmAbove: v })} /></SetRow>
+        </Fold>
+        <Fold icon="smartphone" title="Возможности в Moby" sub={`Включено ${perms.length} из ${PERM_KEYS.length}: ${perms.slice(0, 3).map(p => SETTING_LABELS[p].title).join(', ')}${perms.length > 3 ? '…' : ''}`}>
+          <PermissionToggles s={s} group={c.group} keys="perms" onChange={setPath} />
+          <SetRow title="Кредиты и рассрочка" sub="Недоступны до 18 лет"><Toggle on={false} locked label="Кредиты" /></SetRow>
+        </Fold>
+        <Fold icon="shield" title="Безопасность" sub={s.mobyAccess ? 'Вход в Moby разрешён' : 'Вход в Moby приостановлен'}>
+          <SetRow title="Вход в Moby" sub="Если выключить, ребёнок выйдет из приложения, карта продолжит работать"><Toggle on={s.mobyAccess} label="Вход в Moby" onChange={v => patch({ mobyAccess: v }, v ? 'Доступ возвращён' : 'Доступ приостановлен')} /></SetRow>
+        </Fold>
+      </div>}
+      {section === 'growth' && <div className="sect-body">
+        <div className="card sect-card">
+          <h3>Уровень {lv.n} «{lv.title}» <span className="muted" style={{ fontWeight: 500, fontSize: 14 }}>уроков {c.lessons.length} · Маничек {c.coins}</span></h3>
+          <div style={{ margin: '14px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
+          <small className="muted">{nx ? `${c.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'}</small>
+          {c.goals.map(g => <Row key={g.id} icon={g.icon} title={g.title} sub={`${fmt(g.saved)} из ${fmt(g.target)}`} />)}
+          {c.group === 'teen' && <Row icon="briefcase" title={`Заработок: ${fmt(c.income)}`} sub="По ст. 26 ГК РБ подросток сам распоряжается заработком, лимиты на него не действуют" />}
+          <Row icon="percent" title={`«Трать меньше»: ${c.saveDiscount.earned}% из ${c.saveDiscount.cap}%`}
+            sub={c.saveDiscount.reward && !c.saveDiscount.reward.used ? `Скидка ${c.saveDiscount.reward.percent}% в «${c.saveDiscount.reward.title}» ждёт покупки` : `Скидка у партнёров за то, что ${c.name} тратит меньше, чем на прошлой неделе`} />
+        </div>
+      </div>}
     </div>
   </>;
 }

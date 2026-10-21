@@ -2,6 +2,7 @@
 // работает и с node:sqlite на сервере, и с sql.js в браузере.
 import { BYN, defaultSettings } from './content';
 import { platform } from './platform';
+import { monthStartMs, monthWeeks } from './domain/weeks';
 
 /** Минимальный интерфейс SQLite, который нужен модулю */
 export interface Stmt {
@@ -100,6 +101,10 @@ CREATE TABLE IF NOT EXISTS disputes (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT NOT NULL UNIQUE, reason TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'review', created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS save_rewards (
+  child_id TEXT NOT NULL REFERENCES users(id), month TEXT NOT NULL, percent REAL NOT NULL, partner TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY (child_id, month)
+);
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
 );
@@ -135,7 +140,7 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
-export const TABLES = ['sessions', 'family_parents', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+export const TABLES = ['sessions', 'save_rewards', 'family_parents', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
   'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
@@ -201,6 +206,28 @@ export function seed(db: DB) {
     // Траты у партнёров на этой неделе: кешбэк придёт в понедельник
     const week: [string, string, number][] = [['u_misha', 'Канцтовары', 420], ['u_misha', 'Кинотеатр', 800], ['u_anya', 'Кофейня', 480], ['u_anya', 'Кинотеатр', 1200]];
     for (const [c, t, a] of week) ins('INSERT INTO partner_spend VALUES (?,?,?,?,?,?)', newId('ps'), c, t, a, 0, nowIso());
+
+    // История трат по неделям: прошлый и текущий месяц, чтобы скидка «Трать меньше» была видна сразу.
+    // Сумма недели раскладывается на 3 покупки; последние сутки не трогаем, чтобы не съесть дневной лимит
+    const now = Date.now();
+    const thisMonth = monthStartMs(now);
+    const prevMonth = monthStartMs(thisMonth - 1);
+    const weekly: [string, number[], number[]][] = [
+      ['u_misha', [3600, 2500, 2900, 1800], [3200, 2100, 2600, 1500]],
+      ['u_anya', [11000, 8000, 8500, 6000], [9000, 6000, 7000, 4500]],
+    ];
+    for (const [child, prev, cur] of weekly) {
+      for (const [month, sums] of [[prevMonth, prev], [thisMonth, cur]] as const) {
+        monthWeeks(month).forEach(([from], i) => {
+          const parts = [.45, .35, .2];
+          parts.forEach((k, j) => {
+            const at = from + (1 + j * 2) * 24 * 3600_000 + 11 * 3600_000;
+            if (at > now - 26 * 3600_000) return;
+            ins('INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?)', newId('t'), child, ['Продукты', 'Транспорт', 'Развлечения'][j], -Math.round(sums[i] * k), 'Покупки', 'card', 'spend', new Date(at).toISOString());
+          });
+        });
+      }
+    }
 
     for (const kind of ['legal_rep', 'personal_data', 'card_issue']) {
       ins('INSERT INTO consents VALUES (?,?,?,?)', newId('cs'), 'u_misha', kind, ago(60 * 24 * 90));
