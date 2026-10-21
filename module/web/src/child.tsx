@@ -1,12 +1,12 @@
 // Moby ребёнка (7–13) и подростка (14–17).
 import { useState } from 'react';
 import {
-  BYN, CARD_COLORS, CARD_TYPES, CATEGORY_NAMES, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER, LESSONS, LESSON_REWARD, LEVELS,
+  BYN, CARD_COLORS, CARD_TYPES, CATEGORY_NAMES, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER, GAME_REWARD, LESSONS, LESSON_REWARD, LEVELS, MEMORY_PARTNERS, PRICE_GAME,
   MAX_CARDS, MERCHANTS, PARTNER_OFFERS, SETTING_LABELS, SUBS_MONTHLY_LIMIT, levelOf, nextLevel,
 } from '../../server/src/content';
 import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, initial, plural, toKop, useData, useDevice } from './lib';
+import { fmt, fmtPhone, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
 import { Act, AmountField, BankCard, Bar, CardStatus, CardTypePicker, Chev, Coin, Fold, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
@@ -164,16 +164,6 @@ function FamilyGoalCard({ o }: { o: ChildOverview }) {
   </div>;
 }
 
-function LevelBox({ o, to }: { o: ChildOverview; to: string }) {
-  const { tab } = useDevice();
-  const lv = levelOf(o.me.xp), nx = nextLevel(o.me.xp);
-  return <button className="lvl" onClick={() => tab(to)}>
-    <div className="n">{lv.n}</div>
-    <div className="tx" style={{ fontSize: 13 }}><b style={{ fontSize: 14 }}>Уровень {lv.n}: {lv.title}</b>{nx ? `${o.me.xp} из ${nx.xp} опыта` : 'Максимальный уровень'}<Bar value={nx ? o.me.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
-    <span className="chip"><Coin />{o.me.coins}</span>
-  </button>;
-}
-
 function MyRequests({ o }: { o: ChildOverview }) {
   // Показываем ожидающие и свежие ответы за сутки, остальное — в ленте родителя
   const fresh = o.requests.filter(r => r.status === 'pending' || Date.now() - Date.parse(r.createdAt) < 864e5).slice(0, 3);
@@ -282,7 +272,7 @@ export function KidHome() {
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div className="hero-name">Привет, {o.me.name}</div></div>
-      <div className="chips"><button className="chip" onClick={() => tab('learn')}>Уровень {o.me.level}</button><button className="chip" onClick={() => tab('learn')}><Coin />{o.me.coins}</button></div>
+      <div className="chips"><button className="chip" onClick={() => tab('play')}>Уровень {o.me.level}</button><button className="chip" onClick={() => tab('play')}><Coin />{o.me.coins}</button></div>
       <div className="bal-row"><div className="bal">{fmt(o.me.balance)}</div></div>
       <div className="hero-sub">Сегодня можно потратить ещё {fmt(left)}</div>
       <div className="actions">
@@ -333,28 +323,6 @@ export function KidTasks() {
       <TaskList o={o} />
     </div>
   </>;
-}
-
-function LearnBlock({ o }: { o: ChildOverview }) {
-  const { push, toast } = useDevice();
-  return <>
-    <button className="family-entry press" onClick={() => push('fraud')}><div className="ic red"><Icon name="shield-alert" size={24} /></div>
-      <div className="tx"><b>Распознай мошенника</b><small>{FRAUD_CASES.length} ситуаций, +{FRAUD_REWARD_PER_ANSWER.coins} Маничек за верный ответ</small></div>{o.me.lessons.includes('fraud') ? <span className="tag">Пройдено</span> : <Chev />}</button>
-    <div className="sec">Уроки</div>
-    <div className="card">{LESSONS[o.me.group].map(l => (
-      <Row key={l.id} icon={l.icon} title={l.title} sub={`${l.questions.length} вопроса · ${LESSON_REWARD.xp} опыта · ${LESSON_REWARD.coins} Маничек`}
-        right={o.me.lessons.includes(l.id) ? <span className="tag">Пройден</span> : <Chev />} onClick={() => push('quiz', { id: l.id })} />
-    ))}</div>
-    <div className="sec">Предложения партнёров</div>
-    <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{PARTNER_OFFERS[o.me.group].map(p => <Row key={p.title} icon={p.icon} title={p.title} sub={p.sub} onClick={() => toast('Предложение сохранено в Маничках')} />)}</div>
-  </>;
-}
-
-export function KidLearn() {
-  const o = useChild();
-  if (!o) return <Loading />;
-  return <><PlainTop title="Игры и уроки" right={<span className="tag red" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}><Coin />{o.me.coins}</span>} />
-    <div className="page tight"><div className="lvl-wrap"><LevelBox o={o} to="learn" /></div><LearnBlock o={o} /></div></>;
 }
 
 export function Quiz({ id }: { id: string }) {
@@ -437,20 +405,19 @@ export function Pay({ method: initial }: { method?: PayMethod }) {
 // ---------- подросток 14–17 ----------
 export function TeenHome() {
   const o = useChild();
-  const { push, tab, sheet } = useDevice();
-  const ask = useAsk();
-  const [hide, setHide] = useState(false);
+  const { push, sheet } = useDevice();
+  const [hide, setHide] = useHidden();
   if (!o) return <Loading />;
   const s = o.me.settings;
   const main = mainCard(o.me.cards);
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">{o.me.name}</div><div className="hero-sub">Moby 14+</div></div></div>
-      <div className="chips"><button className="chip" onClick={() => tab('growth')}>Уровень {o.me.level}</button>{main && <span className="chip">5*{main.last4}</span>}<span className="chip"><Coin />{o.me.coins}</span></div>
+      <div className="chips"><button className="chip" onClick={() => push('path')}>Уровень {o.me.level} <Icon name="chevron-right" size={14} /></button>{main && <span className="chip">5*{main.last4}</span>}<span className="chip"><Coin />{o.me.coins}</span></div>
       <div className="bal-row"><div className="bal">{hide ? '**** BYN' : fmt(o.me.balance)}</div><button className="iconbtn" onClick={() => setHide(!hide)} aria-label="Скрыть баланс"><Icon name={hide ? 'eye' : 'eye-off'} size={30} sw={1.6} /></button></div>
       <div className="actions">
         <Act icon="pay" label="Оплатить" onClick={() => push('pay')} />
-        <Act icon="transfer" label="Перевести" onClick={() => (s.perms.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
+        <Act icon="transfer" label="Платежи" onClick={() => push('payments')} />
         <Act icon="send" label="Попросить" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
       </div>
     </div>
@@ -466,7 +433,7 @@ export function TeenHome() {
       <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
         <Row icon="credit-card" title="Мои карты" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}${o.me.cards.length > 1 ? ` и ещё ${o.me.cards.length - 1}` : ''}` : 'Карт нет'} onClick={() => sheet(c => <CardsSheet close={c} />)} />
         <Row icon="history" title="История" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Операций пока нет'} onClick={() => sheet(() => <OpsSheet title="История" />)} />
-        <Row icon="rocket" title={`Путь к 18: уровень ${o.me.level} из 5`} sub="Новый уровень — больше свободы и лимитов" onClick={() => tab('growth')} />
+        <Row icon="rocket" title={`Путь к 18: уровень ${o.me.level} из 5`} sub="Новый уровень — больше свободы и лимитов" onClick={() => push('path')} />
       </div>
     </div>
   </>;
@@ -545,7 +512,7 @@ export function TeenPayments() {
   if (!o) return <Loading />;
   const p = o.me.settings.perms;
   const subs = o.me.subscriptions.filter(x => x.active);
-  return <><PlainTop title="Платежи" /><div className="page tight">
+  return <><TopBar title="Платежи" /><div className="page">
     <div className="card"><h3>QR-оплата КРОК {!p.qr && <span className="tag solid-red">Закрыто</span>}</h3>
       <Row icon="qr-code" tone="dash" title="Оплатить по QR на кассе" sub="Со счёта, мгновенно, без карты" onClick={() => (p.qr ? push('pay', { method: 'qr' }) : ask.perm('perms.qr'))} /></div>
     <div className="card"><h3>ЕРИП {!p.erip && <span className="tag solid-red">Закрыто</span>}</h3>
@@ -621,16 +588,178 @@ export function TeenSavings() {
   </div></>;
 }
 
-export function TeenGrowth() {
+// ---------- MobyPlay: игры, уроки, предложения партнёров ----------
+export function MobyPlay() {
+  const o = useChild();
+  const { push, toast } = useDevice();
+  if (!o) return <Loading />;
+  const game = (icon: string, tone: 'red' | undefined, title: string, sub: string, to: string, done?: boolean) => (
+    <button className="family-entry press" onClick={() => push(to)}><div className={`ic ${tone ?? ''}`}><Icon name={icon} size={24} /></div>
+      <div className="tx"><b>{title}</b><small>{sub}</small></div>{done ? <span className="tag">Пройдено</span> : <Chev />}</button>);
+  return <>
+    <PlainTop title="MobyPlay" right={<span className="tag" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}><Coin />{o.me.coins}</span>} />
+    <div className="page tight">
+      <div className="sec">Игры</div>
+      {game('shield-alert', 'red', 'Распознай мошенника', `${FRAUD_CASES.length} ситуаций, +${FRAUD_REWARD_PER_ANSWER.coins} Маничек за верный ответ`, 'fraud', o.me.lessons.includes('fraud'))}
+      {game('layout-grid', undefined, 'Карты по памяти', `Найди пары партнёров Moby, +${GAME_REWARD.memory.coins} Маничек в день`, 'memory')}
+      {game('tag', undefined, 'Угадай цену', `Сколько стоят вещи вокруг, +${GAME_REWARD.price.coins} Манички за верный ответ`, 'price')}
+      <div className="sec">Уроки</div>
+      <div className="card">{LESSONS[o.me.group].map(l => (
+        <Row key={l.id} icon={l.icon} title={l.title} sub={`${l.questions.length} вопроса · ${LESSON_REWARD.xp} опыта · ${LESSON_REWARD.coins} Маничек`}
+          right={o.me.lessons.includes(l.id) ? <span className="tag">Пройден</span> : <Chev />} onClick={() => push('quiz', { id: l.id })} />
+      ))}</div>
+      <div className="sec">Предложения партнёров</div>
+      <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{PARTNER_OFFERS[o.me.group].map(p => <Row key={p.title} icon={p.icon} title={p.title} sub={p.sub} onClick={() => toast('Предложение сохранено в Маничках')} />)}</div>
+    </div>
+  </>;
+}
+
+type GameResult = { rewarded: boolean; coins: number; xp: number; level: number | null };
+function GameDone({ icon, title, text, r, onAgain }: { icon: string; title: string; text: string; r: GameResult; onAgain: () => void }) {
+  const { back } = useDevice();
+  return <div className="page">
+    <div className="result"><div className="big ok"><Icon name={icon} size={34} /></div><h2>{title}</h2><p>{text}</p>
+      <p><b>{r.rewarded ? `+${r.coins} Маничек, +${r.xp} опыта` : 'Награда за сегодня уже получена. Возвращайся завтра'}</b></p>
+      {r.level && <p>Новый уровень {r.level}! Родителю отправлено предложение расширить лимиты.</p>}</div>
+    <button className="btn" onClick={back}>Готово</button>
+    <button className="btn ghost" onClick={onAgain}>Сыграть ещё</button>
+  </div>;
+}
+
+const shuffle = <T,>(a: T[]) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+
+/** «Карты по памяти»: 6 пар партнёров Moby на поле 3×4 */
+export function Memory() {
+  const { run, call } = useDevice();
+  const deal = () => shuffle([...MEMORY_PARTNERS, ...MEMORY_PARTNERS]);
+  const [deck, setDeck] = useState(deal);
+  const [open, setOpen] = useState<number[]>([]);
+  const [found, setFound] = useState<string[]>([]);
+  const [moves, setMoves] = useState(0);
+  const [result, setResult] = useState<GameResult | null>(null);
+  const again = () => { setDeck(deal()); setOpen([]); setFound([]); setMoves(0); setResult(null); };
+  const flip = (i: number) => {
+    if (open.length === 2 || open.includes(i) || found.includes(deck[i].id)) return;
+    const next = [...open, i];
+    setOpen(next);
+    if (next.length < 2) return;
+    setMoves(m => m + 1);
+    if (deck[next[0]].id !== deck[next[1]].id) { setTimeout(() => setOpen([]), 750); return; }
+    const f = [...found, deck[i].id];
+    setFound(f); setOpen([]);
+    if (f.length === MEMORY_PARTNERS.length) run(() => call<GameResult>('/api/child/games/memory', { score: 1 })).then(r => r && setTimeout(() => setResult(r), 400));
+  };
+  if (result) return <><TopBar title="Карты по памяти" /><GameDone icon="trophy" title={`Все пары за ${moves} ${plural(moves, 'ход', 'хода', 'ходов')}`}
+    text="Это партнёры Moby: плати у них картой — в понедельник часть денег вернётся кешбэком." r={result} onAgain={again} /></>;
+  return <><TopBar title="Карты по памяти" /><div className="page">
+    <small className="muted">Открывай по две карты и находи одинаковых партнёров · ходов {moves} · пар {found.length} из {MEMORY_PARTNERS.length}</small>
+    <div className="memgrid">{deck.map((p, i) => {
+      const up = open.includes(i) || found.includes(p.id);
+      return <button key={i} className={`mem ${up ? 'up' : ''} ${found.includes(p.id) ? 'found' : ''}`} onClick={() => flip(i)} aria-label={up ? p.title : 'Закрытая карта'}>
+        <span className="mem-in"><span className="mem-back">M</span><span className="mem-face"><Icon name={p.icon} size={28} /><small>{p.title}</small></span></span>
+      </button>;
+    })}</div>
+  </div></>;
+}
+
+/** «Угадай цену»: 6 вещей, три варианта цены */
+export function PriceGame() {
+  const { run, call } = useDevice();
+  const [i, setI] = useState(0);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [result, setResult] = useState<GameResult | null>(null);
+  const again = () => { setI(0); setAnswers([]); setResult(null); };
+  const correct = answers.filter((a, k) => a === PRICE_GAME[k].answer).length;
+  if (result) return <><TopBar title="Угадай цену" /><GameDone icon="tag" title={`${correct} из ${PRICE_GAME.length}`}
+    text={correct >= 4 ? 'Отлично чувствуешь цены — с таким навыком проще планировать покупки.' : 'Цены легко недооценить. Загляни в «Уроки», там про бюджет.'} r={result} onAgain={again} /></>;
+  const q = PRICE_GAME[i];
+  const picked = answers[i];
+  const next = async () => {
+    if (i + 1 < PRICE_GAME.length) return setI(i + 1);
+    const r = await run(() => call<GameResult>('/api/child/games/price', { score: correct }));
+    if (r) setResult(r);
+  };
+  return <><TopBar title="Угадай цену" /><div className="page">
+    <small className="muted">Вещь {i + 1} из {PRICE_GAME.length} · верно {correct}</small>
+    <Bar value={i} max={PRICE_GAME.length} />
+    <div className="msg" style={{ alignItems: 'center' }}><RowIcon name={q.icon} /><div style={{ fontSize: 18, fontWeight: 600 }}>{q.item}</div></div>
+    <p className="muted">Сколько это примерно стоит в Минске?</p>
+    {q.options.map((v, k) => <button key={k} className={`opt press ${picked !== undefined ? (k === q.answer ? 'right' : k === picked ? 'wrong' : '') : ''}`} disabled={picked !== undefined}
+      onClick={() => setAnswers(a => { const n = [...a]; n[i] = k; return n; })}>{fmt(v)}</button>)}
+    {picked !== undefined && <><div className="legal"><Icon name="info" size={18} /><span>{q.note}</span></div>
+      <button className="btn" onClick={next}>{i + 1 < PRICE_GAME.length ? 'Дальше' : 'Завершить'}</button></>}
+  </div></>;
+}
+
+// ---------- подросток: «Путь к 18», «Ещё» и настройки ----------
+export function PathScreen() {
   const o = useChild();
   if (!o) return <Loading />;
-  const lv = levelOf(o.me.xp);
-  return <><PlainTop title="Путь к 18" right={<span className="tag" style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}><Coin />{o.me.coins}</span>} />
-    <div className="page tight">
-      <div className="card"><h3>Уровни самостоятельности</h3><p className="muted" style={{ margin: '4px 0 14px' }}>Каждый уровень предлагает родителю дать тебе больше свободы.</p>
-        {LEVELS.map(l => <div key={l.n} className={`pstep ${l.n < lv.n ? 'done' : l.n === lv.n ? 'cur' : ''}`}><div className="n">{l.n}</div><div><b style={{ fontWeight: 600 }}>{l.title}</b><br /><small>{l.perk}</small></div></div>)}
-        <div className="pstep"><div className="n">18</div><div><b style={{ fontWeight: 600 }}>Взрослый Moby</b><br /><small>Карта переоформляется на тебя, копилки, вклад и Манички сохраняются. 3 месяца пакета «Шоппер» бесплатно</small></div></div>
+  const lv = levelOf(o.me.xp), nx = nextLevel(o.me.xp);
+  return <><TopBar title="Путь к 18" /><div className="page">
+    <div className="card"><h3>Уровень {lv.n}: {lv.title}</h3>
+      <div style={{ margin: '12px 0 6px' }}><Bar value={nx ? o.me.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
+      <small className="muted">{nx ? `${o.me.xp} из ${nx.xp} опыта до уровня ${nx.n}. Опыт дают задания, уроки и игры в MobyPlay` : 'Максимальный уровень'}</small></div>
+    <div className="card"><h3>Уровни самостоятельности</h3><p className="muted" style={{ margin: '4px 0 14px' }}>Каждый уровень предлагает родителю дать тебе больше свободы.</p>
+      {LEVELS.map(l => <div key={l.n} className={`pstep ${l.n < lv.n ? 'done' : l.n === lv.n ? 'cur' : ''}`}><div className="n">{l.n}</div><div><b style={{ fontWeight: 600 }}>{l.title}</b><br /><small>{l.perk}</small></div></div>)}
+      <div className="pstep"><div className="n">18</div><div><b style={{ fontWeight: 600 }}>Взрослый Moby</b><br /><small>Карта переоформляется на тебя, копилки, вклад и Манички сохраняются. 3 месяца пакета «Шоппер» бесплатно</small></div></div>
+    </div>
+  </div></>;
+}
+
+/** Скрыть баланс на главной: запоминается на этом телефоне */
+function useHidden() {
+  const { userId } = useDevice();
+  const key = `moby-family:hide:${userId}`;
+  const [hide, setHide] = useState(() => { try { return localStorage.getItem(key) === '1'; } catch { return false; } });
+  const set = (v: boolean) => { setHide(v); try { localStorage.setItem(key, v ? '1' : '0'); } catch { /* приватный режим */ } };
+  return [hide, set] as const;
+}
+
+/** «Ещё» подростка: как у взрослого Moby, но только то, что нужно в 14–17 */
+export function TeenMore() {
+  const o = useChild();
+  const { push, sheet, toast, logout } = useDevice();
+  const ask = useAsk();
+  if (!o) return <Loading />;
+  const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
+  const items: [string, string, () => void][] = [
+    ['settings', 'Настройки', () => push('settings')],
+    ['credit-card', 'Мои карты', () => sheet(c => <CardsSheet close={c} />)],
+    ['rocket', 'Путь к 18', () => push('path')],
+    ['chart-column', 'Аналитика трат', () => push('analytics')],
+    ['repeat', 'Подписки', () => (o.me.settings.perms.subs ? push('subs') : ask.perm('perms.subs'))],
+    ['briefcase', 'Заработок и задания', () => push('earn')],
+    ['coins', `Манички: ${o.me.coins}`, () => push('play')],
+    ['shield', 'Ваша безопасность', () => push('fraud')],
+    ['info', 'О Банке', soon],
+  ];
+  return <div className="page" style={{ paddingTop: 56 }}>
+    <div className="menu">{items.map(([ic, t, fn]) => <button key={ic} className="item press" onClick={fn}><RowIcon name={ic} tone="dash" /><div className="tx">{t}</div><Chev /></button>)}</div>
+    <button className="btn ghost" onClick={logout}>Выйти</button>
+  </div>;
+}
+
+export function TeenSettings() {
+  const o = useChild();
+  const { toast, logout } = useDevice();
+  const [hide, setHide] = useHidden();
+  const [notify, setNotify] = useState(true);
+  if (!o) return <Loading />;
+  const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
+  return <>
+    <TopBar title="Настройки" />
+    <div className="page" style={{ background: '#fff', minHeight: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '30px 0 24px' }}>
+        <div className="avatar-xl">{initial(o.me.name)}</div><div style={{ fontSize: 26 }}>{o.me.name}</div>
+        <div className="muted">{o.me.phone ? fmtPhone(o.me.phone) : 'Номер телефона не указан'}</div>
       </div>
-      <LearnBlock o={o} />
-    </div></>;
+      <div className="srow">Скрывать баланс на главной <Toggle on={hide} label="Скрывать баланс" onChange={setHide} /></div>
+      <div className="srow">Уведомления о тратах <Toggle on={notify} label="Уведомления о тратах" onChange={setNotify} /></div>
+      <button className="srow" onClick={soon}>Изменить смарт-код <Chev /></button>
+      <div className="srow">Тёмная тема <Toggle on={false} label="Тёмная тема" onChange={soon} /></div>
+      <div className="srow" style={{ color: 'var(--muted)', fontSize: 14 }}>Лимиты и разрешения настраивает родитель</div>
+      <button className="srow" style={{ color: 'var(--red)' }} onClick={logout}>Выйти</button>
+    </div>
+  </>;
 }

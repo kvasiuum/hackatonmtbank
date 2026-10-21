@@ -228,6 +228,10 @@ export function createApi(db: DB, opts: ApiOptions) {
     } },
     { method: 'POST', path: '/api/child/goals/:id/deposit', role: 'child', handler: r => svc.depositGoal(me(r).userId, id(r), z.object({ amount: money }).parse(r.body).amount) },
     { method: 'POST', path: '/api/child/lessons/:id', role: 'child', handler: r => svc.completeLesson(me(r).userId, id(r), z.object({ answers: z.array(z.number().int()) }).parse(r.body).answers) },
+    { method: 'POST', path: '/api/child/games/:id', role: 'child', handler: r => {
+      const game = z.enum(['memory', 'price']).parse(id(r));
+      return svc.playGame(me(r).userId, game, z.object({ score: z.number().int().min(0).max(game === 'price' ? 6 : 1) }).parse(r.body).score);
+    } },
     { method: 'POST', path: '/api/child/fraud', role: 'child', handler: r => svc.completeFraud(me(r).userId, z.object({ answers: z.array(z.boolean()) }).parse(r.body).answers) },
     { method: 'POST', path: '/api/child/subscriptions/:id', role: 'child', handler: r => { svc.setSubscription(me(r).userId, id(r), z.object({ active: z.boolean() }).parse(r.body).active); return ok; } },
     { method: 'POST', path: '/api/child/deposit', role: 'child', handler: r => { const b = z.object({ action: z.enum(['open', 'topup']), amount: money }).parse(r.body); svc.deposit(me(r).userId, b.action, b.amount); return ok; } },

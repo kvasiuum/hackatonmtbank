@@ -417,3 +417,14 @@ svg { display: block; flex: none; }
 .lvl-wrap { background: var(--blue); border-radius: var(--r-lg); padding: 0 12px 12px; }
 button.chip { color: inherit; }
 .link { color: var(--blue); font-weight: 500; font-size: 14px; }
+
+/* MobyPlay: карты по памяти */
+.memgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mem { aspect-ratio: 3 / 4; perspective: 600px; padding: 0; }
+.mem-in { position: relative; display: block; width: 100%; height: 100%; transition: transform 380ms var(--ease-out); transform-style: preserve-3d; }
+.mem.up .mem-in { transform: rotateY(180deg); }
+.mem-back, .mem-face { position: absolute; inset: 0; border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.mem-back { background: var(--mt-blue); color: #fff; font-weight: 800; font-size: 28px; box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .12); }
+.mem-face { background: #fff; color: var(--mt-blue); border: 2px solid var(--line); transform: rotateY(180deg); padding: 6px; text-align: center; }
+.mem-face small { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.mem.found .mem-face { border-color: var(--mt-sky); background: var(--mt-cloud); }

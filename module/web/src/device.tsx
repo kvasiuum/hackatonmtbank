@@ -1,7 +1,10 @@
 // Один телефон: вход по смарт-коду, затем Moby родителя или ребёнка.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Device as DeviceInfo } from '../../server/src/types';
-import { Fraud, KidGoals, KidHome, KidLearn, KidTasks, Pay, Quiz, TeenAnalytics, TeenEarn, TeenGrowth, TeenHome, TeenPayments, TeenSavings, TeenSubs } from './child';
+import {
+  Fraud, KidGoals, KidHome, KidTasks, Memory, MobyPlay, PathScreen, Pay, PriceGame, Quiz,
+  TeenAnalytics, TeenEarn, TeenHome, TeenMore, TeenPayments, TeenSavings, TeenSettings, TeenSubs,
+} from './child';
 import { Icon, MobyLogo } from './icons';
 import { api, ApiError, DeviceProvider, useDevice, type Route } from './lib';
 import { ChildScreen, FamilyScreen, Onboarding, PackageScreen, TasksScreen, ParentChat, ParentHome, ParentMore, ParentProducts, ParentSettings } from './parent';
@@ -198,18 +201,19 @@ const PARENT: Record<string, Screen> = {
   package: () => <PackageScreen />, tasks: r => <TasksScreen childId={r.params?.childId} />,
 };
 const KID: Record<string, Screen> = {
-  home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, learn: () => <KidLearn />,
+  home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, play: () => <MobyPlay />, memory: () => <Memory />, price: () => <PriceGame />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
 };
 const TEEN: Record<string, Screen> = {
-  home: () => <TeenHome />, payments: () => <TeenPayments />, savings: () => <TeenSavings />, growth: () => <TeenGrowth />,
+  home: () => <TeenHome />, savings: () => <TeenSavings />, play: () => <MobyPlay />, more: () => <TeenMore />,
+  payments: () => <TeenPayments />, path: () => <PathScreen />, settings: () => <TeenSettings />, memory: () => <Memory />, price: () => <PriceGame />,
   quiz: r => <Quiz id={r.params!.id} />, fraud: () => <Fraud />, pay: r => <Pay method={r.params?.method} />,
   subs: () => <TeenSubs />, earn: () => <TeenEarn />, analytics: () => <TeenAnalytics />,
 };
 const TABS: Record<'parent' | 'kid' | 'teen', [string, string, string][]> = {
   parent: [['home', 'Главная', 'moby'], ['products', 'Продукты', 'products'], ['chat', 'Чат', 'chat'], ['more', 'Ещё', 'more']],
-  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['tasks', 'Задания', 'list-checks'], ['learn', 'Игры', 'gamepad-2']],
-  teen: [['home', 'Главная', 'moby'], ['payments', 'Платежи', 'transfer'], ['savings', 'Накопления', 'piggy-bank'], ['growth', 'Рост', 'rocket']],
+  kid: [['home', 'Главная', 'moby'], ['goals', 'Копилки', 'piggy-bank'], ['tasks', 'Задания', 'list-checks'], ['play', 'MobyPlay', 'gamepad-2']],
+  teen: [['home', 'Главная', 'moby'], ['savings', 'Накопления', 'piggy-bank'], ['play', 'MobyPlay', 'gamepad-2'], ['more', 'Ещё', 'more']],
 };
 
 function Shell({ info, token, onLogout }: { info: DeviceInfo; token: string; onLogout: () => void }) {

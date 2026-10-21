@@ -3,7 +3,7 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
-  LESSONS, LESSON_REWARD, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
+  GAME_REWARD, LESSONS, LESSON_REWARD, type GameId, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
@@ -828,6 +828,27 @@ export class FamilyService {
       this.touch(c.family_id);
     }
     return { correct, total: FRAUD_CASES.length, rewarded: first, level };
+  }
+
+  /**
+   * Мини-игры MobyPlay. Награда раз в день за игру, чтобы Манички нельзя было «нафармить»:
+   * «Карты по памяти» — за прохождение, «Угадай цену» — за каждый верный ответ.
+   */
+  playGame(childId: string, game: GameId, score: number) {
+    const c = this.childRow(childId);
+    const day = startOfDay();
+    const r = GAME_REWARD[game];
+    const units = game === 'price' ? score : 1;
+    let level: number | null = null;
+    const first = !this.one('SELECT 1 FROM game_plays WHERE child_id = ? AND game = ? AND day = ?', childId, game, day);
+    if (first && units > 0) {
+      tx(this.db, () => {
+        this.run('INSERT INTO game_plays VALUES (?,?,?,?)', childId, game, day, score);
+        level = this.addXp(c, r.xp * units, r.coins * units);
+      });
+      this.touch(c.family_id);
+    }
+    return { rewarded: first && units > 0, coins: first ? r.coins * units : 0, xp: first ? r.xp * units : 0, level };
   }
 
   setSubscription(childId: string, subId: string, active: boolean) {

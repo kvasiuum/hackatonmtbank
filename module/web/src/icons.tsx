@@ -2,7 +2,7 @@
 // остальные — из набора Lucide с той же толщиной линии.
 import { useId, type ReactNode } from 'react';
 import {
-  ArrowLeft, Ban, Banknote, Bell, Bike, BookOpen, Briefcase, Bus, ChartColumn, Check, ChevronDown, ChevronRight, Calculator, Percent, Sparkles, Trash2, UserPlus, X, Cigarette, Clapperboard,
+  ArrowLeft, Ban, Banknote, LayoutGrid, Tag, Bell, Bike, BookOpen, Briefcase, Bus, ChartColumn, Check, ChevronDown, ChevronRight, Calculator, Percent, Sparkles, Trash2, UserPlus, X, Cigarette, Clapperboard,
   Clock, Cloud, Code, Coffee, Coins, CreditCard, Dices, Dumbbell, Eye, EyeOff, FerrisWheel, FileText, Footprints, Gamepad2, Gift,
   GraduationCap, Headphones, Info, KeyRound, Landmark, ListChecks, Lock, LockOpen, MapPin, MessageCircle, Music, Package, Pencil,
   Phone, PiggyBank, Plane, Plus, QrCode, Repeat, Rocket, Sandwich, School, Search, Send, Settings, Shield, ShieldAlert, ShieldCheck,
@@ -12,7 +12,7 @@ import {
 
 const LUCIDE: Record<string, LucideIcon> = {
   'arrow-left': ArrowLeft, ban: Ban, banknote: Banknote, bell: Bell, bike: Bike, 'book-open': BookOpen, briefcase: Briefcase, bus: Bus,
-  'chart-column': ChartColumn, check: Check, 'chevron-right': ChevronRight, 'chevron-down': ChevronDown, calculator: Calculator, percent: Percent,
+  'chart-column': ChartColumn, 'layout-grid': LayoutGrid, tag: Tag, check: Check, 'chevron-right': ChevronRight, 'chevron-down': ChevronDown, calculator: Calculator, percent: Percent,
   sparkles: Sparkles, trash: Trash2, 'user-plus': UserPlus, x: X, cigarette: Cigarette, clapperboard: Clapperboard, clock: Clock,
   cloud: Cloud, code: Code, coffee: Coffee, coins: Coins, 'credit-card': CreditCard, dices: Dices, dumbbell: Dumbbell, eye: Eye, 'eye-off': EyeOff,
   'ferris-wheel': FerrisWheel, 'file-text': FileText, footprints: Footprints, 'gamepad-2': Gamepad2, gift: Gift, 'graduation-cap': GraduationCap,

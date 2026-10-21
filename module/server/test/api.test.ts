@@ -312,4 +312,14 @@ describe('API модуля «Семья»', () => {
     await call('PATCH', '/api/parent/children/u_anya/settings', parent, { perms: { p2p: true } });
     expect((await call('POST', '/api/child/transfer', teen, { phone: '+375291112233', amount: 100 })).body.status).toBe('approved');
   });
+
+  it('мини-игры награждают раз в день', async () => {
+    const kid = await login('u_misha');
+    const coins = (await call('GET', '/api/child/overview', kid)).body.me.coins;
+    expect((await call('POST', '/api/child/games/memory', kid, { score: 1 })).body).toMatchObject({ rewarded: true, coins: 10 });
+    expect((await call('POST', '/api/child/games/memory', kid, { score: 1 })).body.rewarded).toBe(false);
+    expect((await call('POST', '/api/child/games/price', kid, { score: 4 })).body).toMatchObject({ rewarded: true, coins: 12 });
+    expect((await call('GET', '/api/child/overview', kid)).body.me.coins).toBe(coins + 22);
+    expect((await call('POST', '/api/child/games/price', kid, { score: 99 })).status).toBe(400);
+  });
 });

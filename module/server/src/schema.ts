@@ -85,6 +85,10 @@ CREATE TABLE IF NOT EXISTS partner_spend (
   id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL,
   amount INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS game_plays (
+  child_id TEXT NOT NULL REFERENCES users(id), game TEXT NOT NULL, day TEXT NOT NULL, score INTEGER NOT NULL,
+  PRIMARY KEY (child_id, game, day)
+);
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
 );
@@ -114,7 +118,7 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
-export const TABLES = ['sessions', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+export const TABLES = ['sessions', 'game_plays', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
   'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */

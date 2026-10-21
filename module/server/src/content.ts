@@ -180,6 +180,28 @@ export const PARTNER_OFFERS: Record<AgeGroup, { icon: string; title: string; sub
   ],
 };
 
+// ---------- MobyPlay: мини-игры ----------
+/** Партнёры на картах игры «Карты по памяти» */
+export const MEMORY_PARTNERS = [
+  { id: 'cinema', icon: 'clapperboard', title: 'Кинотеатр' },
+  { id: 'books', icon: 'book-open', title: 'Книжный' },
+  { id: 'coffee', icon: 'coffee', title: 'Кофейня' },
+  { id: 'sport', icon: 'dumbbell', title: 'Спортзал' },
+  { id: 'stationery', icon: 'pencil', title: 'Канцтовары' },
+  { id: 'fun', icon: 'ferris-wheel', title: 'Парк развлечений' },
+];
+/** «Угадай цену»: примерные цены в Минске, чтобы ребёнок чувствовал стоимость вещей */
+export const PRICE_GAME: { icon: string; item: string; options: number[]; answer: number; note: string }[] = [
+  { icon: 'bus', item: 'Поездка в метро', options: [90, 350, 900], answer: 0, note: 'Около 90 копеек — поэтому проездной на месяц выгоднее для тех, кто ездит каждый день.' },
+  { icon: 'sandwich', item: 'Буханка хлеба', options: [40, 180, 900], answer: 1, note: 'Около 1.80 BYN. Цены на продукты меняются: полезно сравнивать магазины.' },
+  { icon: 'clapperboard', item: 'Билет в кино', options: [300, 1200, 4500], answer: 1, note: 'Около 12 BYN. У партнёров Moby в будни дешевле, а 10% вернутся кешбэком.' },
+  { icon: 'pencil', item: 'Тетрадь на 48 листов', options: [250, 900, 2000], answer: 0, note: 'Около 2.50 BYN. За год на тетради уходит больше, чем кажется.' },
+  { icon: 'smartphone', item: 'Мобильная связь на месяц', options: [200, 1500, 9000], answer: 1, note: 'Около 15 BYN: столько же, сколько неделя обедов в школе.' },
+  { icon: 'headphones', item: 'Беспроводные наушники', options: [1500, 9000, 50000], answer: 1, note: 'Около 90 BYN. Если откладывать 10 BYN в неделю, накопишь за 9 недель.' },
+];
+export const GAME_REWARD = { memory: { xp: 15, coins: 10 }, price: { xp: 5, coins: 3 } } as const;
+export type GameId = keyof typeof GAME_REWARD;
+
 export const groupOf = (age: number): AgeGroup => (age < 14 ? 'kid' : 'teen');
 export const SUBS_MONTHLY_LIMIT = 20 * BYN;
 export const PARENT_BONUS_RATE = 0.1;
