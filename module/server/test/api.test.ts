@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app';
-import { startOfWeek } from '../src/service';
+import { normPhone, startOfMonth, startOfWeek } from '../src/service';
 
 let ctx: ReturnType<typeof buildApp>;
 beforeEach(() => { ctx = buildApp({ dbFile: ':memory:', webDist: '/nonexistent' }); });
@@ -125,5 +125,110 @@ describe('API модуля «Семья»', () => {
     const parent = await login('u_parent');
     await call('PATCH', '/api/parent/children/u_misha/settings', parent, { mobyAccess: false });
     expect((await call('POST', '/api/auth/login', undefined, { userId: 'u_misha', pin: '1111' })).status).toBe(403);
+  });
+
+  it('в запросах видна сумма', async () => {
+    const parent = await login('u_parent');
+    const reqs = (await call('GET', '/api/parent/overview', parent)).body.requests;
+    expect(reqs.find((x: any) => x.id === 'r_seed1').amount).toBe(500);
+    expect(reqs.find((x: any) => x.id === 'r_seed2').amount).toBeNull();
+  });
+
+  it('родитель удаляет задание, ребёнок предлагает своё', async () => {
+    const kid = await login('u_misha'); const parent = await login('u_parent');
+    await call('POST', '/api/child/tasks/k_book/done', kid);
+    expect((await call('DELETE', '/api/parent/tasks/k_book', parent)).status).toBe(200);
+    const ov = (await call('GET', '/api/parent/overview', parent)).body;
+    expect(ov.requests.some((x: any) => x.type === 'task' && x.status === 'pending')).toBe(false);
+    expect((await call('DELETE', '/api/parent/tasks/k_balcony', await login('u_anya'))).status).toBe(403);
+
+    const p = await call('POST', '/api/child/requests', kid, { type: 'proposal', title: 'Помыть машину', reward: 700 });
+    await call('POST', '/api/parent/requests/' + p.body.id, parent, { approve: true });
+    const tasks = (await call('GET', '/api/child/overview', kid)).body.me.tasks;
+    expect(tasks.find((t: any) => t.title === 'Помыть машину')).toMatchObject({ reward: 700, status: 'open' });
+  });
+
+  it('тариф «Старт»: один ребёнок и без браслета', async () => {
+    const parent = await login('u_parent');
+    expect((await call('POST', '/api/parent/plan', parent, { tariff: 'start' })).status).toBe(400); // двое детей
+    await call('POST', '/api/demo/reset', undefined, { empty: true });
+    const p2 = await login('u_parent');
+    const ov = (await call('GET', '/api/parent/overview', p2)).body;
+    expect(ov.plan.tariff).toBe('start');
+    expect(ov.introSeen).toBe(false);
+    const child = (age: number, type: string, tariff?: string) => call('POST', '/api/parent/children', p2, {
+      name: 'Соня', age, preset: 'normal', consents: { legalRep: true, personalData: true, terms: true, marketing: false },
+      card: { type, color: '#E4252F' }, tariff,
+    });
+    expect((await child(8, 'bracelet')).body.error.code).toBe('tariff_card');
+    expect((await child(8, 'sticker')).status).toBe(200);
+    expect((await child(10, 'sticker')).body.error.code).toBe('tariff_kids');
+    expect((await child(10, 'bracelet', 'plus')).status).toBe(200);
+    await call('POST', '/api/parent/intro-seen', p2);
+    expect((await call('GET', '/api/parent/overview', p2)).body.introSeen).toBe(true);
+  });
+
+  it('плата за «Семья+» не берётся при тратах семьи от 400 BYN', async () => {
+    const parent = await login('u_parent');
+    const balance = async () => (await call('GET', '/api/parent/overview', parent)).body.parent.balance;
+    ctx.db.prepare("UPDATE family_meta SET since = '2020-01-01T00:00:00.000Z'").run();
+    const before = await balance();
+    ctx.svc.processFees();
+    ctx.svc.processFees();
+    expect(await balance()).toBe(before - 490); // за прошлый месяц трат в базе нет
+    ctx.db.prepare('UPDATE family_meta SET fee_month = NULL').run();
+    const lastMonth = new Date(Date.parse(startOfMonth()) - 5 * 24 * 3600_000).toISOString();
+    ctx.db.prepare("INSERT INTO transactions VALUES ('t_big','u_parent','Мебель',-50000,'Покупки','card','spend',?)").run(lastMonth);
+    ctx.svc.processFees();
+    expect(await balance()).toBe(before - 490);
+  });
+
+  it('кешбэк недели у партнёров приходит в понедельник', async () => {
+    const kid = await login('u_misha');
+    await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' });
+    const me = (await call('GET', '/api/child/overview', kid)).body.me;
+    expect(me.cashbackWeek).toEqual({ spent: 420 + 800 + 620, rate: 0.1, expected: 184 });
+    const balance = me.balance;
+    ctx.svc.processWeeklyCashback(Date.now() + 8 * 24 * 3600_000);
+    const after = (await call('GET', '/api/child/overview', kid)).body.me;
+    expect(after.balance).toBe(balance + 184);
+    expect(after.cashbackWeek.spent).toBe(0);
+  });
+
+  it('вход по номеру: родитель добавил ребёнка по телефону, подросток просится в семью сам', async () => {
+    expect(normPhone('+375 (29) 111-22-33')).toBe('+375291112233');
+    expect(normPhone('8029 1112233')).toBe('+375291112233');
+    expect(normPhone('+7 999 1112233')).toBeNull();
+    const parent = await login('u_parent');
+    await call('POST', '/api/parent/children', parent, {
+      name: 'Петя', age: 12, preset: 'normal', phone: '+375 29 111-22-33',
+      consents: { legalRep: true, personalData: true, terms: true, marketing: false }, card: { type: 'sticker', color: '#E4252F' },
+    });
+    const s = await call('POST', '/api/auth/phone/start', undefined, { phone: '+375291112233' });
+    expect(s.body.known).toBe(true);
+    expect((await call('POST', '/api/auth/phone/verify', undefined, { phone: '+375291112233', code: '0', pin: '2468' })).status).toBe(400);
+    const v = await call('POST', '/api/auth/phone/verify', undefined, { phone: '+375291112233', code: s.body.demoCode, pin: '2468' });
+    expect(v.body.role).toBe('child');
+
+    // Подросток без приглашения
+    const t = await call('POST', '/api/auth/phone/start', undefined, { phone: '+375447778899' });
+    expect(t.body.known).toBe(false);
+    const young = await call('POST', '/api/auth/join-request', undefined, { phone: '+375447778899', code: t.body.demoCode, parentPhone: '+375291234567', name: 'Лиза', age: 12, pin: '1357' });
+    expect(young.body.error.code).toBe('age');
+    const t2 = await call('POST', '/api/auth/phone/start', undefined, { phone: '+375447778899' });
+    const jr = await call('POST', '/api/auth/join-request', undefined, { phone: '+375447778899', code: t2.body.demoCode, parentPhone: '+375291234567', name: 'Лиза', age: 16, pin: '1357' });
+    expect(jr.status).toBe(200);
+    expect((await call('POST', '/api/auth/join-status', undefined, { ticket: jr.body.ticket })).body.status).toBe('pending');
+    const ov = (await call('GET', '/api/parent/overview', parent)).body;
+    expect(ov.joinRequests).toHaveLength(1);
+    const ok = await call('POST', '/api/parent/join-requests/' + ov.joinRequests[0].id, parent, {
+      approve: true, consents: { legalRep: true, personalData: true, terms: true, marketing: false },
+    });
+    expect(ok.status).toBe(200);
+    const st = await call('POST', '/api/auth/join-status', undefined, { ticket: jr.body.ticket });
+    expect(st.body.status).toBe('approved');
+    const me = (await call('GET', '/api/child/overview', st.body.token)).body.me;
+    expect(me).toMatchObject({ name: 'Лиза', group: 'teen', phone: '+375447778899', joined: true });
+    expect((await call('POST', '/api/auth/login', undefined, { userId: me.id, pin: '1357' })).status).toBe(200);
   });
 });

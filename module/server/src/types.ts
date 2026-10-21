@@ -31,7 +31,7 @@ export interface Task { id: string; title: string; reward: number; status: 'open
 export interface Goal { id: string; title: string; icon: string; target: number; saved: number }
 export interface Subscription { id: string; title: string; price: number; active: boolean; icon: string }
 
-export type RequestType = 'money' | 'perm' | 'card' | 'purchase' | 'limit' | 'level' | 'task' | 'goal';
+export type RequestType = 'money' | 'perm' | 'card' | 'purchase' | 'limit' | 'level' | 'task' | 'goal' | 'proposal';
 export interface ChildRequest {
   id: string;
   childId: string;
@@ -42,6 +42,8 @@ export interface ChildRequest {
   createdAt: string;
   /** Человекочитаемое описание предмета запроса, формирует сервер */
   summary: string;
+  /** Сумма, о которой идёт речь (деньги, покупка, награда, лимит), в копейках */
+  amount: number | null;
 }
 
 export interface ChildSummary {
@@ -60,13 +62,23 @@ export interface ChildDetail extends ChildSummary {
   ops: Tx[];
   subscriptions: Subscription[];
   deposit: { amount: number; rate: number } | null;
+  /** Кешбэк недели у партнёров: потрачено, ставка, сколько вернётся в понедельник */
+  cashbackWeek: { spent: number; rate: number; expected: number };
+  phone: string | null;
 }
 
 export interface FeedItem { id: string; childId: string | null; text: string; amount: number | null; createdAt: string }
 export interface FamilyGoal { title: string; icon: string; target: number; saved: number }
 
+export type Tariff = 'start' | 'plus';
+export interface FamilyPlan { tariff: Tariff; since: string; spendMonth: number; feeWaived: boolean }
+export interface JoinRequest { id: string; name: string; age: number; phone: string; createdAt: string }
+
 export interface ParentOverview {
-  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[] };
+  parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null };
+  introSeen: boolean;
+  plan: FamilyPlan;
+  joinRequests: JoinRequest[];
   children: ChildSummary[];
   requests: ChildRequest[];
   feed: FeedItem[];

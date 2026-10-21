@@ -12,7 +12,7 @@ export interface AuthState {
   spentMonth: number;
   cards: Card[];
 }
-export interface PayInput { title: string; amount: number; category: Category; method: PayMethod }
+export interface PayInput { title: string; amount: number; category: Category; method: PayMethod; partner?: boolean }
 export interface AuthOptions {
   /** Родитель уже одобрил эту операцию: пропускаем подтверждение и лимиты */
   parentApproved?: boolean;

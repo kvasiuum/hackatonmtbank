@@ -68,6 +68,19 @@ CREATE TABLE IF NOT EXISTS feed (
   id TEXT PRIMARY KEY, family_id TEXT NOT NULL REFERENCES families(id), child_id TEXT,
   text TEXT NOT NULL, amount INTEGER, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS family_meta (
+  family_id TEXT PRIMARY KEY REFERENCES families(id), tariff TEXT NOT NULL DEFAULT 'start',
+  since TEXT NOT NULL, fee_month TEXT, intro_seen INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS join_requests (
+  id TEXT PRIMARY KEY, family_id TEXT NOT NULL REFERENCES families(id), name TEXT NOT NULL, age INTEGER NOT NULL,
+  phone TEXT NOT NULL, pin_hash TEXT NOT NULL, ticket TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+  child_id TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS partner_spend (
+  id TEXT PRIMARY KEY, child_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL,
+  amount INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL
 );
@@ -93,6 +106,10 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 
 export const DEMO_PIN = '1111';
 
+/** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
+export const TABLES = ['sessions', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+  'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parents', 'users'];
+
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
 export function seed(db: DB) {
   const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
@@ -102,6 +119,7 @@ export function seed(db: DB) {
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
     ins('INSERT INTO parents VALUES (?,?,?)', 'u_parent', 124050, '4*2110');
     ins('INSERT INTO families VALUES (?,?,?,?,?,?)', 'f_demo', 'u_parent', 'Отпуск на Нарочи', 'tent', 150000, 62000);
+    ins('INSERT INTO family_meta VALUES (?,?,?,?,?)', 'f_demo', 'plus', ago(60 * 24 * 12), null, 0);
     const pOps: [string, number, string, number][] = [
       ['UNIVERSAM', -1408, 'Покупки', 35], ['Гипермаркет', -2735, 'Покупки', 60 * 5], ['Зарплата', 185000, 'Пополнение', 60 * 26],
       ['ЕРИП: коммунальные', -9842, 'Платежи', 60 * 30], ['Аптека', -1255, 'Здоровье', 60 * 50],
@@ -143,6 +161,9 @@ export function seed(db: DB) {
     ins('INSERT INTO subscriptions VALUES (?,?,?,?,?,?)', 's_tv', 'u_anya', 'Онлайн-кинотеатр', 990, 1, 'tv');
     ins('INSERT INTO subscriptions VALUES (?,?,?,?,?,?)', 's_cloud', 'u_anya', 'Облако для фото', 290, 0, 'cloud');
     ins('INSERT INTO deposits VALUES (?,?,?,?)', 'u_anya', 15000, 9, ago(60 * 24 * 60));
+    // Траты у партнёров на этой неделе: кешбэк придёт в понедельник
+    const week: [string, string, number][] = [['u_misha', 'Канцтовары', 420], ['u_misha', 'Кинотеатр', 800], ['u_anya', 'Кофейня', 480], ['u_anya', 'Кинотеатр', 1200]];
+    for (const [c, t, a] of week) ins('INSERT INTO partner_spend VALUES (?,?,?,?,?,?)', newId('ps'), c, t, a, 0, nowIso());
 
     for (const kind of ['legal_rep', 'personal_data', 'card_issue']) {
       ins('INSERT INTO consents VALUES (?,?,?,?)', newId('cs'), 'u_misha', kind, ago(60 * 24 * 90));

@@ -6,9 +6,9 @@ import {
 } from '../../server/src/content';
 import type { CardType, ChildOverview, PayDecision, PayMethod, SettingPath } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, initial, toKop, useData, useDevice } from './lib';
+import { fmt, initial, plural, toKop, useData, useDevice } from './lib';
 import { TaskTag } from './parent';
-import { Act, AmountField, BankCard, Bar, CardStatus, CardTypePicker, Chev, Coin, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
+import { Act, AmountField, BankCard, Bar, CardStatus, CardTypePicker, Chev, Coin, Fold, OpsList, PlainTop, Row, RowIcon, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy } from './ui';
 
 export const useChild = () => useData<ChildOverview>('/api/child/overview').data;
 const Loading = () => <div className="loading">Загрузка…</div>;
@@ -16,6 +16,7 @@ const Loading = () => <div className="loading">Загрузка…</div>;
 const REQ_LABEL: Record<string, string> = {
   money: 'Просил(а) деньги', perm: 'Просил(а) доступ', card: 'Просил(а) карту', purchase: 'Покупка ждёт родителя',
   limit: 'Просил(а) лимит', level: 'Новый уровень', task: 'Задание на проверке', goal: 'Просил(а) в копилку',
+  proposal: 'Предложил(а) задание',
 };
 
 function useAsk() {
@@ -149,9 +150,11 @@ function LevelBox({ o, to }: { o: ChildOverview; to: string }) {
 }
 
 function MyRequests({ o }: { o: ChildOverview }) {
-  if (!o.requests.length) return null;
-  return <div className="card"><h3>Мои запросы</h3>{o.requests.slice(0, 3).map(r => (
-    <Row key={r.id} icon="send" title={REQ_LABEL[r.type]} sub={r.summary}
+  // Показываем ожидающие и свежие ответы за сутки, остальное — в ленте родителя
+  const fresh = o.requests.filter(r => r.status === 'pending' || Date.now() - Date.parse(r.createdAt) < 864e5).slice(0, 3);
+  if (!fresh.length) return null;
+  return <div className="card"><h3>Мои запросы</h3>{fresh.map(r => (
+    <Row key={r.id} icon="send" title={REQ_LABEL[r.type]} sub={`${r.summary}${r.amount != null ? `, ${fmt(r.amount)}` : ''}`}
       right={<span className={`tag ${r.status === 'declined' ? 'solid-red' : r.status === 'pending' ? 'red' : ''}`}>{r.status === 'pending' ? 'Ждём ответа' : r.status === 'approved' ? 'Одобрено' : 'Отказ'}</span>} />
   ))}</div>;
 }
@@ -159,7 +162,10 @@ function MyRequests({ o }: { o: ChildOverview }) {
 function MyCards({ o }: { o: ChildOverview }) {
   const { run, call, sheet } = useDevice();
   const kid = o.me.group === 'kid';
-  return <div className="card"><h3>Мои карты</h3>
+  const main = mainCard(o.me.cards);
+  return <Fold icon="credit-card" title="Мои карты" sub={main ? `${CARD_TYPES[main.type].label} •• ${main.last4}${o.me.cards.length > 1 ? ` и ещё ${o.me.cards.length - 1}` : ''}` : 'Карт нет'}>
+    {main && <div style={{ padding: '12px 0 4px' }}><BankCard name={o.me.name} card={main} /></div>}
+    {main?.status === 'active' && CARD_TYPES[main.type].physical && <button className="btn red" style={{ margin: '8px 0' }} onClick={() => run(() => call(`/api/cards/${main.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}><Icon name="lock" size={20} /> Я потерял карту</button>}
     {o.me.cards.map(c => (
       <div className="row" key={c.id}>
         <div className="ic" style={{ background: c.color, color: '#fff' }}><Icon name={cardIcon(c.type)} size={22} /></div>
@@ -170,20 +176,67 @@ function MyCards({ o }: { o: ChildOverview }) {
     ))}
     {o.me.cards.length < MAX_CARDS && <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(c => <CardRequestSheet o={o} close={c} />)}>
       <Icon name={o.me.settings.perms.newCards ? 'plus' : 'send'} size={20} /> {o.me.settings.perms.newCards ? 'Выпустить виртуальную карту' : 'Попросить новую карту'}</button>}
+  </Fold>;
+}
+
+function CashbackCard({ o }: { o: ChildOverview }) {
+  const cb = o.me.cashbackWeek;
+  const pct = Math.round(cb.rate * 100);
+  return <div className="cashback"><div className="ic"><Icon name="percent" size={22} /></div>
+    <div className="tx"><b>Кешбэк недели {pct}%</b><small>{cb.spent ? `У партнёров потрачено ${fmt(cb.spent)}. Вернётся в понедельник` : 'Плати у партнёров Moby — часть денег вернётся в понедельник'}</small></div>
+    {cb.expected > 0 && <span className="sum">+{fmt(cb.expected)}</span>}
+  </div>;
+}
+
+function ProposeTaskSheet({ close }: { close: () => void }) {
+  const { run, call } = useDevice();
+  const [title, setTitle] = useState('');
+  const [reward, setReward] = useState('3');
+  const [busy, wrap] = useBusy();
+  return <>
+    <h2>Предложить задание</h2>
+    <p className="muted">Придумай дело и награду. Если родитель согласится, задание появится в списке.</p>
+    <div className="field"><label>Что сделаю</label><input maxLength={60} placeholder="Например, помою машину" value={title} onChange={e => setTitle(e.target.value)} /></div>
+    <div className="pills">{['Помою посуду', 'Погуляю с собакой', 'Уберу балкон'].map(t => <button key={t} className="pill" onClick={() => setTitle(t)}>{t}</button>)}</div>
+    <AmountField label="Награда, BYN" value={reward} onChange={setReward} presets={[2, 3, 5, 10]} />
+    <button className="btn" disabled={busy || title.trim().length < 2 || toKop(reward) <= 0} onClick={() => wrap(async () => {
+      if (await run(() => call('/api/child/requests', { type: 'proposal', title: title.trim(), reward: toKop(reward) }), 'Предложение отправлено родителю')) close();
+    })}><Icon name="send" size={20} /> Отправить</button>
+  </>;
+}
+
+function TaskList({ o }: { o: ChildOverview }) {
+  const { run, call, sheet } = useDevice();
+  return <>
+    <div className="card">{o.me.tasks.length ? o.me.tasks.map(t => (
+      <Row key={t.id} icon={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : 'list-checks'} title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`}
+        right={t.status === 'open' ? <button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button> : <TaskTag s={t.status} />} />
+    )) : <div className="empty">Заданий пока нет</div>}</div>
+    <button className="btn ghost" onClick={() => sheet(c => <ProposeTaskSheet close={c} />)}><Icon name="plus" size={20} /> Предложить своё задание</button>
+  </>;
+}
+
+function NextTask({ o, to }: { o: ChildOverview; to: () => void }) {
+  const { run, call } = useDevice();
+  const open = o.me.tasks.filter(t => t.status === 'open');
+  if (!open.length) return null;
+  const t = open[0];
+  return <div className="card"><h3>Задание <button className="link" onClick={to}>Все{open.length > 1 ? ` (${open.length})` : ''}</button></h3>
+    <Row icon="list-checks" title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`} right={<button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button>} />
   </div>;
 }
 
 // ---------- ребёнок 7–13 ----------
 export function KidHome() {
   const o = useChild();
-  const { push, tab, sheet, run, call } = useDevice();
+  const { push, tab, sheet } = useDevice();
   if (!o) return <Loading />;
   const main = mainCard(o.me.cards);
   const virtualOk = o.me.cards.some(c => c.type === 'virtual' && c.status === 'active');
-  const open = o.me.tasks.filter(t => t.status === 'open');
+  const left = Math.max(0, o.me.settings.limits.day - o.me.spentToday);
   return <>
     <div className="hero">
-      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">Привет, {o.me.name}</div><div className="hero-sub">У тебя на счёте</div></div></div>
+      <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">Привет, {o.me.name}</div><div className="hero-sub">Сегодня можно потратить ещё {fmt(Math.min(left, o.me.balance))}</div></div></div>
       <div className="bal-row"><div className="bal">{fmt(o.me.balance)}</div></div>
       <LevelBox o={o} to="learn" />
       <div className="actions">
@@ -193,19 +246,15 @@ export function KidHome() {
       </div>
     </div>
     <div className="body">
-      {main && <BankCard name={o.me.name} card={main} />}
-      {main?.status === 'active' && CARD_TYPES[main.type].physical && <button className="btn red" onClick={() => run(() => call(`/api/cards/${main.id}`, { action: 'block' }), 'Карта заблокирована, родители получили уведомление')}><Icon name="lock" size={20} /> Я потерял карту</button>}
       {main && main.status !== 'active' && <div className="legal"><Icon name={main.status === 'blocked' ? 'lock' : 'clock'} size={18} /><span>
         {main.status === 'blocked' ? `${CARD_TYPES[main.type].label}: карта заблокирована. Нашлась? Попроси родителя разблокировать.` : `${CARD_TYPES[main.type].label} в пути.`}
         {virtualOk ? ' Пока плати виртуальной картой в телефоне' : ''}{o.me.settings.perms.qr ? `${virtualOk ? ' или' : ' Плати'} по QR КРОК.` : virtualOk ? '.' : ''}</span></div>}
-      {open.length > 0 && <div className="card"><h3>Задания от родителей <button className="link" onClick={() => tab('tasks')}>Все</button></h3>
-        {open.slice(0, 2).map(t => <Row key={t.id} icon="list-checks" title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`} right={<button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button>} />)}
-      </div>}
-      {o.me.goals[0] && <GoalCard o={o} id={o.me.goals[0].id} />}
-      <button className="family-entry press" onClick={() => push('fraud')}><div className="ic red"><Icon name="shield-alert" size={24} /></div><div className="tx"><b>Игра «Распознай мошенника»</b><small>+5 Маничек за каждый верный ответ</small></div><Chev /></button>
       <MyRequests o={o} />
+      <NextTask o={o} to={() => tab('tasks')} />
+      {o.me.goals[0] && <GoalCard o={o} id={o.me.goals[0].id} />}
+      <CashbackCard o={o} />
       <MyCards o={o} />
-      <div className="card"><h3>Мои покупки</h3><OpsList ops={o.me.ops} limit={5} /></div>
+      <Fold icon="history" title="Мои покупки" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Покупок пока нет'}><OpsList ops={o.me.ops} limit={8} /></Fold>
     </div>
   </>;
 }
@@ -228,16 +277,12 @@ export function KidGoals() {
 
 export function KidTasks() {
   const o = useChild();
-  const { run, call } = useDevice();
   if (!o) return <Loading />;
   return <>
     <PlainTop title="Задания" />
     <div className="page tight">
-      <p className="muted">Выполняй задания от родителей и получай деньги и опыт для нового уровня.</p>
-      <div className="card">{o.me.tasks.length ? o.me.tasks.map(t => (
-        <Row key={t.id} icon={t.status === 'paid' ? 'check' : t.status === 'review' ? 'clock' : 'list-checks'} title={t.title} sub={`+${fmt(t.reward)} и 40 опыта`}
-          right={t.status === 'open' ? <button className="sbtn solid" onClick={() => run(() => call(`/api/child/tasks/${t.id}/done`, {}), 'Родитель проверит и отправит награду')}>Сделал</button> : <TaskTag s={t.status} />} />
-      )) : <div className="empty">Заданий пока нет. Попроси родителей придумать</div>}</div>
+      <p className="muted">Выполняй задания от родителей и получай деньги и опыт для нового уровня. Можно придумать своё.</p>
+      <TaskList o={o} />
     </div>
   </>;
 }
@@ -335,7 +380,7 @@ export function Pay({ method: initial }: { method?: PayMethod }) {
     {MERCHANTS[o.me.group].map(m => (
       <button key={m.id} className="merchant press" onClick={() => pay(m.id)}>
         <RowIcon name={m.icon} tone={m.category === 'gambling' || m.category === 'adult' ? 'red' : undefined} />
-        <span className="tx"><b>{m.title}</b><small>{CATEGORY_NAMES[m.category]}</small></span><b>{fmt(m.amount)}</b>
+        <span className="tx"><b>{m.title}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{CATEGORY_NAMES[m.category]}{m.partner && <span className="partner">кешбэк {Math.round(o.me.cashbackWeek.rate * 100)}%</span>}</small></span><b>{fmt(m.amount)}</b>
       </button>
     ))}
   </div></>;
@@ -349,7 +394,6 @@ export function TeenHome() {
   const [hide, setHide] = useState(false);
   if (!o) return <Loading />;
   const s = o.me.settings;
-  const subs = o.me.subscriptions.filter(x => x.active);
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava">{initial(o.me.name)}</div><div><div className="hero-name">{o.me.name}</div><div className="hero-sub">Moby 14+</div></div></div>
@@ -362,17 +406,15 @@ export function TeenHome() {
       </div>
     </div>
     <div className="body">
-      <MyCards o={o} />
-      <div className="card"><h3>Ещё счета</h3>
-        <Row icon="repeat" title="Карта для подписок" sub={s.perms.subs ? `${subs.length} ${subs.length === 1 ? 'подписка' : 'подписки'}, ${fmt(subs.reduce((a, x) => a + x.price, 0))} в месяц` : 'Нужно разрешение родителя'}
-          onClick={() => (s.perms.subs ? push('subs') : ask.perm('perms.subs'))} />
-        <Row icon="briefcase" title="Мой заработок" sub={`${fmt(o.me.income)}, распоряжаюсь сам(а)`} onClick={() => push('earn')} />
-      </div>
-      <div className="card"><h3>Траты за месяц <button className="link" onClick={() => push('analytics')}>Подробнее</button></h3><SpendBars o={o} n={3} /></div>
-      {o.me.goals[0] && <GoalCard o={o} id={o.me.goals[0].id} />}
-      <button className="family-entry press" onClick={() => tab('growth')}><div className="ic"><Icon name="rocket" size={24} /></div><div className="tx"><b>Путь к 18: уровень {o.me.level} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div><Chev /></button>
       <MyRequests o={o} />
-      <div className="card"><h3>История</h3><OpsList ops={o.me.ops} limit={5} /></div>
+      <div className="card"><h3>Траты за месяц <button className="link" onClick={() => push('analytics')}>Подробнее</button></h3>
+        <div className="limitline" style={{ margin: '2px 0 10px' }}><span>{fmt(o.me.spentMonth)} из {fmt(s.limits.month)}</span><span>сегодня {fmt(o.me.spentToday)} из {fmt(s.limits.day)}</span></div>
+        <SpendBars o={o} n={3} /></div>
+      <NextTask o={o} to={() => push('earn')} />
+      <CashbackCard o={o} />
+      <MyCards o={o} />
+      <Fold icon="history" title="История" sub={o.me.ops[0] ? `${o.me.ops[0].title}, ${fmt(o.me.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={o.me.ops} limit={10} /></Fold>
+      <button className="family-entry press" onClick={() => tab('growth')}><div className="ic"><Icon name="rocket" size={24} /></div><div className="tx"><b>Путь к 18: уровень {o.me.level} из 5</b><small>Новый уровень — больше свободы и лимитов</small></div><Chev /></button>
     </div>
   </>;
 }
@@ -425,6 +467,7 @@ export function TeenPayments() {
   const ask = useAsk();
   if (!o) return <Loading />;
   const p = o.me.settings.perms;
+  const subs = o.me.subscriptions.filter(x => x.active);
   return <><PlainTop title="Платежи" /><div className="page tight">
     <div className="card"><h3>QR-оплата КРОК {!p.qr && <span className="tag solid-red">Закрыто</span>}</h3>
       <Row icon="qr-code" tone="dash" title="Оплатить по QR на кассе" sub="Со счёта, мгновенно, без карты" onClick={() => (p.qr ? push('pay', { method: 'qr' }) : ask.perm('perms.qr'))} /></div>
@@ -433,6 +476,10 @@ export function TeenPayments() {
     <div className="card"><h3>Переводы</h3>
       <Row icon="transfer" tone="dash" title="Другу по номеру телефона" sub="Мгновенно, внутри Беларуси" onClick={() => (p.p2p ? sheet(c => <TransferSheet close={c} />) : ask.perm('perms.p2p'))} />
       <Row icon="send" tone="dash" title="Попросить у родителей" sub="Запрос придёт в их Moby" onClick={() => sheet(c => <AskMoneySheet close={c} />)} />
+    </div>
+    <div className="card"><h3>Подписки {!p.subs && <span className="tag solid-red">Закрыто</span>}</h3>
+      <Row icon="repeat" tone="dash" title="Карта для подписок" sub={p.subs ? `${subs.length} ${plural(subs.length, 'подписка', 'подписки', 'подписок')}, ${fmt(subs.reduce((a, x) => a + x.price, 0))} в месяц` : 'Отдельная карта с лимитом, нужно разрешение родителя'}
+        onClick={() => (p.subs ? push('subs') : ask.perm('perms.subs'))} />
     </div>
   </div></>;
 }
@@ -459,8 +506,10 @@ export function TeenEarn() {
   const { run, call, tab } = useDevice();
   if (!o) return <Loading />;
   const g = o.me.goals.find(x => x.saved < x.target);
-  return <><TopBar title="Мой заработок" /><div className="page">
+  return <><TopBar title="Заработок и задания" /><div className="page">
     <div className="card"><small className="muted">Собственные средства</small><div className="bal" style={{ fontSize: 28 }}>{fmt(o.me.income)}</div><small className="muted">Подработка и стипендия</small></div>
+    <div className="sec">Задания от родителей</div>
+    <TaskList o={o} />
     <div className="legal"><Icon name="file-text" size={18} /><span>С 14 лет ты сам(а) распоряжаешься заработком и стипендией и можешь открыть вклад (ст. 26 ГК РБ). Лимиты родителя на эти деньги не действуют.</span></div>
     {g && <button className="btn" disabled={o.me.income < 20 * BYN} onClick={() => run(() => call('/api/child/income-to-goal', { goalId: g.id, amount: 20 * BYN }), `20.00 BYN отложено на «${g.title}»`)}>Отложить 20 BYN на «{g.title}»</button>}
     <button className="btn ghost" onClick={() => tab('savings')}>Перейти к вкладу</button>
@@ -469,10 +518,12 @@ export function TeenEarn() {
 
 export function TeenSavings() {
   const o = useChild();
-  const { run, call, sheet } = useDevice();
+  const { run, call, sheet, push } = useDevice();
   if (!o) return <Loading />;
   const d = o.me.deposit;
   return <><PlainTop title="Накопления" /><div className="page tight">
+    <button className="family-entry press" onClick={() => push('earn')}><div className="ic"><Icon name="briefcase" size={24} /></div>
+      <div className="tx"><b>Заработок {fmt(o.me.income)}</b><small>Задания от родителей и подработка: распоряжаешься сам(а)</small></div><Chev /></button>
     <div className="card"><h3>Вклад «Мой старт»</h3>
       {d ? <>
         <div className="bal" style={{ fontSize: 28, marginTop: 8 }}>{fmt(d.amount)}</div>

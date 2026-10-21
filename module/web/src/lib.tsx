@@ -44,6 +44,8 @@ export function fmt(k: number) {
   const [i, d] = (Math.abs(k) / 100).toFixed(2).split('.');
   return `${k < 0 ? '−' : ''}${i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}.${d} BYN`;
 }
+/** +375447778899 → +375 44 777-88-99 */
+export const fmtPhone = (p: string) => p.replace(/^\+375(\d{2})(\d{3})(\d{2})(\d{2})$/, '+375 $1 $2-$3-$4');
 export const toKop = (s: string | number) => Math.round(parseFloat(String(s).replace(',', '.')) * 100) || 0;
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 export function when(iso: string) {

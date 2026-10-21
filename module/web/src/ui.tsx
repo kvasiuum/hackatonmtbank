@@ -29,6 +29,18 @@ export const Toggle = ({ on, onChange, locked, label }: { on: boolean; onChange?
     onClick={() => (locked ? toast('Эту защиту установил банк, её нельзя отключить до 18 лет') : onChange?.(!on))} />;
 };
 
+/** Свёртываемый блок настроек: заголовок с кратким итогом, детали по нажатию */
+export function Fold({ icon, title, sub, children, open: initial = false }: { icon?: string; title: ReactNode; sub?: ReactNode; children: ReactNode; open?: boolean }) {
+  const [open, setOpen] = useState(initial);
+  return <div className={`card fold ${open ? 'open' : ''}`}>
+    <button className="fold-h" onClick={() => setOpen(!open)} aria-expanded={open}>
+      {icon && <RowIcon name={icon} />}<div className="tx"><b>{title}</b>{sub && <small>{sub}</small>}</div>
+      <span className="chev"><Icon name="chevron-down" size={20} /></span>
+    </button>
+    {open && <div className="fold-b">{children}</div>}
+  </div>;
+}
+
 export const SetRow = ({ title, sub, children }: { title: ReactNode; sub?: ReactNode; children: ReactNode }) => (
   <div className="setrow"><div className="tx"><b>{title}</b>{sub && <small>{sub}</small>}</div>{children}</div>
 );

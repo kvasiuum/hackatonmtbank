@@ -2,14 +2,14 @@
 // и браузерная сборка для GitHub Pages, поэтому поведение одинаковое.
 import { z } from 'zod';
 import { CARD_COLORS } from './content';
-import { type DB, DEMO_PIN, checkPin, hashPin, nowIso, seed } from './schema';
+import { type DB, DEMO_PIN, TABLES, checkPin, hashPin, nowIso, seed } from './schema';
 import { platform } from './platform';
-import { AppError, FamilyService } from './service';
+import { AppError, FamilyService, normPhone } from './service';
 import type { Device } from './types';
 
 export interface Session { userId: string; role: 'parent' | 'child' }
 export interface ApiRequest { body: unknown; params: Record<string, string>; token?: string; session?: Session }
-export interface RouteDef { method: 'GET' | 'POST' | 'PATCH'; path: string; role?: 'parent' | 'child' | 'any'; handler: (req: ApiRequest) => unknown }
+export interface RouteDef { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; path: string; role?: 'parent' | 'child' | 'any'; handler: (req: ApiRequest) => unknown }
 
 const money = z.number().int().positive().max(10_000_00); // до 10 000 BYN за операцию
 const pin = z.string().regex(/^\d{4}$/, 'Смарт-код — 4 цифры');
@@ -25,6 +25,9 @@ const settingsPatch = z.object({
   mobyAccess: z.boolean().optional(),
 }).strict();
 const reason = z.string().max(80).optional();
+const phone = z.string().transform((v, ctx) => normPhone(v) ?? (ctx.addIssue({ code: 'custom', message: 'Номер в формате +375 (29) 123-45-67' }), z.NEVER));
+const consents = z.object({ legalRep: z.boolean(), personalData: z.boolean(), terms: z.boolean(), marketing: z.boolean() });
+const preset = z.enum(['strict', 'normal', 'free']);
 
 export interface ApiOptions { demo: boolean; emit: (familyId: string) => void; emitReset: () => void }
 
@@ -43,6 +46,13 @@ export function createApi(db: DB, opts: ApiOptions) {
     return token;
   };
   const me = (r: ApiRequest) => r.session!;
+  // Коды из SMS живут 5 минут. В демо код показывается на экране вместо отправки SMS
+  const otps = new Map<string, { code: string; exp: number }>();
+  // Код сгорает только после успешного входа, чтобы ошибка в анкете не заставляла запрашивать SMS заново
+  const checkOtp = (ph: string, code: string) => {
+    const o = otps.get(ph);
+    if (!o || o.exp < Date.now() || o.code !== code) throw new AppError(400, 'bad_otp', 'Неверный или устаревший код из SMS');
+  };
   const id = (r: ApiRequest) => r.params.id;
 
   const routes: RouteDef[] = [
@@ -72,6 +82,40 @@ export function createApi(db: DB, opts: ApiOptions) {
       opts.emit(svc.familyOfUser(c.user_id));
       return { token: issueSession(c.user_id), role: 'child' };
     } },
+    // Вход по номеру телефона: Moby присылает код в SMS
+    { method: 'POST', path: '/api/auth/phone/start', handler: r => {
+      const ph = z.object({ phone }).parse(r.body).phone;
+      const code = String(1000 + (parseInt(platform().randomHex(2), 16) % 9000));
+      otps.set(ph, { code, exp: Date.now() + 5 * 60_000 });
+      const u = svc.userByPhone(ph);
+      return { known: !!u, demoCode: opts.demo ? code : undefined };
+    } },
+    // Номер уже в Moby (родитель добавил ребёнка по номеру): код из SMS + новый смарт-код
+    { method: 'POST', path: '/api/auth/phone/verify', handler: r => {
+      const b = z.object({ phone, code: z.string(), pin }).parse(r.body);
+      const u = svc.userByPhone(b.phone);
+      if (!u) throw new AppError(404, 'unknown_phone', 'Номер не найден в Moby');
+      const c = db.prepare('SELECT settings FROM children WHERE user_id = ?').get(u.id) as { settings: string } | undefined;
+      if (c && JSON.parse(c.settings).mobyAccess === false) throw new AppError(403, 'access_off', 'Родитель приостановил доступ в Moby');
+      checkOtp(b.phone, b.code);
+      db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hashPin(b.pin), u.id);
+      if (c) db.prepare('UPDATE children SET joined = 1 WHERE user_id = ?').run(u.id);
+      otps.delete(b.phone);
+      opts.emit(svc.familyOfUser(u.id));
+      return { token: issueSession(u.id), role: u.role, userId: u.id };
+    } },
+    // Подросток 14+ без приглашения просится в семью по номеру родителя
+    { method: 'POST', path: '/api/auth/join-request', handler: r => {
+      const b = z.object({ phone, code: z.string(), parentPhone: phone, name: z.string().trim().min(2).max(20), age: z.number().int().min(7).max(17), pin }).parse(r.body);
+      checkOtp(b.phone, b.code);
+      const res = svc.createJoinRequest(b);
+      otps.delete(b.phone);
+      return res;
+    } },
+    { method: 'POST', path: '/api/auth/join-status', handler: r => {
+      const j = svc.joinStatus(z.object({ ticket: z.string() }).parse(r.body).ticket);
+      return j.status === 'approved' && j.child_id ? { status: j.status, token: issueSession(j.child_id), role: 'child', userId: j.child_id } : { status: j.status };
+    } },
     { method: 'POST', path: '/api/auth/logout', role: 'any', handler: r => { db.prepare('DELETE FROM sessions WHERE token = ?').run(r.token!); return ok; } },
 
     // ---------- родитель ----------
@@ -81,10 +125,12 @@ export function createApi(db: DB, opts: ApiOptions) {
       const b = z.object({
         name: z.string().trim().min(2).max(20),
         age: z.number().int().min(7).max(17),
-        consents: z.object({ legalRep: z.boolean(), personalData: z.boolean(), terms: z.boolean(), marketing: z.boolean() }),
-        card: z.object({ type: z.enum(['plastic', 'sticker', 'bracelet']), color: cardColor }),
-        preset: z.enum(['strict', 'normal', 'free']),
+        consents,
+        card: z.object({ type: z.enum(['plastic', 'sticker', 'bracelet']), color: cardColor }).optional(),
+        preset,
         settings: settingsPatch.optional(),
+        phone: phone.nullish(),
+        tariff: z.enum(['start', 'plus']).optional(),
       }).parse(r.body);
       return svc.addChild(me(r).userId, b as Parameters<FamilyService['addChild']>[1]);
     } },
@@ -99,6 +145,13 @@ export function createApi(db: DB, opts: ApiOptions) {
     { method: 'POST', path: '/api/parent/children/:id/tasks', role: 'parent', handler: r => {
       const b = z.object({ title: z.string().trim().min(2).max(60), reward: money }).parse(r.body);
       svc.createTask(me(r).userId, id(r), b.title, b.reward); return ok;
+    } },
+    { method: 'DELETE', path: '/api/parent/tasks/:id', role: 'parent', handler: r => { svc.deleteTask(me(r).userId, id(r)); return ok; } },
+    { method: 'POST', path: '/api/parent/plan', role: 'parent', handler: r => svc.setTariff(me(r).userId, z.object({ tariff: z.enum(['start', 'plus']) }).parse(r.body).tariff) },
+    { method: 'POST', path: '/api/parent/intro-seen', role: 'parent', handler: r => { svc.markIntroSeen(me(r).userId); return ok; } },
+    { method: 'POST', path: '/api/parent/join-requests/:id', role: 'parent', handler: r => {
+      const b = z.object({ approve: z.boolean(), consents: consents.optional(), preset: preset.optional() }).parse(r.body);
+      return svc.resolveJoinRequest(me(r).userId, id(r), b);
     } },
     { method: 'POST', path: '/api/parent/requests/:id', role: 'parent', handler: r => { svc.resolveRequest(me(r).userId, id(r), z.object({ approve: z.boolean() }).parse(r.body).approve); return ok; } },
 
@@ -117,6 +170,7 @@ export function createApi(db: DB, opts: ApiOptions) {
         z.object({ type: z.literal('card'), cardType: z.enum(['plastic', 'sticker', 'bracelet', 'virtual']), color: cardColor, reason }),
         z.object({ type: z.literal('limit'), day: money, reason }),
         z.object({ type: z.literal('goal'), goalId: z.string(), amount: money, reason }),
+        z.object({ type: z.literal('proposal'), title: z.string().trim().min(2).max(60), reward: money, reason }),
       ]).parse(r.body);
       const { type, reason: why, ...payload } = b;
       return { id: svc.createRequest(me(r).userId, type, payload, why?.trim() || null) };
@@ -147,11 +201,13 @@ export function createApi(db: DB, opts: ApiOptions) {
   if (opts.demo) {
     routes.push({ method: 'POST', path: '/api/demo/reset', handler: r => {
       const empty = z.object({ empty: z.boolean().default(false) }).parse(r.body ?? {}).empty;
-      db.exec(`DELETE FROM sessions; DELETE FROM feed; DELETE FROM deposits; DELETE FROM subscriptions; DELETE FROM goals; DELETE FROM tasks;
-        DELETE FROM transactions; DELETE FROM requests; DELETE FROM cards; DELETE FROM consents; DELETE FROM children; DELETE FROM families; DELETE FROM parents; DELETE FROM users;`);
+      db.exec(TABLES.map(t => `DELETE FROM ${t};`).join(' '));
       seed(db);
-      if (empty) db.exec(`DELETE FROM feed; DELETE FROM deposits; DELETE FROM subscriptions; DELETE FROM goals; DELETE FROM tasks; DELETE FROM requests; DELETE FROM cards; DELETE FROM consents;
-        DELETE FROM transactions WHERE user_id IN (SELECT user_id FROM children); DELETE FROM children; DELETE FROM users WHERE role = 'child';`);
+      // Новая семья: детей нет, пакет «Старт», рассказ о новинке ещё не показан
+      if (empty) db.exec(`DELETE FROM feed; DELETE FROM partner_spend; DELETE FROM deposits; DELETE FROM subscriptions; DELETE FROM goals; DELETE FROM tasks; DELETE FROM requests; DELETE FROM cards; DELETE FROM consents;
+        DELETE FROM transactions WHERE user_id IN (SELECT user_id FROM children); DELETE FROM children; DELETE FROM users WHERE role = 'child';
+        UPDATE family_meta SET tariff = 'start', intro_seen = 0;`);
+      otps.clear();
       opts.emitReset();
       return { ok: true, pin: DEMO_PIN };
     } });

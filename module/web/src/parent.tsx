@@ -1,12 +1,12 @@
 // Moby родителя: главная и «Продукты» как в приложении, плюс раздел «Семья».
-import { useState } from 'react';
-import { BYN, CARD_COLORS, CARD_TYPES, MAX_CARDS, PRESETS, groupOf, levelOf, nextLevel, type PresetKey } from '../../server/src/content';
-import type { CardType, ChildDetail, ChildRequest, ChildSettings, ParentOverview, SettingPath } from '../../server/src/types';
+import { useEffect, useRef, useState } from 'react';
+import { BYN, CARD_COLORS, CARD_TYPES, CAT_KEYS, MAX_CARDS, PERM_KEYS, PRESETS, SETTING_LABELS, TARIFFS, groupOf, levelOf, nextLevel, type PresetKey } from '../../server/src/content';
+import type { AgeGroup, CardType, ChildDetail, ChildRequest, ChildSettings, FamilyPlan, JoinRequest, ParentOverview, SettingPath, Tariff, Task } from '../../server/src/types';
 import { Icon } from './icons';
-import { fmt, plural, toKop, useData, useDevice, when, years, initial } from './lib';
+import { fmt, fmtPhone, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
   useDragScroll,
-  Act, AmountField, BankCard, BankLocked, Bar, CardStatus, CardTypePicker, Chev, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
+  Act, AmountField, BankCard, BankLocked, Bar, CardStatus, CardTypePicker, Chev, Fold, GroupTag, InviteQr, Kava, OpsList, PermissionToggles,
   PlainTop, Row, RowIcon, SetRow, Stepper, Swatches, Toggle, TopBar, cardIcon, mainCard, useBusy,
 } from './ui';
 
@@ -15,15 +15,23 @@ const useOverview = () => useData<ParentOverview>('/api/parent/overview').data;
 // ---------- главная ----------
 export function ParentHome() {
   const o = useOverview();
-  const { push, sheet, toast } = useDevice();
+  const { push, sheet, toast, call } = useDevice();
   const [hide, setHide] = useState(false);
   const carousel = useDragScroll<HTMLDivElement>(!!o);
+  // При первом входе после обновления коротко рассказываем о «Семье», дальше — только точки входа
+  const introShown = useRef(false);
+  useEffect(() => {
+    if (!o || o.introSeen || introShown.current) return;
+    introShown.current = true;
+    call('/api/parent/intro-seen', {}).catch(() => {});
+    sheet(close => <WhatsNew hasKids={o.children.length > 0} close={close} onOpen={() => { close(); push(o.children.length ? 'family' : 'onboard'); }} />);
+  }, [o, call, sheet, push]);
   if (!o) return <div className="loading">Загрузка…</div>;
   const pending = o.requests.filter(r => r.status === 'pending');
   const soon = () => toast('Этот раздел Moby не входит в модуль «Семья»');
   const familySub = o.children.length
     ? `${o.children.map(c => c.name).join(', ')}${pending.length ? ` · ${pending.length} ${plural(pending.length, 'запрос', 'запроса', 'запросов')}` : ''}`
-    : 'Карта ребёнку с 7 лет и вход в Moby';
+    : 'Новое: карта ребёнку с 7 лет и вход в Moby';
   return <>
     <div className="hero">
       <div className="hero-top"><div className="ava"><Icon name="user" size={28} />{pending.length > 0 && <span className="badge">{pending.length}</span>}</div><div className="hero-name">{o.parent.name}</div></div>
@@ -67,7 +75,7 @@ export function ParentProducts() {
   const family = () => (o?.children.length ? push('family') : push('onboard'));
   return <>
     <div className="page" style={{ paddingTop: 56, paddingBottom: 120 }}>
-      <div className="promo"><div style={{ flex: 1 }}><h2>Семья в Moby</h2><p>Карта ребёнку с 7 лет, свой вход в Moby, лимиты и копилки. Обслуживание 0 BYN.</p>
+      <div className="promo"><div style={{ flex: 1 }}><h2>Семья в Moby</h2><p>Карта ребёнку с 7 лет, свой вход в Moby, лимиты и копилки. Пакет «Старт» — 0 BYN.</p>
         <button className="btn white" style={{ width: 'auto', padding: '10px 18px', minHeight: 0 }} onClick={() => push('onboard')}>Оформить</button></div>
         <div className="mini"><span>Moby</span><i /></div></div>
       <div className="dots"><i className="on" />{Array.from({ length: 12 }, (_, i) => <i key={i} />)}</div>
@@ -85,6 +93,22 @@ export function ParentProducts() {
       <Row icon="pay" title="Кредит" sub="Онлайн-заявка" onClick={soon} />
       <Row icon="piggy-bank" title="Вклад" sub="Сбережения в BYN и валюте" onClick={soon} />
     </>)}><Icon name="credit-card" size={28} /> Оформить</button>
+  </>;
+}
+
+function WhatsNew({ hasKids, close, onOpen }: { hasKids: boolean; close: () => void; onOpen: () => void }) {
+  const item = (icon: string, t: string, sub: string) => <li><RowIcon name={icon} /><span><b>{t}</b><small>{sub}</small></span></li>;
+  return <>
+    <div className="news-art"><i /><i /><b>Новое в Moby:<br />Семья</b></div>
+    <ul className="news">
+      {item('credit-card', 'Карта ребёнку с 7 лет', 'Браслет, стикер или пластик и свой вход в Moby')}
+      {item('sliders-horizontal', 'Вы решаете, что можно', 'Лимиты, категории и подтверждение покупок')}
+      {item('piggy-bank', 'Копилки, задания и уроки', 'Ребёнок учится обращаться с деньгами')}
+      {item('percent', 'Спецусловия для семьи', 'Кешбэк у партнёров, Манички ×2, +1% к вкладу')}
+    </ul>
+    <small className="muted">Тарифы и условия покажем при добавлении ребёнка. Раздел всегда на главной: «Семья».</small>
+    <button className="btn" onClick={onOpen}>{hasKids ? 'Открыть «Семью»' : 'Добавить ребёнка'}</button>
+    <button className="btn ghost" onClick={close}>Позже</button>
   </>;
 }
 
@@ -132,9 +156,10 @@ export function ParentSettings() {
 const REQ_LABEL: Record<ChildRequest['type'], string> = {
   money: 'Просит деньги', perm: 'Просит доступ', card: 'Просит карту', purchase: 'Покупка ждёт подтверждения',
   limit: 'Просит увеличить лимит', level: 'Новый уровень', task: 'Задание выполнено', goal: 'Просит поддержать копилку',
+  proposal: 'Предлагает задание',
 };
 
-function RequestItem({ r, o }: { r: ChildRequest; o: ParentOverview }) {
+function RequestItem({ r, o, showName = true }: { r: ChildRequest; o: ParentOverview; showName?: boolean }) {
   const { run, call } = useDevice();
   const [busy, wrap] = useBusy();
   const c = o.children.find(x => x.id === r.childId);
@@ -142,14 +167,117 @@ function RequestItem({ r, o }: { r: ChildRequest; o: ParentOverview }) {
   const resolve = (approve: boolean) => wrap(() => run(() => call(`/api/parent/requests/${r.id}`, { approve }), approve ? 'Одобрено' : 'Отклонено. Ребёнок увидит ответ в Moby'));
   return (
     <div className="req">
-      <div className="kidline"><Kava c={c} /><div className="tx"><small>{c.name} · {REQ_LABEL[r.type]} · {when(r.createdAt)}</small><b>{r.summary}</b></div></div>
+      <div className="req-h">
+        {showName && <Kava c={c} />}
+        <div className="tx"><small>{showName ? `${c.name} · ` : ''}{when(r.createdAt)}</small><b>{REQ_LABEL[r.type]}</b>{r.type !== 'money' && <small>{r.summary}</small>}</div>
+        {r.amount != null && <span className="req-sum">{fmt(r.amount)}</span>}
+      </div>
       {r.reason && <div className="reason">{r.reason}</div>}
       <div className="btns">
         <button className="btn red" disabled={busy} onClick={() => resolve(false)}>Отклонить</button>
-        <button className="btn" disabled={busy} onClick={() => resolve(true)}>{r.type === 'level' ? 'Расширить' : 'Одобрить'}</button>
+        <button className="btn" disabled={busy} onClick={() => resolve(true)}>{r.type === 'level' ? 'Расширить' : r.type === 'money' || r.type === 'task' ? 'Перевести' : 'Одобрить'}</button>
       </div>
     </div>
   );
+}
+
+type Consents = { legalRep: boolean; personalData: boolean; terms: boolean; marketing: boolean };
+const NO_CONSENTS: Consents = { legalRep: false, personalData: false, terms: false, marketing: false };
+const consentsOk = (c: Consents) => c.legalRep && c.personalData && c.terms;
+function ConsentChecks({ value, onChange, group }: { value: Consents; onChange: (c: Consents) => void; group: AgeGroup | null }) {
+  const ck = (k: keyof Consents, t: string, s: string) => (
+    <button className={`check ${value[k] ? 'on' : ''}`} role="checkbox" aria-checked={value[k]} onClick={() => onChange({ ...value, [k]: !value[k] })}>
+      <span className="box">{value[k] && <Icon name="check" size={16} sw={3} />}</span><span>{t}<small>{s}</small></span>
+    </button>);
+  return <div className="card" style={{ padding: '6px 16px' }}>
+    {ck('legalRep', 'Я законный представитель ребёнка', 'Данные сверяются через МСИ')}
+    {ck('personalData', 'Согласие на обработку персональных данных ребёнка', 'Закон РБ № 99-З. Данные ребёнка не передаются партнёрам')}
+    {ck('terms', group === 'kid' ? 'Выпуск дополнительной карты к моему счёту' : 'Согласие на открытие счёта подростку', 'Условия пакета «Семья»')}
+    {ck('marketing', 'Предложения партнёров для ребёнка', 'Необязательно. Только образование, спорт и досуг')}
+  </div>;
+}
+
+function JoinItem({ j }: { j: JoinRequest }) {
+  const { run, call, sheet } = useDevice();
+  const [busy, wrap] = useBusy();
+  return <div className="req">
+    <div className="req-h"><div className="ic"><Icon name="user-plus" size={22} /></div>
+      <div className="tx"><small>По номеру {fmtPhone(j.phone)} · {when(j.createdAt)}</small><b>{j.name}, {j.age} {years(j.age)}, просится в семью</b></div></div>
+    <div className="btns">
+      <button className="btn red" disabled={busy} onClick={() => wrap(() => run(() => call(`/api/parent/join-requests/${j.id}`, { approve: false }), 'Заявка отклонена'))}>Отклонить</button>
+      <button className="btn" onClick={() => sheet(close => <JoinApproveSheet j={j} close={close} />)}>Принять</button>
+    </div>
+  </div>;
+}
+
+function JoinApproveSheet({ j, close }: { j: JoinRequest; close: () => void }) {
+  const { run, call } = useDevice();
+  const [consents, setConsents] = useState<Consents>(NO_CONSENTS);
+  const [preset, setPreset] = useState<PresetKey>('normal');
+  const [busy, wrap] = useBusy();
+  return <>
+    <h2>{j.name} в семье</h2>
+    <p className="muted">С 14 лет подросток открывает счёт сам, но нужно ваше письменное согласие (ст. 26 ГК РБ). Сразу выпустим виртуальную карту, физическую закажете потом.</p>
+    <ConsentChecks value={consents} onChange={setConsents} group="teen" />
+    <div className="seg">{(Object.keys(PRESETS.teen) as PresetKey[]).map(k => <button key={k} className={preset === k ? 'on' : ''} onClick={() => setPreset(k)}>{PRESETS.teen[k].label}</button>)}</div>
+    <button className="btn" disabled={busy || !consentsOk(consents)} onClick={() => wrap(async () => {
+      if (await run(() => call(`/api/parent/join-requests/${j.id}`, { approve: true, consents, preset }), `${j.name} в семье и уже может войти в Moby`)) close();
+    })}>Подписать и принять</button>
+  </>;
+}
+
+const isFirstMonth = (p: FamilyPlan) => Date.now() - Date.parse(p.since) < 30 * 864e5;
+function PlanBar({ plan, onClick }: { plan: FamilyPlan; onClick?: () => void }) {
+  const t = TARIFFS[plan.tariff];
+  const waiver = TARIFFS.plus.waiverSpend;
+  const left = waiver - plan.spendMonth;
+  return <button className="planbar press" onClick={onClick} style={{ width: '100%', textAlign: 'left' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>Пакет «{t.title}»</b><b style={{ color: 'var(--mt-blue)' }}>{t.price ? `${fmt(t.price)} в месяц` : '0 BYN'}</b></div>
+    {plan.tariff === 'plus' ? <>
+      <Bar value={plan.spendMonth} max={waiver} />
+      <small className="muted">{isFirstMonth(plan) ? `Первый месяц бесплатно. Дальше пакет бесплатный при тратах семьи от ${fmt(waiver)}, сейчас ${fmt(plan.spendMonth)}`
+        : left > 0 ? `Траты семьи ${fmt(plan.spendMonth)}. Ещё ${fmt(left)} — и пакет за этот месяц бесплатный` : `Траты семьи ${fmt(plan.spendMonth)}: пакет за этот месяц бесплатный`}</small>
+    </> : <small className="muted">Один ребёнок. «Семья+»: до 4 детей, кешбэк 10% у партнёров и спецусловия</small>}
+  </button>;
+}
+
+function TariffCard({ t, on, onPick, disabled }: { t: Tariff; on: boolean; onPick?: () => void; disabled?: string }) {
+  const x = TARIFFS[t];
+  return <div className={`plan ${t === 'plus' ? 'plus' : ''} ${on ? 'on' : ''}`}>
+    <div className="plan-h"><b>{x.title}</b><span>{x.price ? `${fmt(x.price)} / мес` : '0 BYN'}</span></div>
+    {t === 'plus' && <small>Бесплатно, если семья тратит по картам МТБанка от {fmt(TARIFFS.plus.waiverSpend)} в месяц. Первый месяц бесплатно</small>}
+    <ul>{x.perks.map(p => <li key={p}><Icon name="check" size={16} sw={2.4} /><span>{p}</span></li>)}</ul>
+    {on ? <span className="tag">{onPick ? 'Выбран' : 'Подключён'}</span>
+      : disabled ? <small>{disabled}</small>
+        : onPick && <button className={`btn ${t === 'plus' ? 'white' : 'ghost'}`} onClick={onPick}>Выбрать</button>}
+  </div>;
+}
+
+const PARTNERS = [
+  { icon: 'pencil', title: 'Канцтовары', sub: 'Школьные товары' },
+  { icon: 'clapperboard', title: 'Кинотеатр', sub: 'Билеты и попкорн' },
+  { icon: 'coffee', title: 'Кофейня', sub: 'Для подростков 14+' },
+];
+
+export function PackageScreen() {
+  const o = useOverview();
+  const { run, call } = useDevice();
+  if (!o) return <><TopBar title="Пакет «Семья»" /><div className="loading">Загрузка…</div></>;
+  const choose = (t: Tariff) => run(() => call('/api/parent/plan', { tariff: t }), t === 'plus' ? 'Подключён «Семья+»' : 'Подключён «Семья Старт»');
+  const kids = o.children.length;
+  return <>
+    <TopBar title="Пакет «Семья»" />
+    <div className="page">
+      <PlanBar plan={o.plan} />
+      <TariffCard t="plus" on={o.plan.tariff === 'plus'} onPick={() => choose('plus')} />
+      <TariffCard t="start" on={o.plan.tariff === 'start'} onPick={() => choose('start')} disabled={kids > 1 ? `В «Старт» один ребёнок, у вас ${kids}` : undefined} />
+      <div className="card"><h3>Кешбэк недели у партнёров</h3>
+        <p className="muted" style={{ margin: '4px 0 6px', fontSize: 14 }}>Ребёнок платит у партнёра — в понедельник {Math.round(TARIFFS[o.plan.tariff].cashbackRate * 100)}% трат за неделю возвращаются на его счёт. Кешбэк оплачивает партнёр.</p>
+        {PARTNERS.map(p => <Row key={p.title} icon={p.icon} title={p.title} sub={p.sub} right={<span className="partner">Партнёр</span>} />)}
+      </div>
+      <div className="legal"><Icon name="info" size={18} /><span>Плата за «Семья+» списывается с карты родителя раз в месяц. Не списывается в первый месяц и если семья потратила за прошлый месяц от {fmt(TARIFFS.plus.waiverSpend)}.</span></div>
+    </div>
+  </>;
 }
 
 export function FamilyScreen() {
@@ -157,25 +285,28 @@ export function FamilyScreen() {
   const { push, sheet, run, call } = useDevice();
   if (!o) return <><TopBar title="Семья" /><div className="loading">Загрузка…</div></>;
   const pending = o.requests.filter(r => r.status === 'pending');
-  const history = o.requests.filter(r => r.status !== 'pending').slice(0, 5);
+  const waiting = pending.length + o.joinRequests.length;
   const g = o.familyGoal;
   return <>
     <TopBar title="Семья" />
     <div className="page">
-      {pending.length > 0 && <>
-        <div className="sec">Запросы детей · {pending.length}</div>
-        <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{pending.map(r => <RequestItem key={r.id} r={r} o={o} />)}</div>
+      {waiting > 0 && <>
+        <div className="sec">Ждут ответа · {waiting}</div>
+        <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+          {o.joinRequests.map(j => <JoinItem key={j.id} j={j} />)}
+          {pending.map(r => <RequestItem key={r.id} r={r} o={o} />)}
+        </div>
       </>}
       <div className="sec">Дети</div>
       {o.children.map(c => (
         <button key={c.id} className="kidcard press" onClick={() => push('child', { id: c.id })}>
           <div className="kidline">
             <Kava c={c} />
-            <div className="tx"><div className="kidname">{c.name}, {c.age} {years(c.age)} <GroupTag g={c.group} /></div></div>
+            <div className="tx"><div className="kidname">{c.name}, {c.age} {years(c.age)}</div></div>
             <b className="amt" style={{ fontSize: 16 }}>{fmt(c.balance)}</b>
           </div>
           <div className="kidmeta">
-            <span>{c.joined ? `Уровень ${c.level} · ${c.cards.length} ${plural(c.cards.length, 'карта', 'карты', 'карт')}` : 'Ждём первого входа в Moby'}</span>
+            <span><GroupTag g={c.group} />{c.joined ? `Уровень ${c.level} · ${c.cards.length} ${plural(c.cards.length, 'карта', 'карты', 'карт')}` : 'Ждём входа'}</span>
             <span>сегодня {fmt(-c.spentToday)}</span>
           </div>
         </button>
@@ -186,6 +317,7 @@ export function FamilyScreen() {
         <button className="tile press" onClick={() => sheet(close => <TaskSheet o={o} close={close} />)}><RowIcon name="list-checks" />Задание</button>
         <button className="tile press" onClick={() => sheet(close => <NewCardSheet o={o} close={close} />)}><RowIcon name="credit-card" />Новая карта</button>
       </div>
+      <PlanBar plan={o.plan} onClick={() => push('package')} />
       <div className="card goal">
         <div className="goal-h"><RowIcon name={g.icon} /><div className="tx"><small className="muted">Семейная цель</small><b>{g.title}</b></div><b>{Math.round(g.saved / g.target * 100)}%</b></div>
         <Bar value={g.saved} max={g.target} />
@@ -194,24 +326,17 @@ export function FamilyScreen() {
           <button className="sbtn" onClick={() => run(() => call('/api/family/goal', { amount: 50 * BYN }), '+50.00 BYN в семейную цель')}>+50 BYN</button>
         </div>
       </div>
-      <div className="card"><h3>Лента семьи</h3>
-        {o.feed.length ? o.feed.slice(0, 6).map(f => <Row key={f.id} icon={f.amount ? 'pay' : 'star'} title={<span style={{ fontSize: 14.5 }}>{f.text}</span>} sub={when(f.createdAt)}
+      <Fold icon="bell" title="Лента семьи" sub={o.feed[0]?.text ?? 'Покупки и успехи детей'}>
+        {o.feed.length ? o.feed.slice(0, 12).map(f => <Row key={f.id} title={<span style={{ fontSize: 14.5, fontWeight: 500 }}>{f.text}</span>} sub={when(f.createdAt)}
           right={f.amount ? <span className={`amt ${f.amount > 0 ? 'plus' : ''}`}>{f.amount > 0 ? '+' : ''}{fmt(f.amount)}</span> : undefined} />) : <div className="empty">Здесь появятся покупки и успехи детей</div>}
-      </div>
-      {history.length > 0 && <div className="card"><h3>Решённые запросы</h3>
-        {history.map(r => { const c = o.children.find(x => x.id === r.childId); return c && <Row key={r.id} title={REQ_LABEL[r.type]} sub={`${c.name} · ${r.summary}`} right={<span className={`tag ${r.status === 'approved' ? '' : 'red'}`}>{r.status === 'approved' ? 'Одобрено' : 'Отклонено'}</span>} />; })}
-      </div>}
-      <div className="card"><h3>Пакет «Семья»</h3>
-        <Row icon="credit-card" title="Детские карты: 0 BYN" sub={`До ${MAX_CARDS} карт у каждого ребёнка`} />
-        <Row icon="coins" title="Манички ×2 в детских категориях" sub="Детские товары, аптеки, образование, досуг" />
-        <Row icon="piggy-bank" title="+1% к ставке по вкладу родителя" sub="Пока у ребёнка есть активная копилка" />
-        <Row icon="shield-check" title="Страхование ребёнка" sub="Несчастный случай и спорт, от 2 BYN в месяц" />
-      </div>
+      </Fold>
     </div>
   </>;
 }
 
 // ---------- карточка ребёнка ----------
+const onList = (s: ChildSettings, keys: SettingPath[]) => keys.filter(p => { const [g, k] = p.split('.') as ['cats' | 'perms', string]; return (s[g] as Record<string, boolean>)[k]; });
+
 export function ChildScreen({ id }: { id: string }) {
   const { data: c } = useData<ChildDetail>(`/api/parent/children/${id}`);
   const o = useOverview();
@@ -223,6 +348,16 @@ export function ChildScreen({ id }: { id: string }) {
   const lv = levelOf(c.xp), nx = nextLevel(c.xp);
   const main = mainCard(c.cards);
   const cardAct = (cardId: string, action: string, ok: string) => run(() => call(`/api/cards/${cardId}`, { action }), ok);
+  const pending = o.requests.filter(r => r.childId === id && r.status === 'pending');
+  const cats = onList(s, CAT_KEYS.map(k => `cats.${k}` as SettingPath));
+  const perms = onList(s, PERM_KEYS.map(k => `perms.${k}` as SettingPath));
+  const open = c.tasks.filter(t => t.status !== 'paid'), done = c.tasks.filter(t => t.status === 'paid');
+  const delTask = (t: Task) => sheet(close => <>
+    <h2>Удалить задание?</h2>
+    <p className="muted">«{t.title}», награда {fmt(t.reward)}.{t.status === 'review' ? ' Ребёнок уже отметил его выполненным: награда не будет выплачена.' : ''}</p>
+    <button className="btn solid-red" onClick={async () => { if (await run(() => call(`/api/parent/tasks/${t.id}`, undefined, 'DELETE'), 'Задание удалено')) close(); }}>Удалить</button>
+    <button className="btn ghost" onClick={close}>Оставить</button>
+  </>);
   return <>
     <div className="hero" style={{ paddingTop: 50 }}>
       <div className="hero-top"><button className="iconbtn" onClick={back} aria-label="Назад"><Icon name="arrow-left" size={28} /></button><Kava c={c} />
@@ -230,16 +365,31 @@ export function ChildScreen({ id }: { id: string }) {
       <div className="bal-row"><div className="bal">{fmt(c.balance)}</div></div>
       <div className="actions">
         <Act icon="topup" label="Пополнить" onClick={() => sheet(close => <TopupSheet o={o} close={close} childId={id} />)} />
-        <Act icon="credit-card" label="Новая карта" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />
         <Act icon="list-checks" label="Задание" onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)} />
+        <Act icon="credit-card" label="Новая карта" onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)} />
       </div>
     </div>
     <div className="body">
       {!c.joined && c.inviteCode && <div className="card" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-        <InviteQr code={c.inviteCode} /><div><b>Ждём первого входа</b><p className="muted" style={{ marginTop: 4 }}>Код приглашения</p><div className="code" style={{ fontSize: 18, textAlign: 'left' }}>{c.inviteCode}</div></div>
+        <InviteQr code={c.inviteCode} /><div><b>Ждём первого входа</b>
+          <p className="muted" style={{ marginTop: 4 }}>{c.phone ? `Войдёт по номеру ${fmtPhone(c.phone)} или по коду` : 'Код приглашения'}</p>
+          <div className="code" style={{ fontSize: 18, textAlign: 'left' }}>{c.inviteCode}</div></div>
       </div>}
-      {main && <BankCard name={c.name} card={main} />}
-      <div className="card"><h3>Карты <span className="muted" style={{ fontWeight: 500 }}>{c.cards.length} из {MAX_CARDS}</span></h3>
+      {pending.length > 0 && <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>{pending.map(r => <RequestItem key={r.id} r={r} o={o} showName={false} />)}</div>}
+      <div className="card">
+        <h3>Сегодня потрачено <span>{fmt(c.spentToday)}</span></h3>
+        <div style={{ marginTop: 10 }}><Bar value={c.spentToday} max={s.limits.day} red={c.spentToday >= s.limits.day} /></div>
+        <div className="limitline"><span>Лимит в день {fmt(s.limits.day)}</span><span>За месяц {fmt(c.spentMonth)} из {fmt(s.limits.month)}</span></div>
+      </div>
+      <div className="card"><h3>Задания</h3>
+        {open.map(t => <div className="row" key={t.id}><RowIcon name="list-checks" /><div className="tx"><b>{t.title}</b><small style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{fmt(t.reward)} <TaskTag s={t.status} /></small></div>
+          <button className="task-del" onClick={() => delTask(t)} aria-label={`Удалить задание «${t.title}»`}><Icon name="trash" size={20} /></button></div>)}
+        {!open.length && <div className="empty" style={{ padding: '14px 0' }}>Активных заданий нет</div>}
+        {done.length > 0 && <small className="muted">Выполнено и оплачено: {done.length}</small>}
+        <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)}><Icon name="plus" size={20} /> Своё задание</button>
+      </div>
+      <div className="sec">Настройки</div>
+      <Fold icon="credit-card" title="Карты" sub={`${c.cards.length} из ${MAX_CARDS}${main ? ` · ${CARD_TYPES[main.type].label.toLowerCase()} •• ${main.last4}` : ''}`}>
         {c.cards.map(card => (
           <div className="row" key={card.id}>
             <div className="ic" style={{ background: card.color, color: '#fff' }}><Icon name={cardIcon(card.type)} size={22} /></div>
@@ -249,42 +399,39 @@ export function ChildScreen({ id }: { id: string }) {
                 : <button className="sbtn red" onClick={() => cardAct(card.id, 'block', 'Карта заблокирована')}>Блок</button>}
           </div>
         ))}
-        {c.cards.length < MAX_CARDS && <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(close => <NewCardSheet o={o} close={close} childId={id} />)}><Icon name="plus" size={20} /> Выпустить карту</button>}
-      </div>
-      <div className="card">
-        <h3>Прогресс <span className={`tag ${c.group === 'kid' ? 'red' : ''}`}>Уровень {lv.n}: {lv.title}</span></h3>
-        <div style={{ margin: '12px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
-        <small className="muted">{nx ? `${c.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'} · уроков: {c.lessons.length} · Маничек: {c.coins}</small>
-      </div>
-      <div className="card"><h3>Что можно покупать</h3><PermissionToggles s={s} group={c.group} keys="cats" onChange={setPath} /><BankLocked /></div>
-      <div className="card"><h3>Лимиты и подтверждение</h3>
+        {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
+          onClick={() => run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')} />}
+      </Fold>
+      <Fold icon="shield-check" title="Что можно покупать" sub={cats.length ? `Можно: ${cats.map(p => SETTING_LABELS[p].title.toLowerCase()).join(', ')}` : 'Только обычные покупки в магазинах'}>
+        <PermissionToggles s={s} group={c.group} keys="cats" onChange={setPath} /><BankLocked />
+      </Fold>
+      <Fold icon="sliders-horizontal" title="Лимиты и подтверждение" sub={`${fmt(s.limits.day)} в день · подтверждать от ${fmt(s.confirmAbove)}`}>
         <SetRow title="В день" sub={`Сегодня потрачено ${fmt(c.spentToday)}`}><Stepper value={s.limits.day} step={5 * BYN} onChange={v => patch({ limits: { day: v } })} /></SetRow>
         <SetRow title="В месяц" sub={`Потрачено ${fmt(c.spentMonth)}`}><Stepper value={s.limits.month} step={50 * BYN} onChange={v => patch({ limits: { month: v } })} /></SetRow>
         <SetRow title="Подтверждать" sub="Покупки дороже этой суммы"><Stepper value={s.confirmAbove} step={5 * BYN} onChange={v => patch({ confirmAbove: v })} /></SetRow>
-      </div>
-      <div className="card"><h3>Что доступно в Moby</h3><PermissionToggles s={s} group={c.group} keys="perms" onChange={setPath} />
-        <SetRow title="Кредиты и рассрочка" sub="Недоступны до 18 лет"><Toggle on={false} locked label="Кредиты" /></SetRow></div>
-      <div className="card"><h3>Карманные деньги</h3>
+      </Fold>
+      <Fold icon="smartphone" title="Возможности в Moby" sub={`Включено ${perms.length} из ${PERM_KEYS.length}: ${perms.slice(0, 3).map(p => SETTING_LABELS[p].title).join(', ')}${perms.length > 3 ? '…' : ''}`}>
+        <PermissionToggles s={s} group={c.group} keys="perms" onChange={setPath} />
+        <SetRow title="Кредиты и рассрочка" sub="Недоступны до 18 лет"><Toggle on={false} locked label="Кредиты" /></SetRow>
+      </Fold>
+      <Fold icon="piggy-bank" title="Карманные деньги и копилки" sub={s.allowance.on ? `${fmt(s.allowance.amount)} каждый понедельник` : 'Автоперевод выключен'}>
         <SetRow title="Каждый понедельник" sub={`Автоперевод с вашей карты ${o.parent.cardMask}`}><Toggle on={s.allowance.on} label="Карманные деньги" onChange={v => patch({ allowance: { on: v } })} /></SetRow>
         <SetRow title="Сумма" sub="В неделю"><Stepper value={s.allowance.amount} step={(c.group === 'kid' ? 1 : 5) * BYN} onChange={v => patch({ allowance: { amount: v } })} /></SetRow>
         <SetRow title="Доплата к копилке +10%" sub="Вы добавляете 10% к каждому взносу"><Toggle on={s.parentBonus} label="Доплата к копилке" onChange={v => patch({ parentBonus: v })} /></SetRow>
         <SetRow title="Сдачу в копилку" sub="Округлять покупки до целых рублей"><Toggle on={s.roundup} label="Сдачу в копилку" onChange={v => patch({ roundup: v })} /></SetRow>
-        <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => run(() => call(`/api/parent/children/${id}/allowance`, {}), `Карманные деньги отправлены: ${fmt(s.allowance.amount)}`)}>Выплатить сейчас</button>
-      </div>
-      <div className="card"><h3>Задания</h3>
-        {c.tasks.length ? c.tasks.map(t => <Row key={t.id} icon="list-checks" title={t.title} sub={`Награда ${fmt(t.reward)}`} right={<TaskTag s={t.status} />} />) : <div className="empty">Заданий пока нет</div>}
-        <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => sheet(close => <TaskSheet o={o} close={close} childId={id} />)}><Icon name="plus" size={20} /> Новое задание</button>
-      </div>
-      {c.group === 'teen' && <div className="card"><h3>Собственные средства</h3>
-        <Row title={`Заработок: ${fmt(c.income)}`} sub="По ст. 26 ГК РБ подросток сам распоряжается заработком, лимиты на него не действуют" />
-        {c.deposit && <Row title={`Вклад: ${fmt(c.deposit.amount)}`} sub={`${c.deposit.rate}% годовых`} />}
-      </div>}
-      <div className="card"><h3>Операции</h3><OpsList ops={c.ops} limit={8} /></div>
-      <div className="card"><h3>Безопасность</h3>
+        <button className="btn ghost" onClick={() => run(() => call(`/api/parent/children/${id}/allowance`, {}), `Карманные деньги отправлены: ${fmt(s.allowance.amount)}`)}>Выплатить сейчас</button>
+      </Fold>
+      <Fold icon="trophy" title="Успехи" sub={`Уровень ${lv.n} «${lv.title}» · уроков ${c.lessons.length} · Маничек ${c.coins}`}>
+        <div style={{ margin: '14px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
+        <small className="muted">{nx ? `${c.xp} из ${nx.xp} опыта до уровня ${nx.n}` : 'Максимальный уровень'}</small>
+        {c.goals.map(g => <Row key={g.id} icon={g.icon} title={g.title} sub={`${fmt(g.saved)} из ${fmt(g.target)}`} />)}
+        {c.group === 'teen' && <Row icon="briefcase" title={`Заработок: ${fmt(c.income)}`} sub="По ст. 26 ГК РБ подросток сам распоряжается заработком, лимиты на него не действуют" />}
+        {c.deposit && <Row icon="landmark" title={`Вклад: ${fmt(c.deposit.amount)}`} sub={`${c.deposit.rate}% годовых`} />}
+      </Fold>
+      <Fold icon="history" title="Операции" sub={c.ops[0] ? `${c.ops[0].title}, ${fmt(c.ops[0].amount)}` : 'Операций пока нет'}><OpsList ops={c.ops} limit={10} /></Fold>
+      <Fold icon="shield" title="Безопасность" sub={s.mobyAccess ? 'Вход в Moby разрешён' : 'Вход в Moby приостановлен'}>
         <SetRow title="Вход в Moby" sub="Если выключить, ребёнок выйдет из приложения, карта продолжит работать"><Toggle on={s.mobyAccess} label="Вход в Moby" onChange={v => patch({ mobyAccess: v }, v ? 'Доступ возвращён' : 'Доступ приостановлен')} /></SetRow>
-        {c.cards.some(x => CARD_TYPES[x.type].physical) && <Row icon="repeat" tone="dash" title="Карта потерялась" sub="Закрыть и перевыпустить; виртуальная карта работает сразу"
-          onClick={() => run(() => call(`/api/parent/children/${id}/reissue`, {}), 'Старая карта закрыта, новая придёт через 3–5 дней')} />}
-      </div>
+      </Fold>
     </div>
   </>;
 }
@@ -319,9 +466,10 @@ function TaskSheet({ o, close, childId }: { o: ParentOverview; close: () => void
   const [busy, wrap] = useBusy();
   if (!id) return <><h2>Задание</h2><div className="empty">Сначала добавьте ребёнка</div></>;
   return <>
-    <h2>Новое задание</h2>
+    <h2>Своё задание</h2>
     <ChildPills o={o} value={id} onChange={setId} />
-    <div className="field"><label>Что нужно сделать</label><input maxLength={60} placeholder="Например, полить цветы" value={title} onChange={e => setTitle(e.target.value)} /></div>
+    <div className="field"><label>Что нужно сделать</label><input maxLength={60} placeholder="Напишите своими словами" value={title} onChange={e => setTitle(e.target.value)} /></div>
+    <small className="muted">Или возьмите готовое:</small>
     <div className="pills">{['Убрать в комнате', 'Сделать уроки без напоминаний', 'Погулять с собакой', 'Помыть посуду'].map(t => <button key={t} className="pill" onClick={() => setTitle(t)}>{t}</button>)}</div>
     <AmountField label="Награда, BYN" value={reward} onChange={setReward} presets={[1, 3, 5, 10]} />
     <button className="btn" disabled={busy || title.trim().length < 2 || toKop(reward) <= 0} onClick={() => wrap(async () => { if (await run(() => call(`/api/parent/children/${id}/tasks`, { title, reward: toKop(reward) }), 'Задание отправлено')) close(); })}>Отправить задание</button>
@@ -343,7 +491,8 @@ function NewCardSheet({ o, close, childId }: { o: ParentOverview; close: () => v
     {full ? <div className="legal"><Icon name="info" size={18} /><span>У {child.name} уже {MAX_CARDS} карты — это максимум. Закройте одну через «Карта потерялась» или заблокируйте.</span></div> : <>
       <BankCard name={child.name} card={{ type, color, status: 'active', last4: '••••' }} />
       <Swatches value={color} onChange={setColor} />
-      <CardTypePicker types={['virtual', 'bracelet', 'sticker', 'plastic']} value={type} onChange={setType} />
+      <CardTypePicker types={[...TARIFFS[o.plan.tariff].cards]} value={type} onChange={setType} />
+      {o.plan.tariff === 'start' && <small className="muted">Браслет и пластиковая карта — в пакете «{TARIFFS.plus.title}».</small>}
       <small className="muted">{CARD_TYPES[type].physical ? 'Доставка в отделение или курьером, 3–5 дней. Выпуск 0 BYN.' : 'Выпускается сразу и появляется в Moby ребёнка. 0 BYN.'} Лимиты и категории общие для всех карт ребёнка.</small>
       <button className="btn" disabled={busy} onClick={() => wrap(async () => { if (await run(() => call(`/api/parent/children/${id}/cards`, { type, color }), CARD_TYPES[type].physical ? 'Карта заказана, доставка 3–5 дней' : 'Виртуальная карта уже в Moby ребёнка')) close(); })}>Выпустить</button>
     </>}
@@ -351,19 +500,30 @@ function NewCardSheet({ o, close, childId }: { o: ParentOverview; close: () => v
 }
 
 // ---------- добавление ребёнка ----------
-const STEPS = 6;
+type Step = 'intro' | 'who' | 'consents' | 'plan' | 'card' | 'perms' | 'done';
 export function Onboarding() {
+  const o = useOverview();
   const { push, tab, run, call, toast } = useDevice();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState<Step>('intro');
   const [name, setName] = useState('');
   const [age, setAge] = useState<number | null>(null);
-  const [consents, setConsents] = useState({ legalRep: false, personalData: false, terms: false, marketing: false });
-  const [card, setCard] = useState<{ type: Exclude<CardType, 'virtual'>; color: string }>({ type: 'bracelet', color: CARD_COLORS[3] });
+  const [phone, setPhone] = useState('');
+  const [consents, setConsents] = useState<Consents>(NO_CONSENTS);
+  const [tariff, setTariff] = useState<Tariff | null>(null);
+  const [card, setCard] = useState<{ type: Exclude<CardType, 'virtual'>; color: string }>({ type: 'sticker', color: CARD_COLORS[3] });
   const [preset, setPreset] = useState<PresetKey>('normal');
   const [settings, setSettings] = useState<ChildSettings | null>(null);
-  const [created, setCreated] = useState<{ childId: string; inviteCode: string } | null>(null);
+  const [created, setCreated] = useState<{ childId: string; inviteCode: string; phone: string | null } | null>(null);
   const [busy, wrap] = useBusy();
+  if (!o) return <><TopBar title="Добавить ребёнка" /><div className="loading">Загрузка…</div></>;
   const group = age ? groupOf(age) : null;
+  const kids = o.children.length;
+  // Пакет выбираем, только если текущий не подходит или семья ещё на «Старт»
+  const plan: Tariff = tariff ?? (kids >= TARIFFS.start.maxKids ? 'plus' : o.plan.tariff);
+  const steps: Step[] = ['intro', 'who', 'consents', ...(o.plan.tariff === 'plus' ? [] : ['plan' as Step]), 'card', 'perms', 'done'];
+  const idx = steps.indexOf(step);
+  const go = (d: number) => setStep(steps[idx + d]);
+  const physical = TARIFFS[plan].cards.filter(t => t !== 'virtual') as Exclude<CardType, 'virtual'>[];
 
   const pickAge = (a: number) => {
     setAge(a);
@@ -371,7 +531,6 @@ export function Onboarding() {
     if (g !== group) {
       const p = PRESETS[g][preset];
       setSettings({ limits: { ...p.limits }, confirmAbove: p.confirmAbove, cats: { ...p.cats }, perms: { ...p.perms }, allowance: { on: true, amount: (g === 'kid' ? 10 : 25) * BYN }, parentBonus: g === 'kid', roundup: g === 'kid', mobyAccess: true });
-      setCard(c => ({ ...c, type: g === 'kid' ? 'bracelet' : 'plastic' }));
     }
   };
   const applyPreset = (k: PresetKey) => {
@@ -380,87 +539,90 @@ export function Onboarding() {
     setSettings(s => s && { ...s, limits: { ...p.limits }, confirmAbove: p.confirmAbove, cats: { ...p.cats }, perms: { ...p.perms } });
   };
   const create = () => wrap(async () => {
-    const r = await run(() => call<{ childId: string; inviteCode: string }>('/api/parent/children', { name: name.trim(), age, consents, card, preset, settings }));
-    if (r) { setCreated(r); setStep(5); toast('Согласия подписаны, карта заказана, виртуальная выпущена'); }
+    const r = await run(() => call<{ childId: string; inviteCode: string; phone: string | null }>('/api/parent/children',
+      { name: name.trim(), age, consents, card, preset, settings, phone: phone.trim() || null, tariff: plan }));
+    if (r) { setCreated(r); setStep('done'); toast('Согласия подписаны, карта заказана, виртуальная выпущена'); }
   });
 
-  let body: React.ReactNode = null, cta = 'Далее', ok = true, next = () => setStep(step + 1);
-  if (step === 0) {
+  let body: React.ReactNode = null, cta = 'Далее', ok = true, next = () => go(1);
+  if (step === 'intro') {
     body = <>
       <h2 style={{ fontSize: 22 }}>Пакет «Семья»</h2><p className="muted">Всё для финансов ребёнка в вашем Moby. Оформление онлайн, около 3 минут.</p>
       <div className="card">
-        <Row icon="credit-card" title="Карта ребёнку с 7 лет" sub="Браслет, стикер или пластик плюс виртуальная карта. 0 BYN" />
-        <Row icon="smartphone" title="Свой вход в Moby" sub="Детский или подростковый режим, доступ даёте вы" />
+        <Row icon="credit-card" title="Карта ребёнку с 7 лет" sub="Браслет, стикер или пластик плюс виртуальная карта" />
+        <Row icon="smartphone" title="Свой вход в Moby" sub="По коду приглашения или по номеру телефона ребёнка" />
         <Row icon="sliders-horizontal" title="Вы решаете, что можно" sub="Категории, лимиты, подтверждение покупок, блокировка" />
-        <Row icon="qr-code" title="Оплата по QR через КРОК" sub="Без карты, со счёта, с вашими лимитами" />
         <Row icon="piggy-bank" title="Копилки, задания и уроки" sub="Карманные деньги, награды за дела, уровни самостоятельности" />
       </div>
+      <div className="planbar"><b>Условия</b>
+        <small className="muted">«{TARIFFS.start.title}» — 0 BYN, один ребёнок. «{TARIFFS.plus.title}» — {fmt(TARIFFS.plus.price)} в месяц: до 4 детей и спецусловия. Бесплатно, если семья тратит от {fmt(TARIFFS.plus.waiverSpend)} в месяц.</small></div>
       <div className="legal"><Icon name="info" size={18} /><span>До 14 лет понадобятся данные свидетельства о рождении, с 14 лет — паспорт или ID-карта ребёнка.</span></div>
     </>;
     cta = 'Начать';
-  } else if (step === 1) {
-    ok = name.trim().length > 1 && !!age;
+  } else if (step === 'who') {
+    const phoneOk = !phone.trim() || /^\+?375\s?\(?(25|29|33|44)\)?\s?\d{3}-?\d{2}-?\d{2}$/.test(phone.trim().replace(/\s+/g, ' '));
+    ok = name.trim().length > 1 && !!age && phoneOk;
     body = <>
       <h2 style={{ fontSize: 22 }}>Кто ваш ребёнок?</h2>
       <div className="field"><label>Имя</label><input value={name} maxLength={20} placeholder="Например, Соня" autoComplete="off" onChange={e => setName(e.target.value)} /></div>
       <div className="field"><label>Возраст</label>
         <div className="pills">{Array.from({ length: 11 }, (_, i) => i + 7).map(a => <button key={a} className={`pill ${age === a ? 'on' : ''}`} style={{ minWidth: 48 }} onClick={() => pickAge(a)}>{a}</button>)}</div></div>
+      <div className="field"><label>Телефон ребёнка, если есть</label><input type="tel" inputMode="tel" value={phone} placeholder="+375 (29) 123-45-67" onChange={e => setPhone(e.target.value)} /></div>
+      {!phoneOk && <small style={{ color: 'var(--red)' }}>Номер белорусского оператора: +375 25, 29, 33 или 44</small>}
       {group === 'kid' && <div className="choice on"><RowIcon name="smile" tone="red" /><span><b>«Первая карта», 7–13 лет</b><small>Карта оформляется как дополнительная к вашему счёту, договор заключаете вы: до 14 лет ребёнок сам совершает только мелкие бытовые сделки (ст. 25 ГК РБ).</small></span></div>}
       {group === 'teen' && <div className="choice on"><RowIcon name="user" /><span><b>«Свой счёт», 14–17 лет</b><small>Счёт и карта на имя подростка с вашего письменного согласия. Заработком и вкладом подросток распоряжается сам (ст. 26 ГК РБ).</small></span></div>}
     </>;
-  } else if (step === 2) {
-    ok = consents.legalRep && consents.personalData && consents.terms;
-    const ck = (k: keyof typeof consents, t: string, s: string) => (
-      <button className={`check ${consents[k] ? 'on' : ''}`} role="checkbox" aria-checked={consents[k]} onClick={() => setConsents({ ...consents, [k]: !consents[k] })}>
-        <span className="box">{consents[k] && <Icon name="check" size={16} sw={3} />}</span><span>{t}<small>{s}</small></span>
-      </button>);
+  } else if (step === 'consents') {
+    ok = consentsOk(consents);
     body = <>
       <h2 style={{ fontSize: 22 }}>Согласия</h2><p className="muted">Подписываются в приложении смарт-кодом, приходить в банк не нужно.</p>
-      <div className="card" style={{ padding: '6px 16px' }}>
-        {ck('legalRep', 'Я законный представитель ребёнка', 'Данные сверяются через МСИ')}
-        {ck('personalData', 'Согласие на обработку персональных данных ребёнка', 'Закон РБ № 99-З. Данные ребёнка не передаются партнёрам')}
-        {ck('terms', group === 'kid' ? 'Выпуск дополнительной карты к моему счёту' : 'Согласие на открытие счёта подростку', 'Условия пакета «Семья», обслуживание 0 BYN')}
-        {ck('marketing', 'Предложения партнёров для ребёнка', 'Необязательно. Только образование, спорт и досуг')}
-      </div>
+      <ConsentChecks value={consents} onChange={setConsents} group={group} />
     </>;
     cta = 'Подписать';
-  } else if (step === 3) {
+  } else if (step === 'plan') {
+    body = <>
+      <h2 style={{ fontSize: 22 }}>Выберите пакет</h2><p className="muted">Поменять можно в любой момент в разделе «Семья».</p>
+      <TariffCard t="plus" on={plan === 'plus'} onPick={() => setTariff('plus')} />
+      <TariffCard t="start" on={plan === 'start'} onPick={() => setTariff('start')} disabled={kids >= TARIFFS.start.maxKids ? 'В «Старт» один ребёнок: для второго нужен «Семья+»' : undefined} />
+    </>;
+    next = () => { if (!physical.includes(card.type)) setCard({ ...card, type: physical[0] }); go(1); };
+  } else if (step === 'card') {
     body = <>
       <h2 style={{ fontSize: 22 }}>Карта для {name}</h2>
       <BankCard name={name} card={{ type: card.type, color: card.color, status: 'active', last4: '••••' }} />
       <Swatches value={card.color} onChange={color => setCard({ ...card, color })} />
-      <CardTypePicker types={['bracelet', 'sticker', 'plastic']} value={card.type} onChange={t => setCard({ ...card, type: t as typeof card.type })} />
+      <CardTypePicker types={physical} value={card.type} onChange={t => setCard({ ...card, type: t as typeof card.type })} />
       <div className="legal"><Icon name="smartphone" size={18} /><span>Виртуальная карта выпускается сразу: ребёнок сможет платить телефоном, пока физическая карта в пути.</span></div>
     </>;
-  } else if (step === 4 && settings && group) {
+  } else if (step === 'perms' && settings && group) {
     const setPath = (path: SettingPath, v: boolean) => { const [g, k] = path.split('.') as ['cats' | 'perms', string]; setSettings({ ...settings, [g]: { ...settings[g], [k]: v } }); };
     body = <>
-      <h2 style={{ fontSize: 22 }}>Что можно {name}</h2><p className="muted">Выберите режим и поправьте детали. Всё меняется в любой момент.</p>
+      <h2 style={{ fontSize: 22 }}>Что можно {name}</h2><p className="muted">Выберите режим. Детали можно поправить сейчас или потом.</p>
       <div className="seg">{(Object.keys(PRESETS[group]) as PresetKey[]).map(k => <button key={k} className={preset === k ? 'on' : ''} onClick={() => applyPreset(k)}>{PRESETS[group][k].label}</button>)}</div>
-      <div className="card"><h3>Покупки</h3><PermissionToggles s={settings} group={group} keys="cats" onChange={setPath} /><BankLocked /></div>
-      <div className="card"><h3>Лимиты</h3>
+      <Fold icon="shield-check" title="Покупки" sub="Онлайн, игры, наличные, кафе"><PermissionToggles s={settings} group={group} keys="cats" onChange={setPath} /><BankLocked /></Fold>
+      <Fold icon="sliders-horizontal" title="Лимиты и карманные" sub={`${fmt(settings.limits.day)} в день · ${fmt(settings.allowance.amount)} в неделю`}>
         <SetRow title="В день"><Stepper value={settings.limits.day} step={5 * BYN} onChange={v => setSettings({ ...settings, limits: { ...settings.limits, day: v, month: Math.max(settings.limits.month, v) } })} /></SetRow>
         <SetRow title="Подтверждать от"><Stepper value={settings.confirmAbove} step={5 * BYN} onChange={v => setSettings({ ...settings, confirmAbove: v })} /></SetRow>
         <SetRow title="Карманные в неделю"><Stepper value={settings.allowance.amount} step={(group === 'kid' ? 1 : 5) * BYN} onChange={v => setSettings({ ...settings, allowance: { ...settings.allowance, amount: v } })} /></SetRow>
-      </div>
-      <div className="card"><h3>Moby</h3><PermissionToggles s={settings} group={group} keys="perms" onChange={setPath} /></div>
+      </Fold>
+      <Fold icon="smartphone" title="Возможности в Moby" sub="QR КРОК, копилки, ЕРИП, переводы"><PermissionToggles s={settings} group={group} keys="perms" onChange={setPath} /></Fold>
     </>;
     cta = 'Оформить'; next = create;
-  } else if (step === 5 && created) {
+  } else if (step === 'done' && created) {
     body = <>
       <h2 style={{ fontSize: 22 }}>Вход в Moby для {name}</h2>
-      <p className="muted">Ребёнок устанавливает Moby на свой телефон, выбирает «Я ребёнок», сканирует код и придумывает смарт-код.</p>
+      {created.phone && <div className="choice on"><RowIcon name="phone" /><span><b>По номеру {fmtPhone(created.phone)}</b><small>Отправили SMS со ссылкой. {name} устанавливает Moby, входит по номеру и коду из SMS, придумывает смарт-код.</small></span></div>}
+      <p className="muted">{created.phone ? 'Или по коду приглашения:' : 'Ребёнок устанавливает Moby на свой телефон, выбирает «Я ребёнок», сканирует код и придумывает смарт-код.'}</p>
       <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <InviteQr code={created.inviteCode} /><div className="code">{created.inviteCode}</div><small className="muted">Код действует один раз</small>
       </div>
-      <div className="legal"><Icon name="shield" size={18} /><span>На демо-стенде выберите {name} над правым телефоном и введите этот код.</span></div>
+      <div className="legal"><Icon name="shield" size={18} /><span>На демо-стенде выберите {name} над правым телефоном{created.phone ? ' или «По номеру»' : ''}.</span></div>
     </>;
     cta = 'Готово'; next = () => { tab('home'); push('family'); push('child', { id: created.childId }); };
   }
   return <>
-    <TopBar title={step === 0 ? 'Семья в Moby' : 'Добавить ребёнка'} />
-    <div className="steps">{Array.from({ length: STEPS }, (_, i) => <i key={i} className={i <= step ? 'on' : ''} />)}</div>
+    <TopBar title={step === 'intro' ? 'Семья в Moby' : 'Добавить ребёнка'} />
+    <div className="steps">{steps.map((st, i) => <i key={st} className={i <= idx ? 'on' : ''} />)}</div>
     <div className="page">{body}<button className="btn" disabled={!ok || busy} onClick={next}>{cta}</button></div>
   </>;
 }
-

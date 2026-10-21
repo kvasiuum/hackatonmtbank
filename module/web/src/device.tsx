@@ -1,15 +1,15 @@
 // Один телефон: вход по смарт-коду, затем Moby родителя или ребёнка.
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Device as DeviceInfo } from '../../server/src/types';
 import { Fraud, KidGoals, KidHome, KidLearn, KidTasks, Pay, Quiz, TeenAnalytics, TeenEarn, TeenGrowth, TeenHome, TeenPayments, TeenSavings, TeenSubs } from './child';
 import { Icon, MobyLogo } from './icons';
 import { api, ApiError, DeviceProvider, useDevice, type Route } from './lib';
-import { ChildScreen, FamilyScreen, Onboarding, ParentChat, ParentHome, ParentMore, ParentProducts, ParentSettings } from './parent';
+import { ChildScreen, FamilyScreen, Onboarding, PackageScreen, ParentChat, ParentHome, ParentMore, ParentProducts, ParentSettings } from './parent';
 import { Sheet } from './ui';
 
 const tokenKey = (userId: string) => `moby-family:token:${userId}`;
 const readToken = (userId: string) => { try { return localStorage.getItem(tokenKey(userId)); } catch { return null; } };
-const writeToken = (userId: string, t: string | null) => { try { t ? localStorage.setItem(tokenKey(userId), t) : localStorage.removeItem(tokenKey(userId)); } catch { /* приватный режим */ } };
+export const writeToken = (userId: string, t: string | null) => { try { t ? localStorage.setItem(tokenKey(userId), t) : localStorage.removeItem(tokenKey(userId)); } catch { /* приватный режим */ } };
 
 export function Device({ info }: { info: DeviceInfo }) {
   const [token, setToken] = useState<string | null>(() => readToken(info.userId));
@@ -93,10 +93,109 @@ function Join({ info, onToken }: { info: DeviceInfo; onToken: (t: string) => voi
   </div>;
 }
 
+const errText = (e: unknown) => (e instanceof ApiError ? e.message : 'Нет связи');
+
+/**
+ * Новый телефон: вход по номеру. Если номер уже есть в Moby (родитель добавил ребёнка по номеру) —
+ * код из SMS и новый смарт-код. Если нет — подросток с 14 лет сам просится в семью по номеру родителя.
+ */
+export function PhoneDevice({ onDone }: { onDone: (userId: string, token: string, role: string) => void }) {
+  const [stage, setStage] = useState<'phone' | 'code' | 'about' | 'pin' | 'repeat' | 'wait'>('phone');
+  const [phone, setPhone] = useState('+375 ');
+  const [sms, setSms] = useState<{ known: boolean; demoCode?: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [age, setAge] = useState<number | null>(null);
+  const [parentPhone, setParentPhone] = useState('+375 ');
+  const [first, setFirst] = useState('');
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
+
+  const start = async () => {
+    try { setSms(await api('/api/auth/phone/start', { body: { phone } })); setCode(''); setMsg(''); setStage('code'); }
+    catch (e) { setMsg(errText(e)); }
+  };
+  const p = usePin(async pin => {
+    if (stage === 'pin') { setFirst(pin); setStage('repeat'); p.reset(); return true; }
+    if (pin !== first) { setMsg('Смарт-коды не совпали, придумай заново'); setStage('pin'); return false; }
+    try {
+      if (sms?.known) { const r = await api('/api/auth/phone/verify', { body: { phone, code, pin } }); onDone(r.userId, r.token, r.role); }
+      else { const r = await api('/api/auth/join-request', { body: { phone, code, parentPhone, name: name.trim(), age, pin } }); setTicket(r.ticket); setStage('wait'); }
+      return true;
+    } catch (e) {
+      setMsg(errText(e));
+      setStage(e instanceof ApiError && e.code === 'bad_otp' ? 'code' : sms?.known ? 'code' : 'about');
+      return false;
+    }
+  });
+  // Ждём решения родителя: как только он примет заявку, входим без повторного смарт-кода
+  useEffect(() => {
+    if (stage !== 'wait' || !ticket) return;
+    const t = setInterval(async () => {
+      try {
+        const r = await api('/api/auth/join-status', { body: { ticket } });
+        if (r.status === 'approved') onDone(r.userId, r.token, 'child');
+        if (r.status === 'declined') { setMsg('Родитель отклонил заявку'); setStage('phone'); }
+      } catch { /* повторим */ }
+    }, 1500);
+    return () => clearInterval(t);
+  }, [stage, ticket, onDone]);
+
+  const phoneOk = /^\+?375\s?\(?(25|29|33|44)\)?\s?\d{3}-?\d{2}-?\d{2}$/.test(phone.trim());
+  return <div className="phone"><div className="screen">
+    {stage === 'phone' && <div className="login">
+      <Brand />
+      <h2 style={{ marginTop: 50 }}>Вход по номеру</h2>
+      <p className="who">Номер, на который придёт SMS с кодом</p>
+      <div className="field" style={{ marginTop: 24 }}><label>Телефон</label><input type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
+      <div className="hint" style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>Демо:
+        <button onClick={() => setPhone('+375 29 765-43-21')}>Ребёнок 1</button>
+        <button onClick={() => setPhone('+375 44 777-88-99')}>Новый подросток</button></div>
+      {msg && <div className="hint" style={{ color: 'var(--red)' }}>{msg}</div>}
+      <button className="btn" style={{ marginTop: 'auto' }} disabled={!phoneOk} onClick={start}>Получить код</button>
+    </div>}
+    {stage === 'code' && sms && <div className="login">
+      <Brand />
+      <h2 style={{ marginTop: 50 }}>Код из SMS</h2>
+      <p className="who">Отправили на {phone.trim()}</p>
+      {sms.demoCode && <div className="demo-sms" style={{ marginTop: 16 }}><Icon name="message-circle" size={18} /><span>Демо-SMS: код <b>{sms.demoCode}</b></span></div>}
+      <div className="field" style={{ marginTop: 16 }}><label>Код</label><input inputMode="numeric" maxLength={4} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></div>
+      {msg && <div className="hint" style={{ color: 'var(--red)' }}>{msg}</div>}
+      <button className="btn ghost" style={{ marginTop: 12 }} onClick={() => setStage('phone')}>Другой номер</button>
+      <button className="btn" style={{ marginTop: 'auto' }} disabled={code.length !== 4} onClick={() => { setMsg(''); setStage(sms.known ? 'pin' : 'about'); }}>Продолжить</button>
+    </div>}
+    {stage === 'about' && <div className="login" style={{ overflowY: 'auto' }}>
+      <Brand />
+      <h2 style={{ marginTop: 30 }}>Попроситься в семью</h2>
+      <p className="who">Номера нет в Moby. С 14 лет можно отправить заявку родителю, он подтвердит в своём Moby</p>
+      <div className="field" style={{ marginTop: 16 }}><label>Как тебя зовут</label><input maxLength={20} value={name} onChange={e => setName(e.target.value)} /></div>
+      <div className="field"><label>Возраст</label><div className="pills">{[12, 13, 14, 15, 16, 17].map(a => <button key={a} className={`pill ${age === a ? 'on' : ''}`} onClick={() => setAge(a)}>{a}</button>)}</div></div>
+      {age !== null && age < 14 && <div className="hint" style={{ color: 'var(--red)' }}>До 14 лет к семье подключает родитель (ст. 25 ГК РБ). Попроси его добавить тебя в Moby по твоему номеру</div>}
+      <div className="field"><label>Телефон родителя</label><input type="tel" inputMode="tel" value={parentPhone} onChange={e => setParentPhone(e.target.value)} /></div>
+      <div className="hint">Демо: <button onClick={() => setParentPhone('+375 29 123-45-67')}>номер родителя</button></div>
+      {msg && <div className="hint" style={{ color: 'var(--red)' }}>{msg}</div>}
+      <button className="btn" style={{ marginTop: 'auto' }} disabled={name.trim().length < 2 || !age || age < 14 || parentPhone.replace(/\D/g, '').length < 12} onClick={() => { setMsg(''); setStage('pin'); }}>Далее</button>
+    </div>}
+    {(stage === 'pin' || stage === 'repeat') && <div className="login">
+      <Brand />
+      <h2>{stage === 'pin' ? 'Придумай смарт-код' : 'Повтори смарт-код'}</h2>
+      <div className="who">{msg ? <span style={{ color: 'var(--red)' }}>{msg}</span> : 'Четыре цифры, которые знаешь только ты'}</div>
+      <Dots n={p.pin.length} err={p.err} />
+      <Keypad onDigit={p.digit} onDelete={p.del} />
+    </div>}
+    {stage === 'wait' && <div className="login">
+      <Brand />
+      <div className="result" style={{ marginTop: 60 }}><div className="big wait"><Icon name="clock" size={34} sw={2.2} /></div>
+        <h2>Заявка у родителя</h2><p>Как только родитель примет её в разделе «Семья», ты войдёшь в Moby автоматически.</p></div>
+    </div>}
+  </div></div>;
+}
+
 type Screen = (r: Route) => ReactNode;
 const PARENT: Record<string, Screen> = {
   home: () => <ParentHome />, products: () => <ParentProducts />, chat: () => <ParentChat />, more: () => <ParentMore />,
   settings: () => <ParentSettings />, family: () => <FamilyScreen />, child: r => <ChildScreen id={r.params!.id} />, onboard: () => <Onboarding />,
+  package: () => <PackageScreen />,
 };
 const KID: Record<string, Screen> = {
   home: () => <KidHome />, goals: () => <KidGoals />, tasks: () => <KidTasks />, learn: () => <KidLearn />,

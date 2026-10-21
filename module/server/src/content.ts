@@ -84,24 +84,24 @@ export function defaultSettings(group: AgeGroup, preset: PresetKey = 'normal'): 
   };
 }
 
-export interface Merchant { id: string; title: string; category: Category; amount: number; icon: string }
+export interface Merchant { id: string; title: string; category: Category; amount: number; icon: string; partner?: boolean }
 export const MERCHANTS: Record<AgeGroup, Merchant[]> = {
   kid: [
     { id: 'canteen', title: 'Школьная столовая', category: 'food', amount: 350, icon: 'utensils' },
-    { id: 'stationery', title: 'Канцтовары', category: 'shop', amount: 620, icon: 'pencil' },
+    { id: 'stationery', title: 'Канцтовары', category: 'shop', amount: 620, icon: 'pencil', partner: true },
     { id: 'burger', title: 'Бургерная', category: 'fastfood', amount: 740, icon: 'sandwich' },
     { id: 'toys', title: 'Магазин игрушек', category: 'shop', amount: 1490, icon: 'toy-brick' },
     { id: 'donate', title: 'Донат в онлайн-игре', category: 'games', amount: 1200, icon: 'gamepad-2' },
-    { id: 'cinema', title: 'Кинотеатр', category: 'fun', amount: 800, icon: 'clapperboard' },
+    { id: 'cinema', title: 'Кинотеатр', category: 'fun', amount: 800, icon: 'clapperboard', partner: true },
     { id: 'atm', title: 'Банкомат', category: 'cash', amount: 2000, icon: 'banknote' },
     { id: 'bookmaker', title: 'Букмекерская контора', category: 'gambling', amount: 1000, icon: 'dices' },
     { id: 'tobacco', title: 'Табачный магазин', category: 'adult', amount: 600, icon: 'cigarette' },
   ],
   teen: [
-    { id: 'coffee', title: 'Кофейня', category: 'fastfood', amount: 480, icon: 'coffee' },
+    { id: 'coffee', title: 'Кофейня', category: 'fastfood', amount: 480, icon: 'coffee', partner: true },
     { id: 'market', title: 'Маркетплейс', category: 'online', amount: 3990, icon: 'package' },
     { id: 'ingame', title: 'Покупка в игре', category: 'games', amount: 1500, icon: 'gamepad-2' },
-    { id: 'cinema', title: 'Кинотеатр', category: 'fun', amount: 1200, icon: 'clapperboard' },
+    { id: 'cinema', title: 'Кинотеатр', category: 'fun', amount: 1200, icon: 'clapperboard', partner: true },
     { id: 'sneakers', title: 'Кроссовки', category: 'shop', amount: 18900, icon: 'footprints' },
     { id: 'atm', title: 'Банкомат', category: 'cash', amount: 3000, icon: 'banknote' },
     { id: 'bets', title: 'Ставки на спорт', category: 'gambling', amount: 2000, icon: 'dices' },
@@ -184,3 +184,77 @@ export const groupOf = (age: number): AgeGroup => (age < 14 ? 'kid' : 'teen');
 export const SUBS_MONTHLY_LIMIT = 20 * BYN;
 export const PARENT_BONUS_RATE = 0.1;
 export const DEPOSIT_RATE = 9;
+
+// ---------- пакет «Семья»: тарифы и спецусловия ----------
+export const TARIFFS = {
+  start: {
+    title: 'Семья Старт', price: 0, maxKids: 1, cashbackRate: 0.05,
+    cards: ['virtual', 'sticker'] as CardType[],
+    perks: [
+      'Один ребёнок, виртуальная карта и платёжный стикер',
+      'Лимиты, категории, подтверждение покупок',
+      'Копилки, задания и уроки финграмотности',
+      'Кешбэк недели у партнёров 5% в копилку ребёнка',
+    ],
+  },
+  plus: {
+    title: 'Семья+', price: 490, maxKids: 4, cashbackRate: 0.10,
+    /** Плата не списывается, если семья потратила за прошлый месяц не меньше этой суммы */
+    waiverSpend: 400 * BYN,
+    cards: ['virtual', 'sticker', 'bracelet', 'plastic'] as CardType[],
+    perks: [
+      'До 4 детей, браслет и пластиковая карта бесплатно',
+      'Кешбэк недели у партнёров 10% в копилку ребёнка',
+      'Манички ×2 в детских категориях: школа, кружки, аптеки, детские товары',
+      '+1% к ставке по вкладу родителя, пока у ребёнка есть копилка',
+      'Халва: рассрочка 0% на школьные покупки до 6 месяцев',
+      'Страхование ребёнка со скидкой 30%',
+      'Бесплатные переводы внутри семьи и в ЕРИП за кружки',
+    ],
+  },
+} as const;
+export type TariffKey = keyof typeof TARIFFS;
+
+// ---------- экономика модуля (допущения для расчёта окупаемости) ----------
+export interface EconInputs {
+  families: number;          // семей за первый год
+  cac: number;               // привлечение семьи: реклама в Moby + приветственный бонус, BYN
+  cardCost: number;          // выпуск и доставка физической карты/браслета, BYN
+  kidsPerFamily: number;     // детей в семье
+  kidSpend: number;          // траты ребёнка в месяц, BYN
+  parentExtraSpend: number;  // дополнительные траты родителя (перенёс основную карту в МТБанк), BYN
+  interchange: number;       // доход банка с оборота по картам, %
+  balances: number;          // средние остатки семьи (счета детей, копилки, вклады), BYN
+  margin: number;            // процентная маржа на остатки, % годовых
+  plusShare: number;         // доля семей на «Семья+», %
+  plusPaying: number;        // из них платят (не набрали 400 BYN трат), %
+  partnerShare: number;      // доля трат детей у партнёров, %
+  partnerFee: number;        // комиссия партнёра банку, %
+  bonusRate: number;         // Манички и бонусы за счёт банка, % от трат детей
+  opex: number;              // обслуживание семьи (процессинг, поддержка, SMS), BYN в месяц
+  devCost: number;           // разработка и запуск, BYN
+}
+export const ECON_DEFAULTS: EconInputs = {
+  families: 10000, cac: 25, cardCost: 10, kidsPerFamily: 1.6, kidSpend: 90, parentExtraSpend: 150,
+  interchange: 1.2, balances: 300, margin: 8, plusShare: 40, plusPaying: 50, partnerShare: 20, partnerFee: 3,
+  bonusRate: 1, opex: 1, devCost: 150000,
+};
+export function economics(i: EconInputs) {
+  const kidsSpend = i.kidsPerFamily * i.kidSpend;
+  const interchange = (kidsSpend + i.parentExtraSpend) * i.interchange / 100;
+  const balances = i.balances * i.margin / 100 / 12;
+  const tariff = (TARIFFS.plus.price / BYN) * (i.plusShare / 100) * (i.plusPaying / 100);
+  const partners = kidsSpend * (i.partnerShare / 100) * (i.partnerFee / 100);
+  const revenue = interchange + balances + tariff + partners;
+  // Кешбэк недели оплачивают партнёры из своей комиссии, банк платит только Манички
+  const bonuses = kidsSpend * i.bonusRate / 100;
+  const contribution = revenue - bonuses - i.opex;
+  const acquisition = i.cac + i.cardCost * i.kidsPerFamily * 0.6; // 60% детей берут физическую карту
+  const devPerFamily = i.devCost / Math.max(1, i.families);
+  const payback = contribution > 0 ? (acquisition + devPerFamily) / contribution : Infinity;
+  return {
+    revenue: { interchange, balances, tariff, partners, total: revenue },
+    bonuses, opex: i.opex, contribution, acquisition, devPerFamily,
+    paybackMonths: payback, yearProfit: (contribution * 12 - acquisition - devPerFamily) * i.families,
+  };
+}

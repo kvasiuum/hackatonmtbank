@@ -3,12 +3,12 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
-  LESSONS, LESSON_REWARD, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, defaultSettings, groupOf, levelOf, type PresetKey,
+  LESSONS, LESSON_REWARD, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
-import { type DB, newId, nowIso, tx } from './schema';
+import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
   AgeGroup, Card, CardType, ChildDetail, ChildOverview, ChildRequest, ChildSettings, ChildSummary, FamilyGoal,
-  FeedItem, Goal, ParentOverview, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Task, Tx,
+  FamilyPlan, FeedItem, Goal, JoinRequest, ParentOverview, PayDecision, PayMethod, RequestType, SettingPath, Subscription, Tariff, Task, Tx,
 } from './types';
 
 export class AppError extends Error {
@@ -26,6 +26,12 @@ export function startOfMonth(now = Date.now()) {
   const d = new Date(now + MINSK_OFFSET);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) - MINSK_OFFSET).toISOString();
 }
+/** Номер телефона РБ в виде +375XXXXXXXXX или null, если формат неверный */
+export function normPhone(raw: string) {
+  const d = raw.replace(/\D/g, '');
+  const full = d.startsWith('375') ? d : d.startsWith('80') ? '375' + d.slice(2) : d.length === 9 ? '375' + d : d;
+  return /^375(25|29|33|44)\d{7}$/.test(full) ? `+${full}` : null;
+}
 export function startOfWeek(now = Date.now()) {
   const d = new Date(now + MINSK_OFFSET);
   const dow = (d.getUTCDay() + 6) % 7; // понедельник = 0
@@ -37,6 +43,7 @@ interface ChildRow {
   xp: number; coins: number; settings: string; lessons: string; allowance_paid_at: string | null; invite_code: string | null; joined: number; name: string;
 }
 interface CardRow { id: string; child_id: string; type: CardType; last4: string; color: string; status: Card['status']; created_at: string }
+interface MetaRow { family_id: string; tariff: Tariff; since: string; fee_month: string | null; intro_seen: number }
 interface ReqRow { id: string; child_id: string; type: RequestType; payload: string; reason: string | null; status: ChildRequest['status']; created_at: string }
 
 export type Emit = (familyId: string) => void;
@@ -67,6 +74,33 @@ export class FamilyService {
     const c = this.childRow(childId);
     if (c.family_id !== this.familyOfParent(parentId)) throw forbidden();
     return c;
+  }
+  /** Тариф и служебные отметки семьи; строка создаётся при первом обращении */
+  private meta(familyId: string): MetaRow {
+    let m = this.one<MetaRow>('SELECT * FROM family_meta WHERE family_id = ?', familyId);
+    if (!m) {
+      this.run('INSERT INTO family_meta VALUES (?,?,?,?,?)', familyId, 'start', nowIso(), null, 0);
+      m = this.one<MetaRow>('SELECT * FROM family_meta WHERE family_id = ?', familyId)!;
+    }
+    return m;
+  }
+  private tariff(familyId: string) { return TARIFFS[this.meta(familyId).tariff]; }
+  /** Траты всей семьи (родитель и дети) с указанной даты */
+  private familySpend(familyId: string, since: string, until = '9999') {
+    const r = this.one<{ s: number | null }>(`SELECT -SUM(t.amount) AS s FROM transactions t WHERE t.kind = 'spend' AND t.amount < 0 AND t.created_at >= ? AND t.created_at < ?
+      AND (t.user_id = (SELECT parent_id FROM families WHERE id = ?) OR t.user_id IN (SELECT user_id FROM children WHERE family_id = ?))`, since, until, familyId, familyId);
+    return r?.s ?? 0;
+  }
+  private plan(familyId: string): FamilyPlan {
+    const m = this.meta(familyId);
+    const spendMonth = this.familySpend(familyId, startOfMonth());
+    const firstMonth = Date.now() - Date.parse(m.since) < 30 * DAY;
+    const t = TARIFFS[m.tariff];
+    return { tariff: m.tariff, since: m.since, spendMonth, feeWaived: t.price === 0 || firstMonth || spendMonth >= TARIFFS.plus.waiverSpend };
+  }
+  private checkCardAllowed(familyId: string, type: CardType) {
+    const t = this.tariff(familyId);
+    if (!(t.cards as readonly CardType[]).includes(type)) throw bad('tariff_card', `${CARD_TYPES[type].label} доступна в пакете «${TARIFFS.plus.title}»`);
   }
   private settings(c: ChildRow): ChildSettings { return JSON.parse(c.settings); }
   private saveSettings(childId: string, s: ChildSettings) { this.run('UPDATE children SET settings = ? WHERE user_id = ?', JSON.stringify(s), childId); }
@@ -135,7 +169,14 @@ export class FamilyService {
       subscriptions: this.q<{ id: string; title: string; price: number; active: number; icon: string }>('SELECT * FROM subscriptions WHERE child_id = ?', c.user_id)
         .map(s => ({ id: s.id, title: s.title, price: s.price, active: !!s.active, icon: s.icon })),
       deposit: dep ?? null,
+      cashbackWeek: this.cashbackWeek(c),
+      phone: this.one<{ phone: string | null }>('SELECT phone FROM users WHERE id = ?', c.user_id)?.phone ?? null,
     };
+  }
+  private cashbackWeek(c: ChildRow) {
+    const spent = this.one<{ s: number | null }>('SELECT SUM(amount) AS s FROM partner_spend WHERE child_id = ? AND paid = 0', c.user_id)?.s ?? 0;
+    const rate = this.tariff(c.family_id).cashbackRate;
+    return { spent, rate, expected: Math.round(spent * rate) };
   }
   private ops(userId: string, limit: number): Tx[] {
     return this.q<{ id: string; title: string; amount: number; category: string; method: string | null; created_at: string }>(
@@ -145,17 +186,19 @@ export class FamilyService {
   private request(r: ReqRow): ChildRequest {
     const p = JSON.parse(r.payload);
     let summary = '';
+    let amount: number | null = null;
     switch (r.type) {
-      case 'money': summary = fmt(p.amount); break;
+      case 'money': summary = 'Перевод на карту'; amount = p.amount; break;
       case 'perm': summary = SETTING_LABELS[p.key as SettingPath].title; break;
       case 'card': summary = CARD_TYPES[p.cardType as CardType].label; break;
-      case 'purchase': summary = `${p.payment.title}, ${fmt(p.payment.amount)}`; break;
-      case 'limit': summary = `Дневной лимит до ${fmt(p.day)}`; break;
-      case 'level': summary = `Уровень ${p.level}`; break;
-      case 'task': { const t = this.one<{ title: string; reward: number }>('SELECT title, reward FROM tasks WHERE id = ?', p.taskId); summary = t ? `${t.title}, ${fmt(t.reward)}` : 'Задание'; break; }
-      case 'goal': { const g = this.one<{ title: string }>('SELECT title FROM goals WHERE id = ?', p.goalId); summary = `${fmt(p.amount)} в копилку «${g?.title ?? ''}»`; break; }
+      case 'purchase': summary = `Покупка: ${p.payment.title}`; amount = p.payment.amount; break;
+      case 'limit': summary = 'Новый дневной лимит'; amount = p.day; break;
+      case 'level': summary = `Уровень ${p.level}: новый дневной лимит`; amount = p.day; break;
+      case 'task': { const t = this.one<{ title: string; reward: number }>('SELECT title, reward FROM tasks WHERE id = ?', p.taskId); summary = t ? `Выполнено: ${t.title}` : 'Задание удалено'; amount = t?.reward ?? null; break; }
+      case 'goal': { const g = this.one<{ title: string }>('SELECT title FROM goals WHERE id = ?', p.goalId); summary = `В копилку «${g?.title ?? ''}»`; amount = p.amount; break; }
+      case 'proposal': summary = `Своё задание: ${p.title}`; amount = p.reward; break;
     }
-    return { id: r.id, childId: r.child_id, type: r.type, payload: p, reason: r.reason, status: r.status, createdAt: r.created_at, summary };
+    return { id: r.id, childId: r.child_id, type: r.type, payload: p, reason: r.reason, status: r.status, createdAt: r.created_at, summary, amount };
   }
   private familyGoal(familyId: string): FamilyGoal {
     const f = this.one<{ goal_title: string; goal_icon: string; goal_target: number; goal_saved: number }>('SELECT * FROM families WHERE id = ?', familyId)!;
@@ -165,7 +208,7 @@ export class FamilyService {
   // ---------- родитель ----------
   parentOverview(parentId: string): ParentOverview {
     const familyId = this.familyOfParent(parentId);
-    const u = this.one<{ name: string; balance: number; card_mask: string }>('SELECT u.name, p.balance, p.card_mask FROM users u JOIN parents p ON p.user_id = u.id WHERE u.id = ?', parentId)!;
+    const u = this.one<{ name: string; balance: number; card_mask: string; phone: string | null }>('SELECT u.name, u.phone, p.balance, p.card_mask FROM users u JOIN parents p ON p.user_id = u.id WHERE u.id = ?', parentId)!;
     const kids = this.q<ChildRow>('SELECT c.*, u.name FROM children c JOIN users u ON u.id = c.user_id WHERE c.family_id = ? ORDER BY c.age DESC', familyId);
     const requests = this.q<ReqRow>(
       'SELECT r.* FROM requests r JOIN children c ON c.user_id = r.child_id WHERE c.family_id = ? ORDER BY r.status = \'pending\' DESC, r.created_at DESC LIMIT 30', familyId,
@@ -173,22 +216,133 @@ export class FamilyService {
     const feed = this.q<{ id: string; child_id: string | null; text: string; amount: number | null; created_at: string }>(
       'SELECT * FROM feed WHERE family_id = ? ORDER BY created_at DESC LIMIT 20', familyId,
     ).map<FeedItem>(f => ({ id: f.id, childId: f.child_id, text: f.text, amount: f.amount, createdAt: f.created_at }));
+    const joinRequests = this.q<{ id: string; name: string; age: number; phone: string; created_at: string }>(
+      "SELECT * FROM join_requests WHERE family_id = ? AND status = 'pending' ORDER BY created_at DESC", familyId,
+    ).map<JoinRequest>(j => ({ id: j.id, name: j.name, age: j.age, phone: j.phone, createdAt: j.created_at }));
     return {
-      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10) },
+      parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone },
+      introSeen: !!this.meta(familyId).intro_seen, plan: this.plan(familyId), joinRequests,
       children: kids.map(k => this.summary(k)), requests, feed, familyGoal: this.familyGoal(familyId),
     };
+  }
+
+  markIntroSeen(parentId: string) {
+    const familyId = this.familyOfParent(parentId);
+    this.meta(familyId);
+    this.run('UPDATE family_meta SET intro_seen = 1 WHERE family_id = ?', familyId);
+  }
+
+  setTariff(parentId: string, tariff: Tariff) {
+    const familyId = this.familyOfParent(parentId);
+    const m = this.meta(familyId);
+    if (m.tariff === tariff) return this.plan(familyId);
+    const kids = this.q<{ user_id: string }>('SELECT user_id FROM children WHERE family_id = ?', familyId);
+    const t = TARIFFS[tariff];
+    if (kids.length > t.maxKids) throw bad('tariff_kids', `В пакете «${t.title}» можно подключить ${t.maxKids} ребёнка`);
+    const extra = this.one<{ n: number }>(`SELECT COUNT(*) AS n FROM cards WHERE status != 'closed' AND child_id IN (SELECT user_id FROM children WHERE family_id = ?)
+      AND type NOT IN (${t.cards.map(() => '?').join(',')})`, familyId, ...t.cards)!.n;
+    if (extra) throw bad('tariff_card', 'Сначала закройте браслеты и пластиковые карты: в пакете «Старт» их нет');
+    this.run('UPDATE family_meta SET tariff = ?, since = ?, fee_month = NULL WHERE family_id = ?', tariff, nowIso(), familyId);
+    this.addFeed(familyId, null, `Пакет изменён: «${t.title}»`);
+    this.touch(familyId);
+    return this.plan(familyId);
+  }
+
+  /** Плата за «Семья+» раз в месяц: не берём в первый месяц и если семья потратила за прошлый месяц от 400 BYN */
+  processFees(now = Date.now()) {
+    const month = startOfMonth(now);
+    const prev = startOfMonth(Date.parse(month) - DAY);
+    for (const m of this.q<MetaRow>("SELECT * FROM family_meta WHERE tariff = 'plus' AND (fee_month IS NULL OR fee_month < ?)", month)) {
+      if (now - Date.parse(m.since) < 30 * DAY) continue;
+      const parentId = this.parentOfFamily(m.family_id);
+      const spent = this.familySpend(m.family_id, prev, month);
+      tx(this.db, () => {
+        this.run('UPDATE family_meta SET fee_month = ? WHERE family_id = ?', month, m.family_id);
+        if (spent >= TARIFFS.plus.waiverSpend) { this.addFeed(m.family_id, null, `«Семья+» бесплатно: в прошлом месяце семья потратила ${fmt(spent)}`); return; }
+        this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', TARIFFS.plus.price, parentId);
+        this.addTx(parentId, 'Пакет «Семья+»', -TARIFFS.plus.price, 'Обслуживание', 'internal');
+      });
+      this.touch(m.family_id);
+    }
+  }
+
+  /** Кешбэк недели у партнёров: в понедельник за прошлую неделю, на счёт ребёнка */
+  processWeeklyCashback(now = Date.now()) {
+    const week = startOfWeek(now);
+    const due = this.q<{ child_id: string; s: number }>('SELECT child_id, SUM(amount) AS s FROM partner_spend WHERE paid = 0 AND created_at < ? GROUP BY child_id', week);
+    for (const d of due) {
+      const c = this.childRow(d.child_id);
+      const bonus = Math.round(d.s * this.tariff(c.family_id).cashbackRate);
+      tx(this.db, () => {
+        this.run('UPDATE partner_spend SET paid = 1 WHERE child_id = ? AND paid = 0 AND created_at < ?', d.child_id, week);
+        if (bonus <= 0) return;
+        this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', bonus, d.child_id);
+        this.addTx(d.child_id, 'Кешбэк недели у партнёров', bonus, 'Бонусы', 'income');
+        this.addFeed(c.family_id, d.child_id, `${c.name}: кешбэк недели у партнёров`, bonus);
+      });
+      this.touch(c.family_id);
+    }
+  }
+
+  // ---------- вход в семью по номеру телефона ----------
+  userByPhone(phone: string) {
+    return this.one<{ id: string; role: 'parent' | 'child' }>('SELECT id, role FROM users WHERE phone = ?', phone);
+  }
+
+  /** Подросток с 14 лет сам просится в семью по номеру родителя (ГК РБ ст. 26); младше — только через родителя */
+  createJoinRequest(input: { phone: string; parentPhone: string; name: string; age: number; pin: string }) {
+    if (input.age < 14) throw bad('age', 'До 14 лет к семье подключает родитель. Попроси его добавить тебя в Moby по твоему номеру');
+    if (input.age > 17) throw bad('age', 'Пакет «Семья» — для детей до 18 лет');
+    if (this.userByPhone(input.phone)) throw bad('exists', 'Этот номер уже есть в Moby: войдите по коду из SMS');
+    const parent = this.one<{ id: string }>("SELECT id FROM users WHERE phone = ? AND role = 'parent'", input.parentPhone);
+    if (!parent) throw bad('no_parent', 'Не нашли родителя с таким номером в Moby');
+    const familyId = this.familyOfParent(parent.id);
+    const dup = this.one("SELECT 1 FROM join_requests WHERE phone = ? AND status = 'pending'", input.phone);
+    if (dup) throw bad('duplicate', 'Заявка уже отправлена, ждём родителя');
+    const id = newId('j'), ticket = newId('tk') + newId('tk');
+    this.run('INSERT INTO join_requests VALUES (?,?,?,?,?,?,?,?,?,?)', id, familyId, input.name.trim(), input.age, input.phone, hashPin(input.pin), ticket, 'pending', null, nowIso());
+    this.addFeed(familyId, null, `${input.name.trim()} просится в семью по номеру ${input.phone}`);
+    this.touch(familyId);
+    return { ticket };
+  }
+
+  joinStatus(ticket: string) {
+    const j = this.one<{ status: string; child_id: string | null }>('SELECT status, child_id FROM join_requests WHERE ticket = ?', ticket);
+    if (!j) throw notFound('Заявка');
+    return j;
+  }
+
+  resolveJoinRequest(parentId: string, joinId: string, input: { approve: boolean; consents?: { legalRep: boolean; personalData: boolean; terms: boolean; marketing: boolean }; preset?: PresetKey }) {
+    const familyId = this.familyOfParent(parentId);
+    const j = this.one<{ id: string; family_id: string; name: string; age: number; phone: string; pin_hash: string; status: string }>('SELECT * FROM join_requests WHERE id = ?', joinId);
+    if (!j || j.family_id !== familyId) throw notFound('Заявка');
+    if (j.status !== 'pending') throw bad('resolved', 'Заявка уже обработана');
+    if (!input.approve) {
+      this.run("UPDATE join_requests SET status = 'declined' WHERE id = ?", joinId);
+      this.touch(familyId);
+      return { childId: null };
+    }
+    let childId = '';
+    tx(this.db, () => {
+      childId = this.addChild(parentId, { name: j.name, age: j.age, phone: j.phone, consents: input.consents!, preset: input.preset ?? 'normal' }, { pinHash: j.pin_hash, nested: true }).childId;
+      this.run("UPDATE join_requests SET status = 'approved', child_id = ? WHERE id = ?", childId, joinId);
+    });
+    this.touch(familyId);
+    return { childId };
   }
 
   childForParent(parentId: string, childId: string): ChildDetail { return this.detail(this.ownChild(parentId, childId)); }
 
   addChild(parentId: string, input: {
     name: string; age: number; consents: { legalRep: boolean; personalData: boolean; terms: boolean; marketing: boolean };
-    card: { type: Exclude<CardType, 'virtual'>; color: string }; preset: PresetKey; settings?: Partial<ChildSettings>;
-  }) {
+    card?: { type: Exclude<CardType, 'virtual'>; color: string }; preset: PresetKey; settings?: Partial<ChildSettings>;
+    phone?: string | null; tariff?: Tariff;
+  }, internal: { pinHash?: string; nested?: boolean } = {}) {
     const familyId = this.familyOfParent(parentId);
     const { consents } = input;
-    if (!consents.legalRep || !consents.personalData || !consents.terms) throw bad('consents', 'Нужны обязательные согласия законного представителя');
+    if (!consents?.legalRep || !consents.personalData || !consents.terms) throw bad('consents', 'Нужны обязательные согласия законного представителя');
     if (input.age < 7 || input.age > 17) throw bad('age', 'Пакет доступен для детей 7–17 лет');
+    if (input.phone && this.userByPhone(input.phone)) throw bad('phone_taken', 'Этот номер уже подключён к Moby');
     const group = groupOf(input.age);
     const base = defaultSettings(group, input.preset);
     const settings: ChildSettings = { ...base, ...input.settings, limits: { ...base.limits, ...input.settings?.limits }, cats: { ...base.cats, ...input.settings?.cats }, perms: { ...base.perms, ...input.settings?.perms }, allowance: { ...base.allowance, ...input.settings?.allowance } };
@@ -196,19 +350,25 @@ export class FamilyService {
     const id = newId('u');
     const count = this.one<{ n: number }>('SELECT COUNT(*) AS n FROM children WHERE family_id = ?', familyId)!.n;
     const invite = `MOBY-${String(Math.floor(1000 + Math.random() * 9000))}`;
-    tx(this.db, () => {
-      this.run('INSERT INTO users VALUES (?,?,?,?,?,?)', id, 'child', input.name.trim(), null, null, nowIso());
-      this.run(`INSERT INTO children (user_id,family_id,age,grp,color,settings,allowance_paid_at,invite_code,joined) VALUES (?,?,?,?,?,?,?,?,0)`,
-        id, familyId, input.age, group, AVATAR_COLORS[count % AVATAR_COLORS.length], JSON.stringify(settings), nowIso(), invite);
+    const joined = internal.pinHash ? 1 : 0;
+    const body = () => {
+      if (input.tariff && input.tariff !== this.meta(familyId).tariff) this.setTariff(parentId, input.tariff);
+      const t = this.tariff(familyId);
+      if (count >= t.maxKids) throw bad('tariff_kids', `В пакете «${t.title}» ${t.maxKids === 1 ? 'один ребёнок' : `до ${t.maxKids} детей`}. Подключите «${TARIFFS.plus.title}»`);
+      if (input.card) this.checkCardAllowed(familyId, input.card.type);
+      this.run('INSERT INTO users VALUES (?,?,?,?,?,?)', id, 'child', input.name.trim(), input.phone ?? null, internal.pinHash ?? null, nowIso());
+      this.run(`INSERT INTO children (user_id,family_id,age,grp,color,settings,allowance_paid_at,invite_code,joined) VALUES (?,?,?,?,?,?,?,?,?)`,
+        id, familyId, input.age, group, AVATAR_COLORS[count % AVATAR_COLORS.length], JSON.stringify(settings), nowIso(), invite, joined);
       for (const [kind, ok] of [['legal_rep', consents.legalRep], ['personal_data', consents.personalData], ['card_issue', consents.terms], ['marketing', consents.marketing]] as const) {
         if (ok) this.run('INSERT INTO consents VALUES (?,?,?,?)', newId('cs'), id, kind, nowIso());
       }
-      this.insertCard(id, input.card.type, input.card.color);
+      if (input.card) this.insertCard(id, input.card.type, input.card.color);
       this.insertCard(id, 'virtual', '#1F5FD6');
       this.addFeed(familyId, id, `${input.name.trim()} подключён к пакету «Семья»`);
-    });
+    };
+    if (internal.nested) body(); else tx(this.db, body);
     this.touch(familyId);
-    return { childId: id, inviteCode: invite };
+    return { childId: id, inviteCode: invite, phone: input.phone ?? null };
   }
 
   updateSettings(parentId: string, childId: string, patch: Partial<Omit<ChildSettings, 'cats' | 'perms' | 'limits' | 'allowance'>> & {
@@ -287,6 +447,7 @@ export class FamilyService {
       if (!this.settings(c).perms.newCards) throw forbidden('Родитель не разрешил выпуск карт');
     }
     if (this.cards(childId).length >= MAX_CARDS) throw bad('max_cards', `У ребёнка уже ${MAX_CARDS} карты — это максимум`);
+    this.checkCardAllowed(c.family_id, type);
     const id = this.insertCard(childId, type, color);
     this.addFeed(c.family_id, childId, `${c.name}: выпущена карта «${CARD_TYPES[type].label}»`);
     this.touch(c.family_id);
@@ -330,6 +491,19 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
+  deleteTask(parentId: string, taskId: string) {
+    const t = this.one<{ child_id: string; title: string }>('SELECT child_id, title FROM tasks WHERE id = ?', taskId);
+    if (!t) throw notFound('Задание');
+    const c = this.ownChild(parentId, t.child_id);
+    tx(this.db, () => {
+      // Задание на проверке: снимаем и запрос на награду
+      this.run("UPDATE requests SET status = 'declined', resolved_at = ? WHERE type = 'task' AND status = 'pending' AND json_extract(payload, '$.taskId') = ?", nowIso(), taskId);
+      this.run('DELETE FROM tasks WHERE id = ?', taskId);
+      this.addFeed(c.family_id, c.user_id, `Задание удалено: «${t.title}»`);
+    });
+    this.touch(c.family_id);
+  }
+
   resolveRequest(parentId: string, requestId: string, approve: boolean) {
     const r = this.one<ReqRow>('SELECT * FROM requests WHERE id = ?', requestId);
     if (!r) throw notFound('Запрос');
@@ -346,7 +520,10 @@ export class FamilyService {
           case 'level': s.limits.day = p.day; s.limits.month = Math.max(s.limits.month, p.day); s.confirmAbove = Math.round(s.confirmAbove * 1.2); this.saveSettings(c.user_id, s); break;
           case 'card':
             if (this.cards(c.user_id).length >= MAX_CARDS) throw bad('max_cards', `У ${c.name} уже ${MAX_CARDS} карты`);
+            this.checkCardAllowed(c.family_id, p.cardType);
             this.insertCard(c.user_id, p.cardType, p.color); break;
+          case 'proposal':
+            this.run('INSERT INTO tasks VALUES (?,?,?,?,?,?)', newId('k'), c.user_id, p.title, p.reward, 'open', nowIso()); break;
           case 'purchase': {
             const d = this.executePayment(c, p.payment, { parentApproved: true });
             if (d.status !== 'approved') throw bad('purchase_failed', d.status === 'declined' ? d.text : 'Не удалось провести оплату');
@@ -374,7 +551,8 @@ export class FamilyService {
         this.run("UPDATE tasks SET status = 'open' WHERE id = ?", p.taskId);
       }
       this.run('UPDATE requests SET status = ?, resolved_at = ? WHERE id = ?', approve ? 'approved' : 'declined', nowIso(), requestId);
-      this.addFeed(c.family_id, c.user_id, `${approve ? 'Одобрено' : 'Отклонено'}: ${c.name}, ${this.request({ ...r }).summary}`);
+      const info = this.request({ ...r });
+      this.addFeed(c.family_id, c.user_id, `${approve ? 'Одобрено' : 'Отклонено'}: ${c.name}, ${info.summary}${info.amount ? `, ${fmt(info.amount)}` : ''}`);
     });
     this.touch(c.family_id);
   }
@@ -408,8 +586,9 @@ export class FamilyService {
     return { me: this.detail(c), requests, familyGoal: this.familyGoal(c.family_id) };
   }
 
-  createRequest(childId: string, type: 'money' | 'perm' | 'card' | 'limit' | 'goal', payload: Record<string, unknown>, reason: string | null) {
+  createRequest(childId: string, type: 'money' | 'perm' | 'card' | 'limit' | 'goal' | 'proposal', payload: Record<string, unknown>, reason: string | null) {
     const c = this.childRow(childId);
+    if (type === 'card') this.checkCardAllowed(c.family_id, payload.cardType as CardType);
     if (type === 'perm') {
       const dup = this.one('SELECT 1 FROM requests WHERE child_id = ? AND type = ? AND status = ? AND json_extract(payload, \'$.key\') = ?', childId, 'perm', 'pending', String(payload.key));
       if (dup) throw bad('duplicate', 'Такой запрос уже ждёт ответа');
@@ -435,6 +614,7 @@ export class FamilyService {
     this.run('UPDATE children SET balance = balance - ?, coins = coins + ? WHERE user_id = ?', p.amount, Math.floor(p.amount / (5 * BYN)), c.user_id);
     this.addTx(c.user_id, title, -p.amount, CATEGORY_NAMES[p.category], 'spend', p.method);
     this.addFeed(c.family_id, c.user_id, `${c.name}: ${title}`, -p.amount);
+    if (p.partner) this.run('INSERT INTO partner_spend VALUES (?,?,?,?,?,?)', newId('ps'), c.user_id, p.title, p.amount, 0, nowIso());
     let change = 0;
     const goal = this.one<{ id: string }>('SELECT id FROM goals WHERE child_id = ? AND saved < target ORDER BY created_at LIMIT 1', c.user_id);
     if (s.roundup && goal && p.amount % BYN) {
@@ -446,7 +626,8 @@ export class FamilyService {
       } else change = 0;
     }
     const via = p.method === 'qr' ? 'Списано со счёта мгновенно через КРОК' : card ? `${CARD_TYPES[card.type].label} •• ${card.last4}` : 'Со счёта';
-    return { status: 'approved', text: `${title}, ${fmt(p.amount)}. ${via}.${change ? ` Сдача ${fmt(change)} ушла в копилку.` : ''}` };
+    const cb = p.partner ? ` Партнёр Moby: ${Math.round(this.tariff(c.family_id).cashbackRate * 100)}% вернутся в понедельник.` : '';
+    return { status: 'approved', text: `${title}, ${fmt(p.amount)}. ${via}.${change ? ` Сдача ${fmt(change)} ушла в копилку.` : ''}${cb}` };
   }
 
   private pay(childId: string, p: PayInput) {
@@ -459,7 +640,7 @@ export class FamilyService {
     const c = this.childRow(childId);
     const m = MERCHANTS[c.grp].find(x => x.id === merchantId);
     if (!m) throw notFound('Магазин');
-    return this.pay(childId, { title: m.title, amount: m.amount, category: m.category, method });
+    return this.pay(childId, { title: m.title, amount: m.amount, category: m.category, method, partner: m.partner });
   }
   payErip(childId: string, serviceId: string, amount: number) {
     const svc = ERIP_SERVICES.find(x => x.id === serviceId);
