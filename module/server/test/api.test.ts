@@ -240,12 +240,36 @@ describe('API модуля «Семья»', () => {
     expect((await call('PATCH', '/api/parent/tasks/k_trash', parent, { title: 'Мусор', reward: 100 })).status).toBe(400); // уже оплачено
 
     const cards = (await call('GET', '/api/parent/overview', parent)).body.parent.cards;
-    expect(cards.map((c: any) => c.id)).toEqual(['main', 'pc_halva', 'pc_salary']);
+    expect(cards.map((c: any) => c.id)).toEqual(['main', 'pc_salary', 'pc_personal', 'pc_halva']);
     expect((await call('POST', '/api/parent/children/u_misha/topup', parent, { amount: 2000, cardId: 'pc_salary' })).body.error.code).toBe('parent_funds');
     expect((await call('POST', '/api/parent/children/u_misha/topup', parent, { amount: 2000, cardId: 'pc_halva' })).status).toBe(200);
     const after = (await call('GET', '/api/parent/overview', parent)).body;
-    expect(after.parent.cards[1].balance).toBe(31200 - 2000);
+    expect(after.parent.cards.find((c: any) => c.id === 'pc_halva').balance).toBe(31200 - 2000);
     expect(after.parent.balance).toBe(124050);
     expect(after.children.find((k: any) => k.id === 'u_misha').balance).toBe(2340 + 2000);
+  });
+
+  it('баланс нигде не уходит в минус', async () => {
+    const parent = await login('u_parent'); const kid = await login('u_misha');
+    // родитель: одобрение запроса с карты, где не хватает, не проходит и запрос остаётся
+    const r = await call('POST', '/api/child/requests', kid, { type: 'money', amount: 2000 });
+    const no = await call('POST', `/api/parent/requests/${r.body.id}`, parent, { approve: true, cardId: 'pc_salary' });
+    expect(no.body.error.message).toContain('Недостаточно средств');
+    expect((await call('POST', `/api/parent/requests/${r.body.id}`, parent, { approve: true, cardId: 'pc_personal' })).status).toBe(200);
+    expect((await call('POST', '/api/family/goal', parent, { amount: 5000, cardId: 'pc_salary' })).status).toBe(400);
+    expect((await call('POST', '/api/parent/children/u_misha/allowance', parent, { cardId: 'pc_salary' })).status).toBe(200); // 10 BYN из 12.46
+    expect((await call('POST', '/api/parent/children/u_misha/allowance', parent, { cardId: 'pc_salary' })).status).toBe(400);
+    // ребёнок: копилка, семейная цель, вклад
+    const bal = (await call('GET', '/api/child/overview', kid)).body.me.balance;
+    expect((await call('POST', '/api/child/goals/g_lego/deposit', kid, { amount: bal + 100 })).body.error.code).toBe('funds');
+    expect((await call('POST', '/api/family/goal', kid, { amount: bal + 100 })).status).toBe(400);
+    expect((await call('GET', '/api/child/overview', kid)).body.me.balance).toBe(bal);
+    // автосписания: пакет не уводит карты в минус
+    ctx.db.prepare('UPDATE parents SET balance = 100').run();
+    ctx.db.prepare('UPDATE parent_cards SET balance = 100').run();
+    ctx.db.prepare("UPDATE family_meta SET since = '2020-01-01T00:00:00.000Z'").run();
+    ctx.svc.processFees();
+    const cards = (await call('GET', '/api/parent/overview', parent)).body.parent.cards;
+    expect(cards.every((c: any) => c.balance === 100)).toBe(true);
   });
 });

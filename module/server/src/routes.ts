@@ -28,6 +28,9 @@ const reason = z.string().max(80).optional();
 const phone = z.string().transform((v, ctx) => normPhone(v) ?? (ctx.addIssue({ code: 'custom', message: 'Номер в формате +375 (29) 123-45-67' }), z.NEVER));
 const consents = z.object({ legalRep: z.boolean(), personalData: z.boolean(), terms: z.boolean(), marketing: z.boolean() });
 const preset = z.enum(['strict', 'normal', 'free']);
+/** Карта родителя, с которой списываем; по умолчанию основная */
+const cardId = z.string().max(40).optional();
+const cardOf = (body: unknown) => z.object({ cardId }).parse(body ?? {}).cardId;
 
 export interface ApiOptions { demo: boolean; emit: (familyId: string) => void; emitReset: () => void }
 
@@ -136,10 +139,10 @@ export function createApi(db: DB, opts: ApiOptions) {
     } },
     { method: 'PATCH', path: '/api/parent/children/:id/settings', role: 'parent', handler: r => svc.updateSettings(me(r).userId, id(r), settingsPatch.parse(r.body)) },
     { method: 'POST', path: '/api/parent/children/:id/topup', role: 'parent', handler: r => {
-      const b = z.object({ amount: money, cardId: z.string().max(40).optional() }).parse(r.body);
+      const b = z.object({ amount: money, cardId }).parse(r.body);
       svc.topup(me(r).userId, id(r), b.amount, b.cardId); return ok;
     } },
-    { method: 'POST', path: '/api/parent/children/:id/allowance', role: 'parent', handler: r => { svc.payAllowanceNow(me(r).userId, id(r)); return ok; } },
+    { method: 'POST', path: '/api/parent/children/:id/allowance', role: 'parent', handler: r => { svc.payAllowanceNow(me(r).userId, id(r), cardOf(r.body)); return ok; } },
     { method: 'POST', path: '/api/parent/children/:id/cards', role: 'parent', handler: r => {
       const b = z.object({ type: z.enum(['plastic', 'sticker', 'bracelet', 'virtual']), color: cardColor }).parse(r.body);
       return svc.issueCard({ id: me(r).userId, role: 'parent' }, id(r), b.type, b.color);
@@ -161,13 +164,19 @@ export function createApi(db: DB, opts: ApiOptions) {
       const b = z.object({ approve: z.boolean(), consents: consents.optional(), preset: preset.optional() }).parse(r.body);
       return svc.resolveJoinRequest(me(r).userId, id(r), b);
     } },
-    { method: 'POST', path: '/api/parent/requests/:id', role: 'parent', handler: r => { svc.resolveRequest(me(r).userId, id(r), z.object({ approve: z.boolean() }).parse(r.body).approve); return ok; } },
+    { method: 'POST', path: '/api/parent/requests/:id', role: 'parent', handler: r => {
+      const b = z.object({ approve: z.boolean(), cardId }).parse(r.body);
+      svc.resolveRequest(me(r).userId, id(r), b.approve, b.cardId); return ok;
+    } },
 
     // ---------- общее ----------
     { method: 'POST', path: '/api/cards/:id', role: 'any', handler: r => {
       svc.cardAction({ id: me(r).userId, role: me(r).role }, id(r), z.object({ action: z.enum(['block', 'unblock', 'activate', 'close']) }).parse(r.body).action); return ok;
     } },
-    { method: 'POST', path: '/api/family/goal', role: 'any', handler: r => { svc.contributeFamilyGoal({ id: me(r).userId, role: me(r).role }, z.object({ amount: money }).parse(r.body).amount); return ok; } },
+    { method: 'POST', path: '/api/family/goal', role: 'any', handler: r => {
+      const b = z.object({ amount: money, cardId }).parse(r.body);
+      svc.contributeFamilyGoal({ id: me(r).userId, role: me(r).role }, b.amount, b.cardId); return ok;
+    } },
 
     // ---------- ребёнок ----------
     { method: 'GET', path: '/api/child/overview', role: 'child', handler: r => svc.childOverview(me(r).userId) },

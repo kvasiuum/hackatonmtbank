@@ -87,10 +87,12 @@ function GoalSheet({ o, goalId, close }: { o: ChildOverview; goalId: string; clo
   const [amount, setAmount] = useState(2);
   const [busy, wrap] = useBusy();
   const bonus = o.me.settings.parentBonus;
+  const short = amount * BYN > o.me.balance;
   return <>
     <div className="goal-h"><RowIcon name={g.icon} tone="red" /><div className="tx"><h2>{g.title}</h2><small className="muted">На счёте {fmt(o.me.balance)}{bonus ? ', родители добавят 10%' : ''}</small></div></div>
     <div className="pills">{[1, 2, 5, 10].map(x => <button key={x} className={`pill ${amount === x ? 'on' : ''}`} onClick={() => setAmount(x)}>{x} BYN</button>)}</div>
-    <button className="btn" disabled={busy} onClick={() => wrap(async () => {
+    {short && <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
+    <button className="btn" disabled={busy || short} onClick={() => wrap(async () => {
       if (await run(() => call<{ added: number }>(`/api/child/goals/${goalId}/deposit`, { amount: amount * BYN }), r => `+${fmt(r.added)} в копилку`)) close();
     })}>Положить {fmt(amount * BYN)}{bonus ? `, в копилку упадёт ${fmt(amount * BYN * 1.1)}` : ''}</button>
     <button className="btn ghost" onClick={() => wrap(async () => { if (await run(() => call('/api/child/requests', { type: 'goal', goalId, amount: 5 * BYN, reason: `Помогите накопить на «${g.title}»` }), 'Попросили родителей поддержать копилку')) close(); })}>Попросить родителей добавить 5 BYN</button>
@@ -127,14 +129,14 @@ function GoalCard({ o, id }: { o: ChildOverview; id: string }) {
 }
 
 function FamilyGoalCard({ o }: { o: ChildOverview }) {
-  const { run, call } = useDevice();
+  const { run, call, toast } = useDevice();
   const g = o.familyGoal;
   return <div className="card goal">
     <div className="goal-h"><RowIcon name={g.icon} /><div className="tx"><small className="muted">Семейная цель</small><b>{g.title}</b></div><b>{Math.round(g.saved / g.target * 100)}%</b></div>
     <Bar value={g.saved} max={g.target} />
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
       <small className="muted">{fmt(g.saved)} из {fmt(g.target)}, копит вся семья</small>
-      <button className="sbtn" onClick={() => run(() => call('/api/family/goal', { amount: 2 * BYN }), '+2.00 BYN в семейную цель')}>+2 BYN</button>
+      <button className="sbtn" onClick={() => (o.me.balance < 2 * BYN ? toast(`Недостаточно средств: на счёте ${fmt(o.me.balance)}`, true) : run(() => call('/api/family/goal', { amount: 2 * BYN }), '+2.00 BYN в семейную цель'))}>+2 BYN</button>
     </div>
   </div>;
 }
@@ -463,14 +465,24 @@ export function TeenAnalytics() {
   </div></>;
 }
 
+/** Подсказка под суммой: сколько на счёте и хватает ли */
+function FundsHint({ amount }: { amount: number }) {
+  const o = useChild();
+  if (!o) return null;
+  return amount > o.me.balance ? <small style={{ color: 'var(--red)' }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small> : <small className="muted">На счёте {fmt(o.me.balance)}</small>;
+}
+const useShort = (amount: number) => { const o = useChild(); return !!o && amount > o.me.balance; };
+
 function EripSheet({ id, close }: { id: string; close: () => void }) {
   const { call, run, sheet } = useDevice();
   const svc = ERIP_SERVICES.find(x => x.id === id)!;
   const [amount, setAmount] = useState(String(svc.amount / 100));
+  const short = useShort(toKop(amount));
   return <>
     <h2>ЕРИП: {svc.title}</h2><p className="muted">{svc.sub}</p>
     <AmountField label="Сумма, BYN" value={amount} onChange={setAmount} />
-    <button className="btn" disabled={toKop(amount) <= 0} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/erip', { serviceId: id, amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); else close(); }}>Оплатить</button>
+    <FundsHint amount={toKop(amount)} />
+    <button className="btn" disabled={toKop(amount) <= 0 || short} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/erip', { serviceId: id, amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); else close(); }}>Оплатить</button>
   </>;
 }
 
@@ -478,12 +490,14 @@ function TransferSheet({ close }: { close: () => void }) {
   const { call, run, sheet } = useDevice();
   const [phone, setPhone] = useState('+375 (29) ');
   const [amount, setAmount] = useState('5');
+  const short = useShort(toKop(amount));
   return <>
     <h2>Перевод другу</h2>
     <div className="field"><label>Номер телефона</label><input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
     <AmountField label="Сумма, BYN" value={amount} onChange={setAmount} presets={[2, 5, 10]} />
+    <FundsHint amount={toKop(amount)} />
     <div className="legal"><Icon name="shield" size={18} /><span>Переводи только тем, кого знаешь лично. Если «друг» пишет с нового номера, сначала позвони ему.</span></div>
-    <button className="btn" disabled={toKop(amount) <= 0} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/transfer', { phone: phone.trim(), amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); else close(); }}>Перевести</button>
+    <button className="btn" disabled={toKop(amount) <= 0 || short} onClick={async () => { const d = await run(() => call<PayDecision>('/api/child/transfer', { phone: phone.trim(), amount: toKop(amount) })); if (d) sheet(c => <PayResult d={d} close={c} />); else close(); }}>Перевести</button>
   </>;
 }
 
@@ -537,6 +551,7 @@ export function TeenEarn() {
     <div className="sec">Задания от родителей</div>
     <TaskList o={o} />
     <div className="legal"><Icon name="file-text" size={18} /><span>С 14 лет ты сам(а) распоряжаешься заработком и стипендией и можешь открыть вклад (ст. 26 ГК РБ). Лимиты родителя на эти деньги не действуют.</span></div>
+    {g && o.me.income < 20 * BYN && <small style={{ color: 'var(--red)' }}>Недостаточно собственных средств: {fmt(o.me.income)}</small>}
     {g && <button className="btn" disabled={o.me.income < 20 * BYN} onClick={() => run(() => call('/api/child/income-to-goal', { goalId: g.id, amount: 20 * BYN }), `20.00 BYN отложено на «${g.title}»`)}>Отложить 20 BYN на «{g.title}»</button>}
     <button className="btn ghost" onClick={() => tab('savings')}>Перейти к вкладу</button>
   </div></>;
@@ -554,10 +569,12 @@ export function TeenSavings() {
       {d ? <>
         <div className="bal" style={{ fontSize: 28, marginTop: 8 }}>{fmt(d.amount)}</div>
         <small className="muted">{d.rate}% годовых, через год около {fmt(Math.round(d.amount * (1 + d.rate / 100)))}</small>
-        <button className="btn ghost" style={{ marginTop: 12 }} onClick={() => run(() => call('/api/child/deposit', { action: 'topup', amount: 10 * BYN }), '+10.00 BYN на вклад')}>Пополнить на 10 BYN</button>
+        <button className="btn ghost" style={{ marginTop: 12 }} disabled={o.me.balance < 10 * BYN} onClick={() => run(() => call('/api/child/deposit', { action: 'topup', amount: 10 * BYN }), '+10.00 BYN на вклад')}>Пополнить на 10 BYN</button>
+        {o.me.balance < 10 * BYN && <small style={{ color: 'var(--red)', display: 'block', marginTop: 6 }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
       </> : <>
         <p className="muted" style={{ marginTop: 6 }}>Отзывный вклад от 10 BYN. С 14 лет можно открыть самостоятельно.</p>
-        <button className="btn" style={{ marginTop: 12 }} onClick={() => run(() => call('/api/child/deposit', { action: 'open', amount: 10 * BYN }), 'Вклад открыт')}>Открыть вклад</button>
+        <button className="btn" style={{ marginTop: 12 }} disabled={o.me.balance < 10 * BYN} onClick={() => run(() => call('/api/child/deposit', { action: 'open', amount: 10 * BYN }), 'Вклад открыт')}>Открыть вклад</button>
+        {o.me.balance < 10 * BYN && <small style={{ color: 'var(--red)', display: 'block', marginTop: 6 }}>Недостаточно средств: на счёте {fmt(o.me.balance)}</small>}
       </>}
     </div>
     {o.me.goals.map(g => <GoalCard key={g.id} o={o} id={g.id} />)}

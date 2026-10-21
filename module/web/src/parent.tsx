@@ -160,11 +160,17 @@ const REQ_LABEL: Record<ChildRequest['type'], string> = {
 };
 
 function RequestItem({ r, o, showName = true }: { r: ChildRequest; o: ParentOverview; showName?: boolean }) {
-  const { run, call } = useDevice();
+  const { run, call, sheet } = useDevice();
   const [busy, wrap] = useBusy();
   const c = o.children.find(x => x.id === r.childId);
   if (!c) return null;
-  const resolve = (approve: boolean) => wrap(() => run(() => call(`/api/parent/requests/${r.id}`, { approve }), approve ? 'Одобрено' : 'Отклонено. Ребёнок увидит ответ в Moby'));
+  // Деньги, награда и взнос в копилку списываются с карты родителя — даём выбрать карту
+  const fromCard = (r.type === 'money' || r.type === 'task' || r.type === 'goal') && r.amount != null;
+  const resolve = (approve: boolean) => {
+    if (approve && fromCard) return sheet(close => <PayFromCardSheet o={o} close={close} amount={r.amount!} title={REQ_LABEL[r.type]} sub={`${c.name}: ${r.summary}`}
+      cta="Перевести" okText={`${fmt(r.amount!)} пришло: ${c.name}`} pay={cardId => call(`/api/parent/requests/${r.id}`, { approve: true, cardId })} />);
+    wrap(() => run(() => call(`/api/parent/requests/${r.id}`, { approve }), approve ? 'Одобрено' : 'Отклонено. Ребёнок увидит ответ в Moby'));
+  };
   return (
     <div className="req">
       <div className="req-h">
@@ -323,7 +329,8 @@ export function FamilyScreen() {
         <Bar value={g.saved} max={g.target} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <small className="muted">{fmt(g.saved)} из {fmt(g.target)}, копит вся семья</small>
-          <button className="sbtn" onClick={() => run(() => call('/api/family/goal', { amount: 50 * BYN }), '+50.00 BYN в семейную цель')}>+50 BYN</button>
+          <button className="sbtn" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={50 * BYN} title="В семейную цель" sub={g.title}
+            cta="Отложить" okText="+50.00 BYN в семейную цель" pay={cardId => call('/api/family/goal', { amount: 50 * BYN, cardId })} />)}>+50 BYN</button>
         </div>
       </div>
       <Fold icon="bell" title="Лента семьи" sub={o.feed[0]?.text ?? 'Покупки и успехи детей'}>
@@ -413,7 +420,8 @@ export function ChildScreen({ id }: { id: string }) {
         <SetRow title="Сумма" sub="В неделю"><Stepper value={s.allowance.amount} step={(c.group === 'kid' ? 1 : 5) * BYN} onChange={v => patch({ allowance: { amount: v } })} /></SetRow>
         <SetRow title="Доплата к копилке +10%" sub="Вы добавляете 10% к каждому взносу"><Toggle on={s.parentBonus} label="Доплата к копилке" onChange={v => patch({ parentBonus: v })} /></SetRow>
         <SetRow title="Сдачу в копилку" sub="Округлять покупки до целых рублей"><Toggle on={s.roundup} label="Сдачу в копилку" onChange={v => patch({ roundup: v })} /></SetRow>
-        <button className="btn ghost" onClick={() => run(() => call(`/api/parent/children/${id}/allowance`, {}), `Карманные деньги отправлены: ${fmt(s.allowance.amount)}`)}>Выплатить сейчас</button>
+        <button className="btn ghost" onClick={() => sheet(close => <PayFromCardSheet o={o} close={close} amount={s.allowance.amount} title="Карманные деньги" sub={c.name}
+          cta="Выплатить" okText={`Карманные деньги отправлены: ${fmt(s.allowance.amount)}`} pay={cardId => call(`/api/parent/children/${id}/allowance`, { cardId })} />)}>Выплатить сейчас</button>
       </Fold>
       <Fold icon="trophy" title="Успехи" sub={`Уровень ${lv.n} «${lv.title}» · уроков ${c.lessons.length} · Маничек ${c.coins}`}>
         <div style={{ margin: '14px 0 6px' }}><Bar value={nx ? c.xp - lv.xp : 1} max={nx ? nx.xp - lv.xp : 1} /></div>
@@ -497,11 +505,36 @@ function ChildPills({ o, value, onChange }: { o: ParentOverview; value: string; 
   return <div className="pills">{o.children.map(c => <button key={c.id} className={`pill ${c.id === value ? 'on' : ''}`} onClick={() => onChange(c.id)}>{c.name}</button>)}</div>;
 }
 
+/** Карта по умолчанию: основная, если на ней хватает, иначе первая, где хватает */
+const firstCard = (o: ParentOverview, amount: number) => (o.parent.cards.find(c => c.balance >= amount) ?? o.parent.cards[0]).id;
+
+/** Списание с карты родителя на выбор: одобрение запроса, награда, карманные, семейная цель */
+function PayFromCardSheet({ o, title, sub, amount, cta, okText, pay, close }: {
+  o: ParentOverview; title: string; sub?: string; amount: number; cta: string; okText: string;
+  pay: (cardId: string) => Promise<unknown>; close: () => void;
+}) {
+  const { run } = useDevice();
+  const [cardId, setCardId] = useState(firstCard(o, amount));
+  const [busy, wrap] = useBusy();
+  const card = o.parent.cards.find(c => c.id === cardId)!;
+  const short = amount > card.balance;
+  return <>
+    <h2>{title}</h2>
+    {sub && <p className="muted" style={{ marginTop: -8 }}>{sub}</p>}
+    <div className="bal" style={{ fontSize: 30, color: 'var(--text)' }}>{fmt(amount)}</div>
+    <small className="muted">С карты</small>
+    <CardCarousel cards={o.parent.cards} value={cardId} onChange={setCardId} />
+    {short ? <small style={{ color: 'var(--red)' }}>Недостаточно средств на карте {card.title} {card.mask}: {fmt(card.balance)}. Пролистайте на другую карту</small>
+      : <small className="muted">Без комиссии, деньги придут сразу</small>}
+    <button className="btn" disabled={busy || short} onClick={() => wrap(async () => { if (await run(() => pay(cardId), okText)) close(); })}>{cta}</button>
+  </>;
+}
+
 function TopupSheet({ o, close, childId }: { o: ParentOverview; close: () => void; childId?: string }) {
   const { run, call } = useDevice();
   const [id, setId] = useState(childId ?? o.children[0]?.id);
   const [amount, setAmount] = useState('10');
-  const [cardId, setCardId] = useState(o.parent.cards[0]?.id ?? 'main');
+  const [cardId, setCardId] = useState(firstCard(o, toKop('10')));
   const [busy, wrap] = useBusy();
   if (!id) return <><h2>Перевести</h2><div className="empty">Сначала добавьте ребёнка</div></>;
   const name = o.children.find(c => c.id === id)?.name;
@@ -513,7 +546,7 @@ function TopupSheet({ o, close, childId }: { o: ParentOverview; close: () => voi
     <small className="muted">С карты</small>
     <CardCarousel cards={o.parent.cards} value={cardId} onChange={setCardId} />
     <AmountField label="Сумма, BYN" value={amount} onChange={setAmount} presets={[5, 10, 20, 50]} />
-    {sum > card.balance ? <small style={{ color: 'var(--red)' }}>На карте {card.mask} недостаточно средств</small> : <small className="muted">Без комиссии, деньги придут сразу</small>}
+    {sum > card.balance ? <small style={{ color: 'var(--red)' }}>Недостаточно средств на карте {card.title} {card.mask}: {fmt(card.balance)}. Пролистайте на другую карту</small> : <small className="muted">Без комиссии, деньги придут сразу</small>}
     <button className="btn" disabled={busy || sum <= 0 || sum > card.balance} onClick={() => wrap(async () => {
       if (await run(() => call(`/api/parent/children/${id}/topup`, { amount: sum, cardId }), `${fmt(sum)} пришло: ${name}`)) close();
     })}>Перевести</button>

@@ -58,7 +58,7 @@ export function authorize(s: AuthState, p: PayInput, opts: AuthOptions = {}): Pa
   }
   if (p.amount > s.balance) {
     const missing = p.amount - s.balance;
-    return { status: 'declined', reason: 'funds', title: 'Не хватает денег', text: `На счёте ${fmt(s.balance)}, нужно ещё ${fmt(missing)}.`, ask: { type: 'money', amount: Math.ceil(missing / 100) * 100 } };
+    return { status: 'declined', reason: 'funds', title: 'Недостаточно средств', text: `На счёте ${fmt(s.balance)}, нужно ещё ${fmt(missing)}.`, ask: { type: 'money', amount: Math.ceil(missing / 100) * 100 } };
   }
   if (opts.parentApproved) return { status: 'approved', text: '' };
   if (p.amount > s.settings.confirmAbove) {

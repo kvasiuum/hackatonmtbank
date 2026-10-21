@@ -118,16 +118,38 @@ export class FamilyService {
   private addFeed(familyId: string, childId: string | null, text: string, amount: number | null = null) {
     this.run('INSERT INTO feed VALUES (?,?,?,?,?,?)', newId('fd'), familyId, childId, text, amount, nowIso());
   }
-  private moveFromParent(familyId: string, childId: string, amount: number, title: string, cardId = 'main') {
-    const parentId = this.parentOfFamily(familyId);
+  /**
+   * Списание с карты родителя. Баланс никогда не уходит в минус: условие стоит прямо в UPDATE,
+   * поэтому даже два одновременных списания не пройдут оба.
+   */
+  private debitParent(parentId: string, amount: number, cardId = 'main'): ParentCard {
     const card = this.parentCards(parentId).find(c => c.id === cardId);
     if (!card) throw notFound('Карта');
-    if (card.balance < amount) throw bad('parent_funds', `На карте ${card.mask} недостаточно средств`);
+    const r = cardId === 'main'
+      ? this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ? AND balance >= ?', amount, parentId, amount)
+      : this.run('UPDATE parent_cards SET balance = balance - ? WHERE id = ? AND parent_id = ? AND balance >= ?', amount, cardId, parentId, amount);
+    if (!Number(r.changes)) throw bad('parent_funds', `Недостаточно средств на карте ${card.title} ${card.mask}: ${fmt(card.balance)}`);
+    return card;
+  }
+  /** Для автоплатежей: карта, выбранная родителем, а если на ней не хватает — первая, где хватает */
+  private autoCard(parentId: string, amount: number, prefer = 'main') {
+    const cards = this.parentCards(parentId);
+    return (cards.find(c => c.id === prefer && c.balance >= amount) ?? cards.find(c => c.balance >= amount))?.id ?? null;
+  }
+  /** Списание со счёта ребёнка (или его собственных средств) без ухода в минус */
+  private debitChild(childId: string, amount: number, field: 'balance' | 'income' = 'balance') {
+    const r = this.run(`UPDATE children SET ${field} = ${field} - ? WHERE user_id = ? AND ${field} >= ?`, amount, childId, amount);
+    if (!Number(r.changes)) {
+      const have = this.one<Record<string, number>>(`SELECT ${field} AS v FROM children WHERE user_id = ?`, childId)?.v ?? 0;
+      throw bad('funds', `Недостаточно средств: ${field === 'income' ? 'собственных' : 'на счёте'} ${fmt(have)}`);
+    }
+  }
+  private moveFromParent(familyId: string, childId: string, amount: number, title: string, cardId = 'main') {
+    const parentId = this.parentOfFamily(familyId);
     const name = this.childRow(childId).name;
-    if (cardId === 'main') this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', amount, parentId);
-    else this.run('UPDATE parent_cards SET balance = balance - ? WHERE id = ?', amount, cardId);
+    const card = this.debitParent(parentId, amount, cardId);
     this.run('UPDATE children SET balance = balance + ? WHERE user_id = ?', amount, childId);
-    this.addTx(parentId, `${title}: ${name}${cardId === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Семья', 'internal');
+    this.addTx(parentId, `${title}: ${name}${card.id === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Семья', 'internal');
     this.addTx(childId, title, amount, 'Пополнение', 'income');
   }
   private parentCards(parentId: string): ParentCard[] {
@@ -267,8 +289,10 @@ export class FamilyService {
       tx(this.db, () => {
         this.run('UPDATE family_meta SET fee_month = ? WHERE family_id = ?', month, m.family_id);
         if (spent >= TARIFFS.plus.waiverSpend) { this.addFeed(m.family_id, null, `«Семья+» бесплатно: в прошлом месяце семья потратила ${fmt(spent)}`); return; }
-        this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', TARIFFS.plus.price, parentId);
-        this.addTx(parentId, 'Пакет «Семья+»', -TARIFFS.plus.price, 'Обслуживание', 'internal');
+        const card = this.autoCard(parentId, TARIFFS.plus.price);
+        if (!card) { this.addFeed(m.family_id, null, 'Недостаточно средств на картах для оплаты «Семья+»'); return; }
+        const used = this.debitParent(parentId, TARIFFS.plus.price, card);
+        this.addTx(parentId, `Пакет «Семья+»${used.id === 'main' ? '' : ` · ${used.title}`}`, -TARIFFS.plus.price, 'Обслуживание', 'internal');
       });
       this.touch(m.family_id);
     }
@@ -408,11 +432,11 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
-  payAllowanceNow(parentId: string, childId: string) {
+  payAllowanceNow(parentId: string, childId: string, cardId = 'main') {
     const c = this.ownChild(parentId, childId);
     const s = this.settings(c);
     tx(this.db, () => {
-      this.moveFromParent(c.family_id, childId, s.allowance.amount, 'Карманные деньги');
+      this.moveFromParent(c.family_id, childId, s.allowance.amount, 'Карманные деньги', cardId);
       this.run('UPDATE children SET allowance_paid_at = ? WHERE user_id = ?', nowIso(), childId);
       this.addFeed(c.family_id, childId, `Карманные деньги: ${c.name}`, s.allowance.amount);
     });
@@ -426,15 +450,18 @@ export class FamilyService {
     for (const c of due) {
       const s = this.settings(c);
       if (!s.allowance.on) continue;
+      const card = this.autoCard(this.parentOfFamily(c.family_id), s.allowance.amount);
       try {
+        if (!card) throw bad('parent_funds', 'Недостаточно средств');
         tx(this.db, () => {
-          this.moveFromParent(c.family_id, c.user_id, s.allowance.amount, 'Карманные деньги');
+          this.moveFromParent(c.family_id, c.user_id, s.allowance.amount, 'Карманные деньги', card);
           this.run('UPDATE children SET allowance_paid_at = ? WHERE user_id = ?', new Date(now).toISOString(), c.user_id);
           this.addFeed(c.family_id, c.user_id, `Карманные деньги: ${c.name}`, s.allowance.amount);
         });
       } catch (e) {
         if (!(e instanceof AppError)) throw e;
-        this.addFeed(c.family_id, c.user_id, `Не хватило средств на карманные деньги для ${c.name}`);
+        this.addFeed(c.family_id, c.user_id, `Недостаточно средств на картах для карманных денег: ${c.name}`);
+        this.run('UPDATE children SET allowance_paid_at = ? WHERE user_id = ?', new Date(now).toISOString(), c.user_id);
       }
       this.touch(c.family_id);
     }
@@ -529,7 +556,7 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
-  resolveRequest(parentId: string, requestId: string, approve: boolean) {
+  resolveRequest(parentId: string, requestId: string, approve: boolean, cardId = 'main') {
     const r = this.one<ReqRow>('SELECT * FROM requests WHERE id = ?', requestId);
     if (!r) throw notFound('Запрос');
     const c = this.ownChild(parentId, r.child_id);
@@ -539,7 +566,7 @@ export class FamilyService {
       if (approve) {
         const s = this.settings(c);
         switch (r.type) {
-          case 'money': this.moveFromParent(c.family_id, c.user_id, p.amount, 'Перевод от родителя'); break;
+          case 'money': this.moveFromParent(c.family_id, c.user_id, p.amount, 'Перевод от родителя', cardId); break;
           case 'perm': { const [g, k] = (p.key as string).split('.'); (s as any)[g][k] = true; this.saveSettings(c.user_id, s); break; }
           case 'limit': s.limits.day = p.day; s.limits.month = Math.max(s.limits.month, p.day); this.saveSettings(c.user_id, s); break;
           case 'level': s.limits.day = p.day; s.limits.month = Math.max(s.limits.month, p.day); s.confirmAbove = Math.round(s.confirmAbove * 1.2); this.saveSettings(c.user_id, s); break;
@@ -557,16 +584,14 @@ export class FamilyService {
           case 'task': {
             const t = this.one<{ reward: number; title: string }>('SELECT reward, title FROM tasks WHERE id = ?', p.taskId);
             if (!t) throw notFound('Задание');
-            this.moveFromParent(c.family_id, c.user_id, t.reward, `Награда: ${t.title}`);
+            this.moveFromParent(c.family_id, c.user_id, t.reward, `Награда: ${t.title}`, cardId);
             this.run("UPDATE tasks SET status = 'paid' WHERE id = ?", p.taskId);
             this.addXp(c, 40, 10);
             break;
           }
           case 'goal': {
             const parentIdOf = this.parentOfFamily(c.family_id);
-            const bal = this.one<{ balance: number }>('SELECT balance FROM parents WHERE user_id = ?', parentIdOf)!.balance;
-            if (bal < p.amount) throw bad('parent_funds', 'На вашей карте недостаточно средств');
-            this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', p.amount, parentIdOf);
+            this.debitParent(parentIdOf, p.amount, cardId);
             this.run('UPDATE goals SET saved = saved + ? WHERE id = ? AND child_id = ?', p.amount, p.goalId, c.user_id);
             this.addTx(parentIdOf, `В копилку: ${c.name}`, -p.amount, 'Семья', 'internal');
             break;
@@ -582,19 +607,16 @@ export class FamilyService {
     this.touch(c.family_id);
   }
 
-  contributeFamilyGoal(user: { id: string; role: 'parent' | 'child' }, amount: number) {
+  contributeFamilyGoal(user: { id: string; role: 'parent' | 'child' }, amount: number, cardId = 'main') {
     let familyId: string;
     tx(this.db, () => {
       if (user.role === 'parent') {
         familyId = this.familyOfParent(user.id);
-        const bal = this.one<{ balance: number }>('SELECT balance FROM parents WHERE user_id = ?', user.id)!.balance;
-        if (bal < amount) throw bad('funds', 'Недостаточно средств');
-        this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', amount, user.id);
-        this.addTx(user.id, 'Семейная цель', -amount, 'Семья', 'internal');
+        const card = this.debitParent(user.id, amount, cardId);
+        this.addTx(user.id, `Семейная цель${card.id === 'main' ? '' : ` · ${card.title}`}`, -amount, 'Семья', 'internal');
       } else {
         const c = this.childRow(user.id); familyId = c.family_id;
-        if (c.balance < amount) throw bad('funds', 'Не хватает денег');
-        this.run('UPDATE children SET balance = balance - ? WHERE user_id = ?', amount, user.id);
+        this.debitChild(user.id, amount);
         this.addTx(user.id, 'Семейная цель', -amount, 'Копилки', 'internal');
         this.addXp(c, 10);
       }
@@ -636,7 +658,8 @@ export class FamilyService {
     if (d.status === 'declined') return d;
     const card = p.method === 'card' ? payingCard(cards) : null;
     const title = p.method === 'qr' ? `${p.title} · QR КРОК` : p.title;
-    this.run('UPDATE children SET balance = balance - ?, coins = coins + ? WHERE user_id = ?', p.amount, Math.floor(p.amount / (5 * BYN)), c.user_id);
+    this.debitChild(c.user_id, p.amount);
+    this.run('UPDATE children SET coins = coins + ? WHERE user_id = ?', Math.floor(p.amount / (5 * BYN)), c.user_id);
     this.addTx(c.user_id, title, -p.amount, CATEGORY_NAMES[p.category], 'spend', p.method);
     this.addFeed(c.family_id, c.user_id, `${c.name}: ${title}`, -p.amount);
     if (p.partner) this.run('INSERT INTO partner_spend VALUES (?,?,?,?,?,?)', newId('ps'), c.user_id, p.title, p.amount, 0, nowIso());
@@ -644,8 +667,8 @@ export class FamilyService {
     const goal = this.one<{ id: string }>('SELECT id FROM goals WHERE child_id = ? AND saved < target ORDER BY created_at LIMIT 1', c.user_id);
     if (s.roundup && goal && p.amount % BYN) {
       change = BYN - (p.amount % BYN);
-      if (c.balance - p.amount >= change) {
-        this.run('UPDATE children SET balance = balance - ? WHERE user_id = ?', change, c.user_id);
+      // Сдача уходит в копилку, только если на счёте на неё хватает
+      if (Number(this.run('UPDATE children SET balance = balance - ? WHERE user_id = ? AND balance >= ?', change, c.user_id, change).changes)) {
         this.run('UPDATE goals SET saved = saved + ? WHERE id = ?', change, goal.id);
         this.addTx(c.user_id, 'Сдача в копилку', -change, 'Копилки', 'internal');
       } else change = 0;
@@ -699,19 +722,19 @@ export class FamilyService {
     const c = this.childRow(childId);
     const g = this.one<{ title: string }>('SELECT title FROM goals WHERE id = ? AND child_id = ?', goalId, childId);
     if (!g) throw notFound('Копилка');
-    if (c.balance < amount) throw bad('funds', 'Не хватает денег на счёте');
+    if (c.balance < amount) throw bad('funds', `Недостаточно средств: на счёте ${fmt(c.balance)}`);
     const s = this.settings(c);
     let bonus = 0;
     tx(this.db, () => {
-      this.run('UPDATE children SET balance = balance - ? WHERE user_id = ?', amount, childId);
+      this.debitChild(childId, amount);
       this.addTx(childId, `В копилку «${g.title}»`, -amount, 'Копилки', 'internal');
       if (s.parentBonus) {
         const parentId = this.parentOfFamily(c.family_id);
         bonus = Math.round(amount * PARENT_BONUS_RATE);
-        const bal = this.one<{ balance: number }>('SELECT balance FROM parents WHERE user_id = ?', parentId)!.balance;
-        if (bal >= bonus) {
-          this.run('UPDATE parents SET balance = balance - ? WHERE user_id = ?', bonus, parentId);
-          this.addTx(parentId, `Доплата к копилке: ${c.name}`, -bonus, 'Семья', 'internal');
+        const card = this.autoCard(parentId, bonus);
+        if (card) {
+          const used = this.debitParent(parentId, bonus, card);
+          this.addTx(parentId, `Доплата к копилке: ${c.name}${used.id === 'main' ? '' : ` · ${used.title}`}`, -bonus, 'Семья', 'internal');
         } else bonus = 0;
       }
       this.run('UPDATE goals SET saved = saved + ? WHERE id = ?', amount + bonus, goalId);
@@ -769,12 +792,12 @@ export class FamilyService {
     const c = this.childRow(childId);
     if (!this.settings(c).perms.deposit) throw forbidden('Вклад недоступен');
     if (amount < 10 * BYN) throw bad('min', 'Минимальная сумма — 10 BYN');
-    if (c.balance < amount) throw bad('funds', 'Не хватает денег');
+    if (c.balance < amount) throw bad('funds', `Недостаточно средств: на счёте ${fmt(c.balance)}`);
     const dep = this.one('SELECT 1 FROM deposits WHERE child_id = ?', childId);
     if (action === 'open' && dep) throw bad('exists', 'Вклад уже открыт');
     if (action === 'topup' && !dep) throw bad('missing', 'Сначала откройте вклад');
     tx(this.db, () => {
-      this.run('UPDATE children SET balance = balance - ? WHERE user_id = ?', amount, childId);
+      this.debitChild(childId, amount);
       if (dep) this.run('UPDATE deposits SET amount = amount + ? WHERE child_id = ?', amount, childId);
       else this.run('INSERT INTO deposits VALUES (?,?,?,?)', childId, amount, DEPOSIT_RATE, nowIso());
       this.addTx(childId, action === 'open' ? 'Открытие вклада «Мой старт»' : 'Пополнение вклада', -amount, 'Вклад', 'internal');
@@ -786,11 +809,12 @@ export class FamilyService {
 
   incomeToGoal(childId: string, goalId: string, amount: number) {
     const c = this.childRow(childId);
-    if (c.income < amount) throw bad('funds', 'Не хватает собственных средств');
-    const r = this.run('UPDATE goals SET saved = saved + ? WHERE id = ? AND child_id = ?', amount, goalId, childId);
-    if (!r.changes) throw notFound('Копилка');
-    this.run('UPDATE children SET income = income - ? WHERE user_id = ?', amount, childId);
-    this.addXp(c, 15);
+    if (!this.one('SELECT 1 FROM goals WHERE id = ? AND child_id = ?', goalId, childId)) throw notFound('Копилка');
+    tx(this.db, () => {
+      this.debitChild(childId, amount, 'income');
+      this.run('UPDATE goals SET saved = saved + ? WHERE id = ? AND child_id = ?', amount, goalId, childId);
+      this.addXp(c, 15);
+    });
     this.touch(c.family_id);
   }
 

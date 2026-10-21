@@ -96,7 +96,9 @@ export function CardCarousel({ cards, value, onChange }: { cards: ParentCard[]; 
   const ref = useRef<HTMLDivElement>(null);
   const step = () => { const el = ref.current!; const first = el.firstElementChild as HTMLElement | null; return (first?.offsetWidth ?? 1) + 12; };
   const onScroll = () => { const i = Math.round(ref.current!.scrollLeft / step()); if (cards[i] && cards[i].id !== value) onChange(cards[i].id); };
-  const go = (i: number) => ref.current?.scrollTo({ left: i * step(), behavior: 'smooth' });
+  const go = (i: number, behavior: ScrollBehavior = 'smooth') => ref.current?.scrollTo({ left: i * step(), behavior });
+  // Открываемся сразу на выбранной карте
+  useEffect(() => { const i = cards.findIndex(c => c.id === value); if (i > 0) go(i, 'instant' as ScrollBehavior); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <>
     <div className="mccar" ref={ref} onScroll={onScroll}>
       {cards.map((c, i) => <button key={c.id} className="mcitem" onClick={() => { go(i); onChange(c.id); }} aria-label={`Карта ${c.title} ${c.mask}`}><MiniCard c={c} on={c.id === value} /></button>)}

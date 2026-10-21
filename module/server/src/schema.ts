@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL, phone TEXT, pin_hash TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS parents (
-  user_id TEXT PRIMARY KEY REFERENCES users(id), balance INTEGER NOT NULL, card_mask TEXT NOT NULL
+  user_id TEXT PRIMARY KEY REFERENCES users(id), balance INTEGER NOT NULL CHECK (balance >= 0), card_mask TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS families (
   id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES users(id),
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS families (
 CREATE TABLE IF NOT EXISTS children (
   user_id TEXT PRIMARY KEY REFERENCES users(id), family_id TEXT NOT NULL REFERENCES families(id),
   age INTEGER NOT NULL, grp TEXT NOT NULL CHECK (grp IN ('kid','teen')), color TEXT NOT NULL,
-  balance INTEGER NOT NULL DEFAULT 0, income INTEGER NOT NULL DEFAULT 0,
+  balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0), income INTEGER NOT NULL DEFAULT 0 CHECK (income >= 0),
   xp INTEGER NOT NULL DEFAULT 0, coins INTEGER NOT NULL DEFAULT 0,
   settings TEXT NOT NULL, lessons TEXT NOT NULL DEFAULT '[]',
   allowance_paid_at TEXT, invite_code TEXT UNIQUE, joined INTEGER NOT NULL DEFAULT 0
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   price INTEGER NOT NULL, active INTEGER NOT NULL, icon TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS deposits (
-  child_id TEXT PRIMARY KEY REFERENCES users(id), amount INTEGER NOT NULL, rate REAL NOT NULL, opened_at TEXT NOT NULL
+  child_id TEXT PRIMARY KEY REFERENCES users(id), amount INTEGER NOT NULL CHECK (amount >= 0), rate REAL NOT NULL, opened_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS feed (
   id TEXT PRIMARY KEY, family_id TEXT NOT NULL REFERENCES families(id), child_id TEXT,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS feed (
 );
 CREATE TABLE IF NOT EXISTS parent_cards (
   id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, mask TEXT NOT NULL,
-  expiry TEXT NOT NULL, network TEXT NOT NULL, balance INTEGER NOT NULL, sort INTEGER NOT NULL DEFAULT 0
+  expiry TEXT NOT NULL, network TEXT NOT NULL, balance INTEGER NOT NULL CHECK (balance >= 0), sort INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS family_meta (
   family_id TEXT PRIMARY KEY REFERENCES families(id), tariff TEXT NOT NULL DEFAULT 'start',
@@ -122,8 +122,9 @@ export function seed(db: DB) {
     const pin = hashPin(DEMO_PIN);
     ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
     ins('INSERT INTO parents VALUES (?,?,?)', 'u_parent', 124050, '4*2110');
-    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_halva', 'u_parent', 'Халва', '5*7731', '08/28', 'mastercard', 31200, 1);
-    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_salary', 'u_parent', 'Зарплатная', '9*4405', '11/27', 'belkart', 1246, 2);
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_salary', 'u_parent', 'Зарплатная', '9*4405', '11/27', 'belkart', 1246, 1);
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_personal', 'u_parent', 'Личная', '4*8837', '05/30', 'visa', 5420, 2);
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_halva', 'u_parent', 'Халва', '5*7731', '08/28', 'mastercard', 31200, 3);
     ins('INSERT INTO families VALUES (?,?,?,?,?,?)', 'f_demo', 'u_parent', 'Отпуск на Нарочи', 'tent', 150000, 62000);
     ins('INSERT INTO family_meta VALUES (?,?,?,?,?)', 'f_demo', 'plus', ago(60 * 24 * 12), null, 0);
     const pOps: [string, number, string, number][] = [
