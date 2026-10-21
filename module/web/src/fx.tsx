@@ -1,20 +1,22 @@
 // Эффекты для детей: живая копилка и праздник после игр. При «уменьшить движение» в системе анимации отключаются (см. styles.css).
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import pigUrl from './assets/neon-pig.webp'; // неоновая свинка с прозрачным фоном
 
-// ---------- Мега-копилка: стеклянная свинка на подиуме, внутри видны деньги ----------
-const BODY = { cx: 130, cy: 112, rx: 92, ry: 70 };
-const BOTTOM = BODY.cy + BODY.ry - 6, TOP = BODY.cy - BODY.ry + 14;
+// ---------- Мега-копилка: неоновая стеклянная свинка, внутри видны деньги ----------
+// Координаты монет — в пикселях исходной картинки свинки 896×896
+const BODY = { cx: 442, cy: 438, rx: 278, ry: 238 }; // внутренняя полость стекла
+const BOTTOM = BODY.cy + BODY.ry - 14, TOP = BODY.cy - BODY.ry + 34;
 type Money = { x: number; y: number; kind: 'blue' | 'sky' | 'note'; tilt: number };
-/** Раскладка монет и купюр внутри стекла: ряды снизу вверх, каждый ряд по ширине эллипса */
+/** Раскладка денег внутри: ряды снизу вверх, каждый ряд по ширине полости на этой высоте */
 function pile(fill: number): Money[] {
   const level = BOTTOM - Math.max(0, Math.min(1, fill)) * (BOTTOM - TOP);
   const out: Money[] = [];
   let row = 0;
-  for (let y = BOTTOM; y > level; y -= 7, row++) {
-    const half = BODY.rx * Math.sqrt(Math.max(0, 1 - ((y - BODY.cy) / BODY.ry) ** 2)) - 12;
-    for (let x = BODY.cx - half + (row % 2 ? 10 : 0); x <= BODY.cx + half; x += 20) {
+  for (let y = BOTTOM; y > level; y -= 19, row++) {
+    const half = BODY.rx * Math.sqrt(Math.max(0, 1 - ((y - BODY.cy) / BODY.ry) ** 2)) - 26;
+    for (let x = BODY.cx - half + (row % 2 ? 27 : 0); x <= BODY.cx + half; x += 54) {
       const k = (row * 7 + Math.round(x)) % 11;
-      out.push({ x: x + ((k % 3) - 1) * 2, y, kind: k === 0 || k === 6 ? 'note' : k % 2 ? 'blue' : 'sky', tilt: (k - 5) * 3 });
+      out.push({ x: x + ((k % 3) - 1) * 6, y: y + ((k % 2) * 4), kind: k === 0 || k === 6 ? 'note' : k % 2 ? 'blue' : 'sky', tilt: (k - 5) * 3 });
     }
   }
   return out;
@@ -22,65 +24,40 @@ function pile(fill: number): Money[] {
 
 /**
  * Копилка ребёнка. fill — доля накопленного (0–1), prevFill — сколько было до пополнения:
- * новые монеты падают сверху. mood: happy — улыбается после пополнения, full — светится и ждёт, чтобы её разбили.
+ * новые монеты падают сверху через прорезь и ложатся на кучу, поверхность вспыхивает.
+ * mood: happy — свинка светится ярче, full — пульсирует и ждёт, чтобы её разбили.
  */
 export function MegaPig({ fill, prevFill, mood = 'idle', className = '' }: { fill: number; prevFill?: number; mood?: 'idle' | 'happy' | 'full'; className?: string }) {
   const uid = useMemo(() => Math.random().toString(36).slice(2, 8), []);
   const money = useMemo(() => pile(fill), [fill]);
   const was = prevFill === undefined ? money.length : pile(prevFill).length;
-  const id = (n: string) => `${n}${uid}`;
-  const happy = mood !== 'idle';
+  const level = BOTTOM - Math.max(0, Math.min(1, fill)) * (BOTTOM - TOP);
+  const clip = `in${uid}`;
   return (
-    <svg className={`megapig ${mood} ${className}`} viewBox="0 0 260 222" aria-hidden="true">
-      <defs>
-        <radialGradient id={id('glass')} cx="38%" cy="30%" r="75%">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity=".95" /><stop offset=".55" stopColor="#E7F4FF" stopOpacity=".55" /><stop offset="1" stopColor="#97CFFF" stopOpacity=".7" />
-        </radialGradient>
-        <linearGradient id={id('red')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF6F66" /><stop offset="1" stopColor="#E42C26" /></linearGradient>
-        <linearGradient id={id('podium')} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E42C26" /><stop offset="1" stopColor="#9E1426" /></linearGradient>
-        <clipPath id={id('in')}><ellipse cx={BODY.cx} cy={BODY.cy} rx={BODY.rx - 4} ry={BODY.ry - 4} /></clipPath>
-      </defs>
-      {/* подиум */}
-      <ellipse cx="130" cy="208" rx="88" ry="13" fill="#7A0F1E" />
-      <rect x="42" y="194" width="176" height="14" fill={`url(#${id('podium')})`} />
-      <ellipse cx="130" cy="194" rx="88" ry="13" fill="#FF6F66" />
-      {[-70, -46, -22, 2, 26, 50, 70].map((dx, i) => <circle key={i} cx={130 + dx} cy={201 + Math.abs(dx) / 20} r="2.6" fill="#FFE1DE" />)}
-      {/* ножки и хвостик */}
-      {[72, 102, 152, 182].map(x => <rect key={x} x={x - 11} y="160" width="22" height="34" rx="9" fill={`url(#${id('red')})`} />)}
-      <path d="M42 108 c-16 -6 -20 12 -8 15 c10 2 10 -10 1 -9" fill="none" stroke="#E42C26" strokeWidth="4.5" strokeLinecap="round" />
-      {/* стекло с деньгами внутри */}
-      <ellipse cx={BODY.cx} cy={BODY.cy} rx={BODY.rx} ry={BODY.ry} fill={`url(#${id('glass')})`} />
-      <g clipPath={`url(#${id('in')})`}>
-        {money.map((m, i) => (
-          <g key={i} transform={`translate(${m.x} ${m.y}) rotate(${m.tilt})`}><g className={i >= was ? 'pm-new' : ''} style={i >= was ? { animationDelay: `${(i - was) * 22}ms` } : undefined}>
-            {m.kind === 'note'
-              ? <><rect x="-13" y="-6" width="26" height="12" rx="2" fill="#FF8E87" /><rect x="-9" y="-3.5" width="18" height="7" rx="1.5" fill="none" stroke="#FFE1DE" strokeWidth="1.4" /></>
-              : <><ellipse cx="0" cy="3" rx="11" ry="5" fill={m.kind === 'blue' ? '#1446B8' : '#5C9BF3'} /><ellipse cx="0" cy="0" rx="11" ry="5" fill={m.kind === 'blue' ? '#1F5FD6' : '#97CFFF'} />
-                <ellipse cx="0" cy="0" rx="6.5" ry="2.6" fill="none" stroke="#FFFFFF" strokeOpacity=".7" strokeWidth="1.2" /></>}
-          </g></g>
-        ))}
-      </g>
-      <ellipse cx={BODY.cx} cy={BODY.cy} rx={BODY.rx} ry={BODY.ry} fill="none" stroke="#5C9BF3" strokeWidth="3.5" />
-      {/* блики на стекле */}
-      <path d="M66 86 Q80 58 116 48" fill="none" stroke="#FFFFFF" strokeWidth="7" strokeLinecap="round" opacity=".85" />
-      <path d="M58 104 Q59 97 62 92" fill="none" stroke="#FFFFFF" strokeWidth="5" strokeLinecap="round" opacity=".7" />
-      <ellipse cx="176" cy="160" rx="16" ry="5" fill="#FFFFFF" opacity=".35" transform="rotate(-25 176 160)" />
-      {/* уши, прорезь, пятачок, глаза */}
-      <path d="M80 62 Q84 30 94 22 Q108 36 114 52 Z" fill={`url(#${id('red')})`} stroke="#B3122A" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M90 52 Q93 38 97 33 Q103 42 106 50 Z" fill="#FFB3AD" />
-      <path d="M150 50 Q160 30 176 20 Q182 40 178 60 Z" fill={`url(#${id('red')})`} stroke="#B3122A" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M158 50 Q164 38 172 32 Q174 44 172 54 Z" fill="#FFB3AD" />
-      <rect x="108" y="40" width="44" height="9" rx="4.5" fill="#0F2F7A" />
-      <ellipse cx="223" cy="118" rx="21" ry="26" fill={`url(#${id('red')})`} stroke="#B3122A" strokeWidth="2" />
-      <ellipse cx="216" cy="118" rx="4.5" ry="8" fill="#7A0F1E" /><ellipse cx="231" cy="118" rx="4.5" ry="8" fill="#7A0F1E" />
-      {happy
-        ? <><path d="M170 88 q7 -9 14 0" fill="none" stroke="#141416" strokeWidth="4" strokeLinecap="round" /><path d="M190 86 q6 -8 12 0" fill="none" stroke="#141416" strokeWidth="4" strokeLinecap="round" />
-          <ellipse className="pm-blush" cx="174" cy="106" rx="9" ry="5" fill="#FF6F66" opacity=".6" /></>
-        : <><ellipse cx="177" cy="88" rx="7" ry="9" fill="#FFFFFF" /><circle cx="179" cy="90" r="4.6" fill="#141416" /><circle cx="181" cy="87" r="1.6" fill="#FFFFFF" />
-          <ellipse cx="197" cy="86" rx="6" ry="8" fill="#FFFFFF" /><circle cx="199" cy="88" r="4" fill="#141416" /><circle cx="200.5" cy="85.5" r="1.4" fill="#FFFFFF" /></>}
-      {mood === 'full' && [[30, 40], [228, 52], [44, 170], [232, 172]].map(([x, y], i) => <path key={i} className="pm-spark" style={{ animationDelay: `${i * 220}ms` }}
-        d={`M${x} ${y - 9} L${x + 2.5} ${y - 2.5} L${x + 9} ${y} L${x + 2.5} ${y + 2.5} L${x} ${y + 9} L${x - 2.5} ${y + 2.5} L${x - 9} ${y} L${x - 2.5} ${y - 2.5} Z`} fill="#FFFFFF" />)}
-    </svg>
+    <div className={`neonpig ${mood} ${className}`} aria-hidden="true">
+      <svg className="np-money" viewBox="0 0 896 896">
+        <defs>
+          <clipPath id={clip}><ellipse cx={BODY.cx} cy={BODY.cy} rx={BODY.rx} ry={BODY.ry} /></clipPath>
+          <radialGradient id={`glow${uid}`}><stop offset="0" stopColor="#97CFFF" stopOpacity=".55" /><stop offset="1" stopColor="#97CFFF" stopOpacity="0" /></radialGradient>
+        </defs>
+        <g clipPath={`url(#${clip})`}>
+          {money.map((m, i) => (
+            <g key={i} transform={`translate(${m.x} ${m.y}) rotate(${m.tilt})`}>
+              <g className={i >= was ? 'pm-new' : ''} style={i >= was ? { animationDelay: `${(i - was) * 18}ms`, ['--fall' as string]: `${-(m.y - 120)}px` } : undefined}>
+                {m.kind === 'note'
+                  ? <><rect x="-36" y="-15" width="72" height="30" rx="5" fill="#FF8E87" /><rect x="-26" y="-9" width="52" height="18" rx="4" fill="none" stroke="#FFE1DE" strokeWidth="3" /></>
+                  : <><ellipse cx="0" cy="8" rx="30" ry="13" fill={m.kind === 'blue' ? '#1446B8' : '#2F7BEF'} /><ellipse cx="0" cy="0" rx="30" ry="13" fill={m.kind === 'blue' ? '#3D86F5' : '#B9DEFF'} />
+                    <ellipse cx="0" cy="0" rx="18" ry="7" fill="none" stroke="#FFFFFF" strokeOpacity=".75" strokeWidth="3" /></>}
+              </g>
+            </g>
+          ))}
+          {/* вспышка на поверхности, когда деньги легли */}
+          {prevFill !== undefined && money.length > was && <ellipse className="pm-surface" cx={BODY.cx} cy={level} rx={BODY.rx * .8} ry="34" fill={`url(#glow${uid})`} />}
+        </g>
+      </svg>
+      <img className="np-img" src={pigUrl} alt="" draggable={false} />
+      {mood === 'full' && [[8, 18], [86, 14], [6, 70], [90, 66]].map(([x, y], i) => <i key={i} className="np-spark" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 220}ms` }} />)}
+    </div>
   );
 }
 
@@ -98,7 +75,7 @@ export function PigBurst() {
     {SHARDS.map((pts, i) => {
       const a = (i / SHARDS.length) * Math.PI * 2;
       return <svg key={i} className="pb-shard" viewBox="-50 -50 100 100" style={{ ['--dx' as string]: `${Math.cos(a) * 150}px`, ['--dy' as string]: `${Math.sin(a) * 120 - 30}px`, ['--r' as string]: `${(i % 2 ? 1 : -1) * (160 + i * 25)}deg` }}>
-        <polygon points={pts} fill={i % 3 === 0 ? '#FF6F66' : '#E7F4FF'} stroke={i % 3 === 0 ? '#B3122A' : '#97CFFF'} strokeWidth="2.5" strokeLinejoin="round" opacity=".95" />
+        <polygon points={pts} fill={i % 3 === 0 ? '#5C9BF3' : '#E7F4FF'} stroke={i % 3 === 0 ? '#97CFFF' : '#5C9BF3'} strokeWidth="2.5" strokeLinejoin="round" opacity=".95" />
       </svg>;
     })}
     {coins.map((c, i) => <i key={i} className={`pb-coin ${c.kind}`} style={{ ['--dx' as string]: `${c.dx}px`, ['--up' as string]: `${c.up}px`, ['--r' as string]: `${c.r}deg`, animationDelay: `${c.delay}ms` }} />)}

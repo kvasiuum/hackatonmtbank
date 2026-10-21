@@ -142,7 +142,7 @@ function GoalCard({ o, id }: { o: ChildOverview; id: string }) {
   const weeks = o.me.settings.allowance.on ? Math.ceil((g.target - g.saved) / o.me.settings.allowance.amount) : null;
   const kid = o.me.group === 'kid';
   return <div className="card goal">
-    <div className="goal-h">{kid ? <MegaPig fill={g.saved / g.target} className="pig-mini" /> : <RowIcon name={g.icon} tone="red" />}
+    <div className="goal-h">{kid ? <div className="np-tile"><MegaPig fill={g.saved / g.target} /></div> : <RowIcon name={g.icon} tone="red" />}
       <div className="tx"><b style={{ display: 'flex', gap: 6, alignItems: 'center' }}>{kid && <Icon name={g.icon} size={18} />}{g.title}</b><small className="muted">{fmt(g.saved)} из {fmt(g.target)}</small></div>
       <button className="sbtn" onClick={() => sheet(c => <GoalSheet o={o} goalId={id} close={c} />)}>Положить</button></div>
     <Bar value={g.saved} max={g.target} red />
