@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS parent_cards (
   id TEXT PRIMARY KEY, parent_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, mask TEXT NOT NULL,
   expiry TEXT NOT NULL, network TEXT NOT NULL, balance INTEGER NOT NULL CHECK (balance >= 0), sort INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS family_parents (
+  family_id TEXT NOT NULL REFERENCES families(id), user_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY (family_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS family_meta (
   family_id TEXT PRIMARY KEY REFERENCES families(id), tariff TEXT NOT NULL DEFAULT 'start',
   since TEXT NOT NULL, fee_month TEXT, intro_seen INTEGER NOT NULL DEFAULT 0
@@ -132,7 +135,7 @@ export const checkPin = (pin: string, stored: string | null) => platform().check
 export const DEMO_PIN = '1111';
 
 /** Таблицы, которые очищает сброс демо (порядок учитывает внешние ключи) */
-export const TABLES = ['sessions', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
+export const TABLES = ['sessions', 'family_parents', 'game_plays', 'disputes', 'insurance', 'feed', 'partner_spend', 'join_requests', 'family_meta', 'deposits', 'subscriptions', 'goals', 'tasks',
   'transactions', 'requests', 'cards', 'consents', 'children', 'families', 'parent_cards', 'parents', 'users'];
 
 /** Демо-семья: родитель, ребёнок 9 лет и подросток 15 лет */
@@ -141,12 +144,18 @@ export function seed(db: DB) {
   const ins = (sql: string, ...args: (string | number | null)[]) => db.prepare(sql).run(...args);
   tx(db, () => {
     const pin = hashPin(DEMO_PIN);
-    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель', '+375291234567', pin, ago(60 * 24 * 400));
+    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent', 'parent', 'Родитель 1', '+375291234567', pin, ago(60 * 24 * 400));
     ins('INSERT INTO parents (user_id,balance,card_mask,coins) VALUES (?,?,?,?)', 'u_parent', 124050, '4*2110', 240);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_salary', 'u_parent', 'Зарплатная', '9*4405', '11/27', 'belkart', 1246, 1);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_personal', 'u_parent', 'Личная', '4*8837', '05/30', 'visa', 5420, 2);
     ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_halva', 'u_parent', 'Халва', '5*7731', '08/28', 'mastercard', 31200, 3);
     ins('INSERT INTO families VALUES (?,?,?,?,?,?)', 'f_demo', 'u_parent', 'Отпуск на Нарочи', 'tent', 150000, 62000);
+    // Второй родитель семьи: свои карты и свои Манички, видит тех же детей
+    ins('INSERT INTO users VALUES (?,?,?,?,?,?)', 'u_parent2', 'parent', 'Родитель 2', '+375447001122', pin, ago(60 * 24 * 300));
+    ins('INSERT INTO parents (user_id,balance,card_mask,coins) VALUES (?,?,?,?)', 'u_parent2', 86340, '4*5518', 95);
+    ins('INSERT INTO parent_cards VALUES (?,?,?,?,?,?,?,?)', 'pc_p2_salary', 'u_parent2', 'Зарплатная', '9*6230', '03/28', 'belkart', 41500, 1);
+    ins('INSERT INTO family_parents VALUES (?,?)', 'f_demo', 'u_parent');
+    ins('INSERT INTO family_parents VALUES (?,?)', 'f_demo', 'u_parent2');
     ins('INSERT INTO family_meta VALUES (?,?,?,?,?)', 'f_demo', 'plus', ago(60 * 24 * 12), null, 0);
     const pOps: [string, number, string, number][] = [
       ['UNIVERSAM', -1408, 'Покупки', 35], ['Гипермаркет', -2735, 'Покупки', 60 * 5], ['Зарплата', 185000, 'Пополнение', 60 * 26],

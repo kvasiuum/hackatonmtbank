@@ -3,7 +3,7 @@ import { authorize, payingCard, type PayInput } from './domain/authorize';
 import { fmt } from './domain/money';
 import {
   AVATAR_COLORS, BYN, CARD_TYPES, CATEGORY_NAMES, DEPOSIT_RATE, ERIP_SERVICES, FRAUD_CASES, FRAUD_REWARD_PER_ANSWER,
-  DISPUTE_REASONS, GAME_REWARD, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
+  DISPUTE_REASONS, GAME_REWARD, PURCHASE_COINS, INSURANCE_PLANS, INSURANCE_PLUS_DISCOUNT, KID_CASHBACK_KOP_PER_COIN, LESSONS, LESSON_REWARD, PARENT_COINS, type GameId, type InsurancePlan, MAX_CARDS, MERCHANTS, PARENT_BONUS_RATE, PRESETS, SETTING_LABELS, TARIFFS, defaultSettings, groupOf, levelOf, type PresetKey,
 } from './content';
 import { type DB, hashPin, newId, nowIso, tx } from './schema';
 import type {
@@ -62,9 +62,17 @@ export class FamilyService {
     return r;
   }
   private familyOfParent(parentId: string) {
-    const f = this.one<{ id: string }>('SELECT id FROM families WHERE parent_id = ?', parentId);
+    // Основной родитель записан в families, второй (и следующие) — в family_parents
+    const f = this.one<{ id: string }>('SELECT id FROM families WHERE parent_id = ? UNION SELECT family_id AS id FROM family_parents WHERE user_id = ?', parentId, parentId);
     if (!f) throw notFound('Семья');
     return f.id;
+  }
+  /** Все родители семьи: основной первым */
+  private familyParents(familyId: string) {
+    return this.q<{ id: string; name: string; coins: number }>(
+      `SELECT u.id, u.name, p.coins FROM users u JOIN parents p ON p.user_id = u.id
+       WHERE u.id = (SELECT parent_id FROM families WHERE id = ?) OR u.id IN (SELECT user_id FROM family_parents WHERE family_id = ?)
+       ORDER BY u.id = (SELECT parent_id FROM families WHERE id = ?) DESC, u.created_at`, familyId, familyId, familyId);
   }
   private parentOfFamily(familyId: string) {
     return this.one<{ parent_id: string }>('SELECT parent_id FROM families WHERE id = ?', familyId)!.parent_id;
@@ -144,8 +152,9 @@ export class FamilyService {
       throw bad('funds', `Недостаточно средств: ${field === 'income' ? 'собственных' : 'на счёте'} ${fmt(have)}`);
     }
   }
-  private moveFromParent(familyId: string, childId: string, amount: number, title: string, cardId = 'main') {
-    const parentId = this.parentOfFamily(familyId);
+  /** Перевод ребёнку с карты родителя. payerId — кто платит; по умолчанию основной родитель (для автоплатежей) */
+  private moveFromParent(familyId: string, childId: string, amount: number, title: string, cardId = 'main', payerId?: string) {
+    const parentId = payerId ?? this.parentOfFamily(familyId);
     const name = this.childRow(childId).name;
     const card = this.debitParent(parentId, amount, cardId);
     // Манички родителю за деньги, отправленные ребёнку; в «Семья+» вдвое больше
@@ -245,7 +254,8 @@ export class FamilyService {
       case 'goal': { const g = this.one<{ title: string }>('SELECT title FROM goals WHERE id = ?', p.goalId); summary = `В копилку «${g?.title ?? ''}»`; amount = p.amount; break; }
       case 'proposal': summary = `Своё задание: ${p.title}`; amount = p.reward; break;
     }
-    return { id: r.id, childId: r.child_id, type: r.type, payload: p, reason: r.reason, status: r.status, createdAt: r.created_at, summary, amount };
+    const to = p.parentId ? this.one<{ id: string; name: string }>('SELECT id, name FROM users WHERE id = ?', p.parentId) ?? null : null;
+    return { id: r.id, childId: r.child_id, type: r.type, payload: p, reason: r.reason, status: r.status, createdAt: r.created_at, summary, amount, toParent: to };
   }
   private familyGoal(familyId: string): FamilyGoal {
     const f = this.one<{ goal_title: string; goal_icon: string; goal_target: number; goal_saved: number }>('SELECT * FROM families WHERE id = ?', familyId)!;
@@ -269,6 +279,7 @@ export class FamilyService {
     return {
       parent: { id: parentId, name: u.name, balance: u.balance, cardMask: u.card_mask, ops: this.ops(parentId, 10), phone: u.phone, cards: this.parentCards(parentId),
         coins: this.one<{ coins: number }>('SELECT coins FROM parents WHERE user_id = ?', parentId)!.coins },
+      parents: this.familyParents(familyId),
       introSeen: !!this.meta(familyId).intro_seen, plan: this.plan(familyId), joinRequests,
       children: kids.map(k => this.summary(k)), requests, feed, familyGoal: this.familyGoal(familyId),
     };
@@ -468,7 +479,7 @@ export class FamilyService {
   topup(parentId: string, childId: string, amount: number, cardId = 'main') {
     const c = this.ownChild(parentId, childId);
     tx(this.db, () => {
-      this.moveFromParent(c.family_id, childId, amount, 'Перевод от родителя', cardId);
+      this.moveFromParent(c.family_id, childId, amount, 'Перевод от родителя', cardId, parentId);
       this.addFeed(c.family_id, childId, `Вы перевели: ${c.name}`, amount);
     });
     this.touch(c.family_id);
@@ -546,7 +557,7 @@ export class FamilyService {
     const c = this.ownChild(parentId, childId);
     const s = this.settings(c);
     tx(this.db, () => {
-      this.moveFromParent(c.family_id, childId, s.allowance.amount, 'Карманные деньги', cardId);
+      this.moveFromParent(c.family_id, childId, s.allowance.amount, 'Карманные деньги', cardId, parentId);
       this.run('UPDATE children SET allowance_paid_at = ? WHERE user_id = ?', nowIso(), childId);
       this.addFeed(c.family_id, childId, `Карманные деньги: ${c.name}`, s.allowance.amount);
     });
@@ -713,11 +724,12 @@ export class FamilyService {
     const c = this.ownChild(parentId, r.child_id);
     if (r.status !== 'pending') throw bad('resolved', 'Запрос уже обработан');
     const p = JSON.parse(r.payload);
+    if (p.parentId && p.parentId !== parentId) throw forbidden('Ребёнок попросил у другого родителя: ответит он');
     tx(this.db, () => {
       if (approve) {
         const s = this.settings(c);
         switch (r.type) {
-          case 'money': this.moveFromParent(c.family_id, c.user_id, p.amount, 'Перевод от родителя', cardId); break;
+          case 'money': this.moveFromParent(c.family_id, c.user_id, p.amount, 'Перевод от родителя', cardId, parentId); break;
           case 'perm': { const [g, k] = (p.key as string).split('.'); (s as any)[g][k] = true; this.saveSettings(c.user_id, s); break; }
           case 'limit': s.limits.day = p.day; s.limits.month = Math.max(s.limits.month, p.day); this.saveSettings(c.user_id, s); break;
           case 'level': s.limits.day = p.day; s.limits.month = Math.max(s.limits.month, p.day); s.confirmAbove = Math.round(s.confirmAbove * 1.2); this.saveSettings(c.user_id, s); break;
@@ -735,7 +747,7 @@ export class FamilyService {
           case 'task': {
             const t = this.one<{ reward: number; title: string }>('SELECT reward, title FROM tasks WHERE id = ?', p.taskId);
             if (!t) throw notFound('Задание');
-            this.moveFromParent(c.family_id, c.user_id, t.reward, `Награда: ${t.title}`, cardId);
+            this.moveFromParent(c.family_id, c.user_id, t.reward, `Награда: ${t.title}`, cardId, parentId);
             this.run("UPDATE tasks SET status = 'paid' WHERE id = ?", p.taskId);
             // У остальных детей общее задание исчезает: награду получил этот ребёнок
             for (const id of this.taskCopies(p.taskId)) if (id !== p.taskId) this.run('DELETE FROM tasks WHERE id = ?', id);
@@ -744,7 +756,7 @@ export class FamilyService {
             break;
           }
           case 'goal': {
-            const parentIdOf = this.parentOfFamily(c.family_id);
+            const parentIdOf = parentId;
             this.debitParent(parentIdOf, p.amount, cardId);
             this.run('UPDATE goals SET saved = saved + ? WHERE id = ? AND child_id = ?', p.amount, p.goalId, c.user_id);
             this.addTx(parentIdOf, `В копилку: ${c.name}`, -p.amount, 'Семья', 'internal');
@@ -785,12 +797,13 @@ export class FamilyService {
   childOverview(childId: string): ChildOverview {
     const c = this.childRow(childId);
     const requests = this.q<ReqRow>('SELECT * FROM requests WHERE child_id = ? ORDER BY created_at DESC LIMIT 10', childId).map(r => this.request(r));
-    return { me: this.detail(c), requests, familyGoal: this.familyGoal(c.family_id) };
+    return { me: this.detail(c), parents: this.familyParents(c.family_id).map(x => ({ id: x.id, name: x.name })), requests, familyGoal: this.familyGoal(c.family_id) };
   }
 
   createRequest(childId: string, type: 'money' | 'perm' | 'card' | 'limit' | 'goal' | 'proposal', payload: Record<string, unknown>, reason: string | null) {
     const c = this.childRow(childId);
     if (type === 'card') this.checkCardAllowed(c.family_id, payload.cardType as CardType);
+    if (payload.parentId && !this.familyParents(c.family_id).some(x => x.id === payload.parentId)) throw bad('parent', 'Такого родителя нет в семье');
     if (type === 'perm') {
       const dup = this.one('SELECT 1 FROM requests WHERE child_id = ? AND type = ? AND status = ? AND json_extract(payload, \'$.key\') = ?', childId, 'perm', 'pending', String(payload.key));
       if (dup) throw bad('duplicate', 'Такой запрос уже ждёт ответа');
@@ -814,7 +827,10 @@ export class FamilyService {
     const card = p.method === 'card' ? payingCard(cards, p.cardId) : null;
     const title = p.method === 'qr' ? `${p.title} · QR КРОК` : p.title;
     this.debitChild(c.user_id, p.amount);
-    this.run('UPDATE children SET coins = coins + ? WHERE user_id = ?', Math.floor(p.amount / (5 * BYN)), c.user_id);
+    // Баллы с каждой покупки: ребёнку и каждому родителю, у каждого свой счёт Маничек
+    const kidCoins = Math.floor(p.amount / PURCHASE_COINS.kidPer), parentCoins = Math.floor(p.amount / PURCHASE_COINS.parentPer);
+    this.run('UPDATE children SET coins = coins + ? WHERE user_id = ?', kidCoins, c.user_id);
+    for (const par of this.familyParents(c.family_id)) this.addParentCoins(par.id, parentCoins);
     this.addTx(c.user_id, title, -p.amount, CATEGORY_NAMES[p.category], 'spend', p.method);
     this.addFeed(c.family_id, c.user_id, `${c.name}: ${title}`, -p.amount);
     if (p.partner) this.run('INSERT INTO partner_spend VALUES (?,?,?,?,?,?)', newId('ps'), c.user_id, p.title, p.amount, 0, nowIso());
@@ -830,7 +846,8 @@ export class FamilyService {
     }
     const via = p.method === 'qr' ? 'Списано со счёта мгновенно через КРОК' : card ? `${CARD_TYPES[card.type].label} •• ${card.last4}` : 'Со счёта';
     const cb = p.partner ? ` Партнёр Moby: ${Math.round(this.tariff(c.family_id).cashbackRate * 100)}% вернутся в понедельник.` : '';
-    return { status: 'approved', text: `${title}, ${fmt(p.amount)}. ${via}.${change ? ` Сдача ${fmt(change)} ушла в копилку.` : ''}${cb}` };
+    const pts = kidCoins || parentCoins ? ` Манички: +${kidCoins} тебе${parentCoins ? `, +${parentCoins} родителям` : ''}.` : '';
+    return { status: 'approved', text: `${title}, ${fmt(p.amount)}. ${via}.${change ? ` Сдача ${fmt(change)} ушла в копилку.` : ''}${cb}${pts}` };
   }
 
   private pay(childId: string, p: PayInput) {

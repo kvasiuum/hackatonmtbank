@@ -16,6 +16,7 @@ function Stand() {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [childId, setChildId] = useState<string | null>(null);
   const [mobile, setMobile] = useState<'parent' | 'child'>('parent');
+  const [parentId, setParentId] = useState<string | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [tick, setTick] = useState(0);
   const [econ, setEcon] = useState(false);
@@ -29,14 +30,16 @@ function Stand() {
     return () => { alive = false; clearInterval(t); };
   }, [epoch, tick]);
 
-  const parent = devices.find(d => d.role === 'parent');
+  // В семье может быть двое родителей: у каждого свой телефон на стенде
+  const parents = devices.filter(d => d.role === 'parent');
+  const parent = parents.find(p => p.userId === parentId) ?? parents[0];
   const kids = devices.filter(d => d.role === 'child');
   const byPhone = childId === PHONE;
   const current = byPhone ? undefined : kids.find(k => k.userId === childId) ?? kids[0];
   // Вход по номеру завершён: кладём токен этому пользователю и показываем его телефон
   const phoneDone = useCallback((userId: string, token: string, role: string) => {
     writeToken(userId, token);
-    if (role === 'parent') { setMobile('parent'); setChildId(null); } else setChildId(userId);
+    if (role === 'parent') { setMobile('parent'); setParentId(userId); setChildId(null); } else setChildId(userId);
     setTick(t => t + 1);
   }, []);
 
@@ -49,12 +52,13 @@ function Stand() {
   const reset = async (empty: boolean) => {
     await api('/api/demo/reset', { body: { empty } });
     try { Object.keys(localStorage).filter(k => k.startsWith('moby-family:token:')).forEach(k => localStorage.removeItem(k)); } catch { /* ignore */ }
-    setChildId(null); setEpoch(e => e + 1);
+    setChildId(null); setParentId(null); setEpoch(e => e + 1);
   };
 
   return <div className="app-root">
     <div className="mobile-switch">
-      <button className={mobile === 'parent' ? 'on' : ''} onClick={() => setMobile('parent')}>Родитель</button>
+      {parents.map((p, i) => <button key={p.userId} className={mobile === 'parent' && parent?.userId === p.userId ? 'on' : ''} title={p.name}
+        onClick={() => { setParentId(p.userId); setMobile('parent'); }}>{parents.length > 1 ? `Родитель ${i + 1}` : 'Родитель'}</button>)}
       {kids.map((k, i) => (
         <button key={k.userId} className={mobile === 'child' && current?.userId === k.userId ? 'on' : ''} title={k.name}
           onClick={() => { setChildId(k.userId); setMobile('child'); }}>Ребёнок {i + 1}</button>
@@ -80,7 +84,8 @@ function Stand() {
         <small>Смарт-код всех демо-пользователей: 1111. {LOCAL ? 'Данные хранятся на этом устройстве.' : 'Данные хранятся в SQLite на сервере.'}</small>
       </aside>
       <div className={`slot ${mobile === 'parent' ? '' : 'hidden'}`}>
-        <div className="slot-head">{parent && <span className="chipbtn on" title={parent.name}>Родитель</span>}</div>
+        <div className="slot-head">{parents.map((p, i) => <button key={p.userId} className={`chipbtn ${parent?.userId === p.userId ? 'on' : ''}`} title={p.name}
+          onClick={() => setParentId(p.userId)}>{parents.length > 1 ? `Родитель ${i + 1}` : 'Родитель'}</button>)}</div>
         {parent && <Device key={parent.userId} info={parent} />}
       </div>
       <div className={`slot ${mobile === 'child' ? '' : 'hidden'}`}>

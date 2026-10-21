@@ -5,6 +5,7 @@ import {
   groupOf, levelOf, nextLevel, type InsurancePlan, type PresetKey,
 } from '../../server/src/content';
 import type { AgeGroup, CardType, ChildDetail, ChildRequest, ChildSettings, FamilyPlan, JoinRequest, ParentOverview, ParentTask, SettingPath, Tariff, Task } from '../../server/src/types';
+import bannerUrl from './assets/family-banner.jpg';
 import { Icon } from './icons';
 import { fmt, fmtPhone, plural, toKop, useData, useDevice, when, years, initial } from './lib';
 import {
@@ -102,7 +103,7 @@ export function ParentProducts() {
 function WhatsNew({ hasKids, close, onOpen }: { hasKids: boolean; close: () => void; onOpen: () => void }) {
   const item = (icon: string, t: string, sub: string) => <li><RowIcon name={icon} /><span><b>{t}</b><small>{sub}</small></span></li>;
   return <>
-    <div className="news-art"><i /><i /><b>Новое в Moby:<br />Семья</b></div>
+    <img className="news-img" src={bannerUrl} alt="Новое в Moby: Семья" />
     <ul className="news">
       {item('credit-card', 'Карта ребёнку с 7 лет', 'Браслет, стикер или пластик и свой вход в Moby')}
       {item('sliders-horizontal', 'Вы решаете, что можно', 'Лимиты, категории и подтверждение покупок')}
@@ -178,14 +179,15 @@ function RequestItem({ r, o, showName = true }: { r: ChildRequest; o: ParentOver
     <div className="req">
       <div className="req-h">
         {showName && <Kava c={c} />}
-        <div className="tx"><small>{showName ? `${c.name} · ` : ''}{when(r.createdAt)}</small><b>{REQ_LABEL[r.type]}</b>{r.type !== 'money' && <small>{r.summary}</small>}</div>
+        <div className="tx"><small>{showName ? `${c.name} · ` : ''}{when(r.createdAt)}</small><b>{REQ_LABEL[r.type]}{r.toParent ? ` у ${r.toParent.id === o.parent.id ? 'вас' : r.toParent.name}` : ''}</b>{r.type !== 'money' && <small>{r.summary}</small>}</div>
         {r.amount != null && <span className="req-sum">{fmt(r.amount)}</span>}
       </div>
       {r.reason && <div className="reason">{r.reason}</div>}
-      <div className="btns">
+      {/* Запрос адресован другому родителю — видим, но отвечает он */}
+      {r.toParent && r.toParent.id !== o.parent.id ? <div className="legal"><Icon name="clock" size={18} /><span>Ждёт ответа: {r.toParent.name}. Деньги переведёт он со своей карты</span></div> : <div className="btns">
         <button className="btn red" disabled={busy} onClick={() => resolve(false)}>Отклонить</button>
         <button className="btn" disabled={busy} onClick={() => resolve(true)}>{r.type === 'level' ? 'Расширить' : r.type === 'money' || r.type === 'task' ? 'Перевести' : 'Одобрить'}</button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -296,12 +298,14 @@ function CoinsSheet({ o }: { o: ParentOverview }) {
     <p className="muted" style={{ marginTop: -8 }}>У каждого свой счёт Маничек: ваши копятся отдельно от детских.</p>
     <div className="card" style={{ background: 'var(--mt-cloud)' }}>
       <Row title={`Вы: ${o.parent.coins}`} sub="Манички родителя" right={<span className="coin big">М</span>} />
+      {o.parents.filter(x => x.id !== o.parent.id).map(x => <Row key={x.id} title={`${x.name}: ${x.coins}`} sub="Свой счёт Маничек" right={<span className="coin big">М</span>} />)}
       {o.children.map(c => <Row key={c.id} title={`${c.name}: ${c.coins}`} sub="За уроки, игры, задания и кешбэк у партнёров" right={<Kava c={c} size={32} />} />)}
     </div>
     <b>Как вы получаете Манички</b>
     <Row icon="transfer" title={`${plus ? 2 : 1} за каждые ${fmt(PARENT_COINS.per)}, переведённые ребёнку`} sub={plus ? 'Карманные, награды и переводы: ×2 в «Семья+»' : 'В «Семья+» — вдвое больше'} />
     <Row icon="list-checks" title={`+${PARENT_COINS.taskApproved} за каждое принятое задание`} sub="Вы вовлекаете ребёнка — банк это ценит" />
     <Row icon="graduation-cap" title={`+${PARENT_COINS.childLesson} за урок, который прошёл ребёнок`} sub="Растёт финансовая грамотность — растут Манички" />
+    <Row icon="pay" title="С каждой покупки ребёнка" sub="Ребёнку 1 за каждый BYN, каждому родителю 1 за каждые 2 BYN — у всех свой счёт" />
     <small className="muted">Манички тратятся у партнёров Moby: развлекательные центры, клиники, кружки.</small>
   </>;
 }
@@ -346,7 +350,8 @@ export function FamilyScreen() {
       <PlanBar plan={o.plan} onClick={() => push('package')} />
       <button className="card coins-card press" onClick={() => sheet(() => <CoinsSheet o={o} />)}>
         <div className="coins-row"><span className="coin big">М</span><div className="tx"><small className="muted">Ваши Манички</small><b>{o.parent.coins}</b></div><Chev /></div>
-        <div className="coins-kids">{o.children.map(c => <span key={c.id}><Kava c={c} size={22} /> {c.name}: <b>{c.coins}</b></span>)}</div>
+        <div className="coins-kids">{o.parents.filter(x => x.id !== o.parent.id).map(x => <span key={x.id}><span className="coin">М</span> {x.name}: <b>{x.coins}</b></span>)}
+          {o.children.map(c => <span key={c.id}><Kava c={c} size={22} /> {c.name}: <b>{c.coins}</b></span>)}</div>
       </button>
       <div className="card goal">
         <div className="goal-h"><RowIcon name={g.icon} /><div className="tx"><small className="muted">Семейная цель</small><b>{g.title}</b></div><b>{Math.round(g.saved / g.target * 100)}%</b></div>

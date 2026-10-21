@@ -397,4 +397,32 @@ describe('API модуля «Семья»', () => {
     expect(me.balance).toBe(before + 6000);
     expect(me.goals.some((g: any) => g.id === 'g_lego')).toBe(false);
   });
+
+  it('второй родитель: ребёнок просит деньги у конкретного родителя, платит именно он', async () => {
+    const p1 = await login('u_parent'); const p2 = await login('u_parent2'); const kid = await login('u_misha');
+    const ov = (await call('GET', '/api/child/overview', kid)).body;
+    expect(ov.parents.map((x: any) => x.name)).toEqual(['Родитель 1', 'Родитель 2']);
+    expect((await call('GET', '/api/parent/overview', p2)).body.children.length).toBe(2);
+    expect((await call('POST', '/api/child/requests', kid, { type: 'money', amount: 700, parentId: 'u_nobody' })).status).toBe(400);
+    const r = await call('POST', '/api/child/requests', kid, { type: 'money', amount: 700, parentId: 'u_parent2', reason: 'Кино' });
+    const req = (await call('GET', '/api/parent/overview', p1)).body.requests.find((x: any) => x.id === r.body.id);
+    expect(req.toParent).toEqual({ id: 'u_parent2', name: 'Родитель 2' });
+    expect((await call('POST', `/api/parent/requests/${r.body.id}`, p1, { approve: true })).status).toBe(403);
+    const before = (await call('GET', '/api/parent/overview', p2)).body.parent.balance;
+    expect((await call('POST', `/api/parent/requests/${r.body.id}`, p2, { approve: true })).status).toBe(200);
+    expect((await call('GET', '/api/parent/overview', p2)).body.parent.balance).toBe(before - 700);
+  });
+
+  it('баллы с каждой покупки: ребёнку и каждому родителю отдельно', async () => {
+    const p1 = await login('u_parent'); const p2 = await login('u_parent2'); const kid = await login('u_misha');
+    const coins = async () => ({
+      kid: (await call('GET', '/api/child/overview', kid)).body.me.coins,
+      p1: (await call('GET', '/api/parent/overview', p1)).body.parent.coins,
+      p2: (await call('GET', '/api/parent/overview', p2)).body.parent.coins,
+    });
+    const a = await coins();
+    const d = await call('POST', '/api/child/pay', kid, { merchantId: 'stationery', method: 'card' }); // 6.20 BYN
+    expect(d.body.text).toContain('Манички: +6 тебе, +3 родителям');
+    expect(await coins()).toEqual({ kid: a.kid + 6, p1: a.p1 + 3, p2: a.p2 + 3 });
+  });
 });

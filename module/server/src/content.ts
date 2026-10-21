@@ -230,6 +230,8 @@ export const PARENT_TIPS = [
 export const PARENT_COINS = { per: 5 * BYN, taskApproved: 3, childLesson: 2 };
 /** Ребёнку 7–13 кешбэк недели приходит Маничками: 1 Маничка за каждые 10 копеек кешбэка */
 export const KID_CASHBACK_KOP_PER_COIN = 10;
+/** Манички с каждой покупки ребёнка: ему 1 за каждый BYN, каждому родителю 1 за каждые 2 BYN */
+export const PURCHASE_COINS = { kidPer: BYN, parentPer: 2 * BYN };
 export const DISPUTE_REASONS = ['Я не совершал(а) эту операцию', 'Списали дважды', 'Товар или услугу не получил(а)', 'Сумма не совпадает с чеком'];
 
 export const groupOf = (age: number): AgeGroup => (age < 14 ? 'kid' : 'teen');

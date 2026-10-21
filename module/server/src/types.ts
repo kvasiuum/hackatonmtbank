@@ -50,6 +50,8 @@ export interface ChildRequest {
   summary: string;
   /** Сумма, о которой идёт речь (деньги, покупка, награда, лимит), в копейках */
   amount: number | null;
+  /** Кому из родителей адресован запрос денег (если в семье двое родителей) */
+  toParent: { id: string; name: string } | null;
 }
 
 export interface ChildSummary {
@@ -84,6 +86,8 @@ export interface JoinRequest { id: string; name: string; age: number; phone: str
 
 export interface ParentOverview {
   parent: { id: string; name: string; balance: number; cardMask: string; ops: Tx[]; phone: string | null; cards: ParentCard[]; coins: number };
+  /** Все родители семьи с их Маничками (баллы у каждого свои) */
+  parents: { id: string; name: string; coins: number }[];
   introSeen: boolean;
   plan: FamilyPlan;
   joinRequests: JoinRequest[];
@@ -95,6 +99,8 @@ export interface ParentOverview {
 
 export interface ChildOverview {
   me: ChildDetail;
+  /** Родители семьи: у кого можно попросить деньги */
+  parents: { id: string; name: string }[];
   requests: ChildRequest[];
   familyGoal: FamilyGoal;
 }

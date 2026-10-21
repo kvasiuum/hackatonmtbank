@@ -214,7 +214,7 @@ export function createApi(db: DB, opts: ApiOptions) {
     { method: 'GET', path: '/api/child/overview', role: 'child', handler: r => svc.childOverview(me(r).userId) },
     { method: 'POST', path: '/api/child/requests', role: 'child', handler: r => {
       const b = z.discriminatedUnion('type', [
-        z.object({ type: z.literal('money'), amount: money, reason }),
+        z.object({ type: z.literal('money'), amount: money, parentId: z.string().max(40).optional(), reason }),
         z.object({ type: z.literal('perm'), key: z.enum(['cats.online', 'cats.games', 'cats.cash', 'cats.fastfood', 'perms.qr', 'perms.goals', 'perms.erip', 'perms.p2p', 'perms.subs', 'perms.newCards', 'perms.deposit']), reason }),
         z.object({ type: z.literal('card'), cardType: z.enum(['plastic', 'sticker', 'bracelet', 'virtual']), color: cardColor, reason }),
         z.object({ type: z.literal('limit'), day: money, reason }),

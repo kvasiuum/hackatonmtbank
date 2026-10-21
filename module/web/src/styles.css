@@ -556,10 +556,16 @@ button.chip { color: inherit; }
 @keyframes plusup { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); } 30% { transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -40px); } }
 /* копилка на главной */
 .kidgoal { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; }
-.kidgoal .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.kg-title { display: flex; gap: 6px; align-items: center; font-size: 16px; }
-.kg-sum { font-size: 13.5px; color: var(--muted); }
-.kg-sum b { color: var(--blue-3); font-size: 15px; }
+.kidgoal { padding: 14px; }
+.kidgoal .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.kidgoal .tx small { font-size: 12.5px; }
+.kidgoal .kg-title { display: flex; gap: 6px; align-items: center; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kidgoal .kg-title svg { flex: none; color: var(--blue); }
+.kidgoal .kg-sum { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.kidgoal .kg-sum b { display: inline; color: var(--blue-3); font-size: 15px; font-weight: 700; }
+.kidgoal .bar { margin-top: 2px; }
+.kidgoal .np-tile { width: 78px; height: 78px; }
+.news-img { display: block; width: 100%; border-radius: var(--r-lg); }
 .kidgoal .bar i { background: linear-gradient(90deg, #5C9BF3, #1F5FD6); }
 .pigcard { scroll-margin-top: 8px; }
 
